@@ -18,7 +18,7 @@ export class SearchInputNormalizer implements InputNormalizer {
     return {
       operations: [operation],
       explanation: `Command syntax search`,
-      confidence: (input.confidence as number) ?? 1,
+      confidence: input.confidence ?? 1,
     };
   }
 }

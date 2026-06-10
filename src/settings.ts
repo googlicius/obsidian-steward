@@ -25,7 +25,8 @@ const lang = getLanguage();
 const { getTranslation } = getBundledInternal('i18n');
 const t = getTranslation(lang);
 
-// Define interface that combines all mixins
+// Mixin pattern: interface declares combined type; class is merged via applyMixins below.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 interface StewardSettingTab
   extends PluginSettingTab,
     ProviderSetting,
@@ -33,6 +34,7 @@ interface StewardSettingTab
     ModelFallbackSetting,
     DeleteBehaviorSetting {}
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 class StewardSettingTab extends PluginSettingTab {
   constructor(protected plugin: StewardPlugin) {
     super(plugin.app, plugin);
@@ -42,8 +44,10 @@ class StewardSettingTab extends PluginSettingTab {
    * Update the voice input field based on the selected speech model
    */
   private updateVoiceInput(): void {
-    const voiceInput = document.getElementById('stw-voice-input') as HTMLInputElement;
-    if (!voiceInput) return;
+    const voiceInput = activeDocument.getElementById('stw-voice-input');
+    if (!(voiceInput instanceof HTMLInputElement)) {
+      return;
+    }
 
     const currentSpeechModel = this.plugin.settings.llm.speech.model;
     const provider = currentSpeechModel.split(':')[0];
@@ -696,7 +700,7 @@ class StewardSettingTab extends PluginSettingTab {
       .setDesc(t('settings.imageSizeDesc'))
       .addText(text => {
         text.setValue(this.plugin.settings.llm.image.size);
-        text.setPlaceholder('e.g., 1024x1024');
+        text.setPlaceholder('E.g., 1024x1024');
         text.onChange(async value => {
           this.plugin.settings.llm.image.size = value;
           await this.plugin.saveSettings();
@@ -798,7 +802,7 @@ class StewardSettingTab extends PluginSettingTab {
       )
       .addTextArea(text =>
         text
-          .setPlaceholder('nvim, nano, htop')
+          .setPlaceholder('Nvim, nano, htop')
           .setValue(this.plugin.settings.cli.interactivePrograms ?? '')
           .onChange(async value => {
             this.plugin.settings.cli.interactivePrograms = value;

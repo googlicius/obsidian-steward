@@ -1,4 +1,4 @@
-import { normalizePath, TFile } from 'obsidian';
+import { normalizePath, TFile, type App } from 'obsidian';
 import type { ModelMessage } from 'ai';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
@@ -34,6 +34,18 @@ const MCP_OFFLINE_TOOL_DESCRIPTION =
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function supportsSecretStorage(app: App): boolean {
+  return 'secretStorage' in app;
+}
+
+function getStoredSecret(app: App, secretName: string): string | null {
+  if (!supportsSecretStorage(app)) {
+    return null;
+  }
+  // eslint-disable-next-line obsidianmd/no-unsupported-api -- runtime-guarded
+  return app.secretStorage.getSecret(secretName);
 }
 
 function hasExecuteMethod(value: unknown): value is {
@@ -340,7 +352,7 @@ export class MCPService {
    */
   private async handleMetadataCacheChanged(file: TFile): Promise<void> {
     const fileCache = this.plugin.app.metadataCache.getFileCache(file);
-    const frontmatter = fileCache?.frontmatter as Record<string, unknown> | undefined;
+    const frontmatter = fileCache?.frontmatter;
     const isEnabled = frontmatter?.enabled === true;
     if (!isEnabled) {
       return;
@@ -603,7 +615,7 @@ export class MCPService {
   private replaceSecretPlaceholder(input: string): string {
     const secretRegex = /\$secret:([a-zA-Z0-9._-]+)/g;
     return input.replace(secretRegex, (fullMatch, secretName: string) => {
-      const secretValue = this.plugin.app.secretStorage.getSecret(secretName);
+      const secretValue = getStoredSecret(this.plugin.app, secretName);
       if (secretValue === null) {
         logger.warn(`MCP secret not found for placeholder: ${secretName}`);
         return fullMatch;

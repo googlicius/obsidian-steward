@@ -29,7 +29,7 @@ export async function resizeImageWithCanvas(
         const height = Math.floor(img.height * scale);
 
         // Create a canvas and draw the resized image
-        const canvas = document.createElement('canvas');
+        const canvas = activeDocument.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
@@ -79,7 +79,7 @@ export async function resizeImageWithCanvas(
 
       img.src = blobUrl;
     } catch (error) {
-      reject(error);
+      reject(error as Error);
     }
   });
 }

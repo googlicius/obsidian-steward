@@ -59,7 +59,7 @@ interface WidgetActionBridgeEntry {
 interface PendingActionRequest {
   resolve: (result: WidgetActionResult) => void;
   reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
+  timer: number;
 }
 
 /**
@@ -727,7 +727,7 @@ export class WidgetService {
       return;
     }
 
-    clearTimeout(pending.timer);
+    window.clearTimeout(pending.timer);
     this.pendingActionRequests.delete(params.requestId);
     pending.resolve({
       ok: params.ok,
@@ -775,7 +775,7 @@ export class WidgetService {
     const requestId = `stw-action-${uniqueID()}`;
 
     return new Promise<WidgetActionResult>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         this.pendingActionRequests.delete(requestId);
         reject(new Error('widget_action_timeout'));
       }, WIDGET_ACTION_APPLY_TIMEOUT_MS);

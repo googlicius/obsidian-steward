@@ -63,7 +63,7 @@ export class ArtifactManagerV2 {
               logger.log(
                 `Last item in cache for "${title}" does not exist in conversation note, refreshing cache`
               );
-              manager.getAllArtifacts(true);
+              await manager.getAllArtifacts(true);
             }
           }
         }
@@ -244,7 +244,8 @@ export class ArtifactManagerV2 {
       await this.plugin.app.vault.process(file, currentContent => {
         let contentToAdd = params.text ? `${params.text}\n` : '';
 
-        contentToAdd += serializer.serialize(params.artifact);
+        const serialized = serializer.serialize(params.artifact);
+        contentToAdd += typeof serialized === 'string' ? serialized : JSON.stringify(serialized);
 
         // Return the updated content
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;

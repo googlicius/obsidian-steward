@@ -78,6 +78,11 @@ describe('ToolRegistry', () => {
         ToolName.ASK_USER,
       ]);
       expect(ToolRegistry.getCompanionTools(ToolName.EDIT)).toEqual([]);
+      expect(ToolRegistry.getCompanionTools(ToolName.SHOW_WIDGET)).toEqual([
+        ToolName.GET_ARTIFACT_BY_ID,
+        ToolName.EDIT,
+        ToolName.CONTENT_READING,
+      ]);
     });
 
     it('expands primary tools with their companions', () => {
@@ -92,6 +97,16 @@ describe('ToolRegistry', () => {
       expect(
         ToolRegistry.expandWithCompanionTools([ToolName.CONTENT_READING, ToolName.CONFIRMATION])
       ).toEqual([ToolName.CONTENT_READING, ToolName.CONFIRMATION, ToolName.ASK_USER]);
+    });
+
+    it('expands show_widget with edit companions but not the reverse', () => {
+      expect(ToolRegistry.expandWithCompanionTools([ToolName.SHOW_WIDGET])).toEqual([
+        ToolName.SHOW_WIDGET,
+        ToolName.GET_ARTIFACT_BY_ID,
+        ToolName.EDIT,
+        ToolName.CONTENT_READING,
+      ]);
+      expect(ToolRegistry.expandWithCompanionTools([ToolName.EDIT])).toEqual([ToolName.EDIT]);
     });
   });
 

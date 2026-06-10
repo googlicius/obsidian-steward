@@ -29,7 +29,6 @@ export class SwitchAgentCapacity {
       continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
-    const { title } = ctx.agentHandlerParams;
     const { toolCall, continueFromNextTool } = options;
     const t = getTranslation(ctx.lang);
 

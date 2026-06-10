@@ -20,7 +20,7 @@ import { Events } from 'src/types/events';
 
 type AiStreamTextParams = Parameters<typeof streamText>[0];
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds mixin types to class instance
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export interface StreamTextExecutor extends ToolIntentResolution, SystemPromptComposer {}
 
 function asAgent(instance: StreamTextExecutor) {
@@ -32,6 +32,7 @@ function asAgent(instance: StreamTextExecutor) {
   return instance as unknown as Agent & ToolContentStreamConsumer;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class StreamTextExecutor {
   protected async executeStreamText<TToolCalls = unknown>(
     params: AgentHandlerParams & {
@@ -196,7 +197,7 @@ export class StreamTextExecutor {
       },
       onChunk: ({ chunk }) => {
         if (chunk.type === 'tool-input-start') {
-          agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
+          void agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
 
           const isNoSuchTool = !activeToolSet.has(chunk.toolName);
           if (isNoSuchTool && !hasStreamSettled) {

@@ -164,7 +164,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
 
         const close = (): Promise<void> =>
           new Promise(res => {
-            io.close(() => {
+            void io.close(() => {
               httpServer.close(() => res());
             });
           });

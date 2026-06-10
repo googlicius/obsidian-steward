@@ -1,6 +1,14 @@
 // Mock types for Obsidian
 export {};
 
+// Node test environment has no `window`; plugin code uses window timer APIs.
+/* eslint-disable obsidianmd/no-global-this -- Jest Node env window polyfill */
+if (typeof globalThis.window === 'undefined') {
+  (globalThis as unknown as { window: Window & typeof globalThis }).window =
+    globalThis as unknown as Window & typeof globalThis;
+}
+/* eslint-enable obsidianmd/no-global-this */
+
 // Extend Jest matchers using module augmentation
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

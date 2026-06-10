@@ -57,7 +57,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
-  show_widget: new Set([ToolName.SHOW_WIDGET, ToolName.EDIT, ToolName.CONTENT_READING]),
+  show_widget: new Set([ToolName.SHOW_WIDGET]),
   shell: new Set([ToolName.SHELL]),
   '>': new Set([ToolName.SHELL]),
 };
@@ -97,6 +97,7 @@ const SINGLE_TURN_TASKS = new Set(['search']);
 
 type ToolCalls = Array<TypedToolCallPart & { dynamic?: boolean }>;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export interface SuperAgent
   extends Agent,
     AgentHandlerContext,
@@ -106,6 +107,7 @@ export interface SuperAgent
     components.StreamTextExecutor,
     components.ToolCallExecutor {}
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class SuperAgent extends Agent implements AgentHandlerContext {
   public [components.TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
 
@@ -363,7 +365,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       handlerId,
       agentParams: params,
       remainingSteps,
-      toolCalls: toolCalls as unknown as Array<TypedToolCallPart & { dynamic?: boolean }>,
+      toolCalls,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,
       availableTools: tools,
@@ -451,8 +453,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
 
       if (!injectedToolCall) {
         // Update indicator to show we're still working
-        const firstToolName =
-          toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
+        const firstToolName = toolCalls.length > 0 ? toolCalls[0].toolName : undefined;
         await this.renderIndicator(title, lang, firstToolName);
       }
 
@@ -590,7 +591,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
 
     const hasTaskTool = toolCalls.some(toolCall => {
       if (toolCall.dynamic) return false;
-      return taskTools.has(toolCall.toolName as ToolName);
+      return taskTools.has(toolCall.toolName);
     });
 
     // Only stop if the task is single-turn AND the current tool calls belong to that task

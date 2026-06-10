@@ -71,7 +71,7 @@ export class SkillService {
       this.plugin.registerEvent(
         this.plugin.app.vault.on('modify', file => {
           if (file instanceof TFile && this.isSkillFile(file)) {
-            this.loadSkillFromFile(file);
+            void this.loadSkillFromFile(file);
           }
         })
       );
@@ -208,8 +208,7 @@ export class SkillService {
         try {
           const content = await this.plugin.app.vault.cachedRead(existingFile);
           const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
-          const fm = parsed.frontmatter as Record<string, unknown>;
-          const existingVersion = fm.version as number | undefined;
+          const existingVersion = parsed.frontmatter.version as number | undefined;
 
           if (existingVersion !== undefined && existingVersion >= skill.version) {
             continue;

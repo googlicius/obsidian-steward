@@ -98,11 +98,7 @@ export const shellToolInputSchema = z.object({
     .describe(
       `Short explanation of what this shell command will do, shown to the user before execution.`
     ),
-  lang: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
+  lang: z.string().nullable().optional().describe(userLanguagePrompt.content),
 });
 
 export type ShellToolInput = z.infer<typeof shellToolInputSchema>;
@@ -319,7 +315,6 @@ export class CliHandler {
 
     let lastContent: string | undefined;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       let progressDetected = false;
       let completed = false;
@@ -432,7 +427,7 @@ export class CliHandler {
     },
     isModelCall = false
   ): Promise<string | undefined> {
-    this.cliSessionService.endSession({
+    await this.cliSessionService.endSession({
       conversationTitle: params.conversationTitle,
       killProcess: true,
     });

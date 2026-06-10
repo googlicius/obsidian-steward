@@ -19,7 +19,7 @@ export const AbortOperationKeys = {
 /** Includes {@link AbortOperationKeys} plus dynamic keys such as {@code data-awareness-batch-0}. */
 export type AbortOperationKey =
   | (typeof AbortOperationKeys)[keyof typeof AbortOperationKeys]
-  | string;
+  | `data-awareness-batch-${number}`;
 
 export const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
@@ -161,7 +161,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   },
   llm: {
     chat: {
-      model: 'ollama:gemma4:31b-cloud',
+      model: 'ollama:gemma4:31b',
       customModels: [],
     },
     modelContextLengths: {},
@@ -201,7 +201,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     },
   },
   embedding: {
-    enabled: true, // Embedding functionality enabled by default
+    enabled: false, // Embedding functionality disabled by default
     model: 'openai:text-embedding-ada-002',
     customModels: [],
     similarityThreshold: 0.85, // Default similarity threshold for embedding matching

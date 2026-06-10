@@ -8,9 +8,17 @@ export function measureSerializedOutputSize(output: unknown): number {
   if (typeof output === 'string') {
     return output.length;
   }
+  if (
+    typeof output === 'number' ||
+    typeof output === 'boolean' ||
+    typeof output === 'bigint' ||
+    typeof output === 'symbol'
+  ) {
+    return String(output).length;
+  }
   try {
     return JSON.stringify(output).length;
   } catch {
-    return String(output).length;
+    return 0;
   }
 }

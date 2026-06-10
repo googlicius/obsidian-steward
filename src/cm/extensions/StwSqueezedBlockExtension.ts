@@ -53,7 +53,7 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
     }
 
     toDOM() {
-      const span = document.createElement('span');
+      const span = activeDocument.createElement('span');
       span.className = 'stw-squeezed-button';
 
       const match = this.content.match(new RegExp(STW_SQUEEZED_PATTERN));
@@ -66,39 +66,41 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
         setIcon(span, SMILE_CHAT_ICON_ID);
 
         // Add conversation title directly after the icon
-        span.appendChild(document.createTextNode(' ' + displayTitle));
+        span.appendChild(activeDocument.createTextNode(' ' + displayTitle));
         setTooltip(span, i18next.t('chat.expandConversation'));
 
         // Handles expanding the squeezed conversation
-        span.addEventListener('click', async () => {
-          try {
-            // Get the editor view and state
-            const editorView = plugin.editor.cm;
-            const { state } = editorView;
+        span.addEventListener('click', () => {
+          void (async () => {
+            try {
+              // Get the editor view and state
+              const editorView = plugin.editor.cm;
+              const { state } = editorView;
 
-            // Find the position of this widget in the document
-            const text = state.doc.toString();
-            const widgetPos = text.indexOf(this.content);
+              // Find the position of this widget in the document
+              const text = state.doc.toString();
+              const widgetPos = text.indexOf(this.content);
 
-            if (widgetPos >= 0) {
-              const forwardService = plugin.wikilinkForwardService;
-              const embedPath = forwardService.getConversationEmbedPath(conversationPath);
-              const shouldAppendInput =
-                forwardService.shouldAppendInputLineForConversation(conversationPath);
-              const insert = shouldAppendInput ? `![[${embedPath}]]\n\n/ ` : `![[${embedPath}]]`;
-              editorView.dispatch({
-                changes: {
-                  from: widgetPos,
-                  to: widgetPos + this.content.length,
-                  insert,
-                },
-              });
+              if (widgetPos >= 0) {
+                const forwardService = plugin.wikilinkForwardService;
+                const embedPath = forwardService.getConversationEmbedPath(conversationPath);
+                const shouldAppendInput =
+                  forwardService.shouldAppendInputLineForConversation(conversationPath);
+                const insert = shouldAppendInput ? `![[${embedPath}]]\n\n/ ` : `![[${embedPath}]]`;
+                editorView.dispatch({
+                  changes: {
+                    from: widgetPos,
+                    to: widgetPos + this.content.length,
+                    insert,
+                  },
+                });
+              }
+
+              plugin.editor.focus();
+            } catch (error) {
+              logger.error('Error expanding squeezed conversation:', error);
             }
-
-            plugin.editor.focus();
-          } catch (error) {
-            logger.error('Error expanding squeezed conversation:', error);
-          }
+          })();
         });
       } else {
         // Fallback to original content if parsing fails

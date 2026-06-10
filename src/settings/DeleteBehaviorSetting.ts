@@ -1,6 +1,5 @@
 import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { DeleteBehavior } from 'src/types/interfaces';
 import type StewardPlugin from 'src/main';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -34,10 +33,13 @@ export class DeleteBehaviorSetting {
         cls: 'dropdown',
       });
 
-      select.addEventListener('change', async e => {
+      select.addEventListener('change', e => {
         const target = e.target as HTMLSelectElement;
-        this.plugin.settings.deleteBehavior.behavior = target.value as DeleteBehavior['behavior'];
-        await this.plugin.saveSettings();
+        if (target.value !== 'stw_trash' && target.value !== 'obsidian_trash') {
+          return;
+        }
+        this.plugin.settings.deleteBehavior.behavior = target.value;
+        void this.plugin.saveSettings();
       });
 
       // Add options
@@ -130,11 +132,20 @@ export class DeleteBehaviorSetting {
       // Initialize with current value
       select.value = this.plugin.settings.deleteBehavior.cleanupPolicy || 'never';
 
-      select.addEventListener('change', async e => {
+      select.addEventListener('change', e => {
         const target = e.target as HTMLSelectElement;
-        this.plugin.settings.deleteBehavior.cleanupPolicy =
-          target.value as DeleteBehavior['cleanupPolicy'];
-        await this.plugin.saveSettings();
+        const cleanupPolicy = target.value;
+        if (
+          cleanupPolicy !== 'never' &&
+          cleanupPolicy !== '7days' &&
+          cleanupPolicy !== '30days' &&
+          cleanupPolicy !== '90days' &&
+          cleanupPolicy !== '1year'
+        ) {
+          return;
+        }
+        this.plugin.settings.deleteBehavior.cleanupPolicy = cleanupPolicy;
+        void this.plugin.saveSettings();
       });
     };
 

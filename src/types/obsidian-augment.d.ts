@@ -26,18 +26,6 @@ declare module 'obsidian' {
      * @param secret - The secret value
      */
     setSecret(id: string, secret: string): void;
-  }
-
-  /**
-   * SecretComponent provides a UI component for selecting secrets from SecretStorage
-   */
-  class SecretComponent {
-    /**
-     * Creates a new SecretComponent
-     * @param app - The Obsidian App instance
-     * @param containerEl - The container element to mount the component
-     */
-    constructor(app: App, containerEl: HTMLElement);
 
     /**
      * Set the current value (secret name)

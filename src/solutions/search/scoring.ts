@@ -8,6 +8,7 @@ export interface ScoredDocument extends IndexedDocument {
 }
 
 export interface DetailedScoredDocument {
+  // eslint-disable-next-line obsidianmd/prefer-active-doc -- property name, not the DOM document global
   document: IndexedDocument;
   score: number;
   proximityBonus: number;

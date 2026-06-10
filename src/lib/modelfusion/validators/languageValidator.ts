@@ -4,7 +4,7 @@
  * @param lang The language code to validate
  * @returns A normalized language code or 'en' if invalid
  */
-export function validateLanguage(lang: any): string {
+export function validateLanguage(lang: unknown): string {
   if (lang && typeof lang === 'string' && lang.trim()) {
     return lang.trim().toLowerCase();
   }

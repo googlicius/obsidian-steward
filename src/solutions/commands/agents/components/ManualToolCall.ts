@@ -113,7 +113,7 @@ export class ManualToolCall {
                   },
                 ],
               },
-            } as ToolCallPart<handlers.DeleteToolArgs>;
+            };
           }
         }
         return undefined;

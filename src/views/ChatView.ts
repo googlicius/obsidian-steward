@@ -78,7 +78,7 @@ export class ChatView extends StewardMarkdownView {
 
   private scheduleScrollToBottom(): void {
     if (this.scrollToBottomTimeout) {
-      clearTimeout(this.scrollToBottomTimeout);
+      window.clearTimeout(this.scrollToBottomTimeout);
     }
 
     this.scrollToBottomTimeout = window.setTimeout(() => {
@@ -112,7 +112,7 @@ export class ChatView extends StewardMarkdownView {
     }
 
     if (this.scrollToBottomTimeout) {
-      clearTimeout(this.scrollToBottomTimeout);
+      window.clearTimeout(this.scrollToBottomTimeout);
       this.scrollToBottomTimeout = null;
     }
   }
@@ -125,7 +125,7 @@ export class ChatView extends StewardMarkdownView {
       return;
     }
 
-    this.app.vault.modify(this.file, initialContent).then(() => {
+    void this.app.vault.modify(this.file, initialContent).then(() => {
       this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
 
       const lastLineNum = this.editor.lineCount() - 1;

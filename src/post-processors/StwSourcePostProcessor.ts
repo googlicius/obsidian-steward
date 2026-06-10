@@ -27,7 +27,7 @@ export function createStwSourcePostProcessor(plugin: StewardPlugin): MarkdownPos
 
           if (metadataMatch) {
             const [, sourceType, filePath, fromLine, toLine] = metadataMatch;
-            const span = document.createElement('span');
+            const span = activeDocument.createElement('span');
             const baseName = filePath.split('/').pop() || filePath;
 
             if (fromLine !== undefined && toLine !== undefined) {
@@ -44,7 +44,7 @@ export function createStwSourcePostProcessor(plugin: StewardPlugin): MarkdownPos
             replacementElements.push(span);
           }
         } else {
-          replacementElements.push(document.createTextNode(textPart));
+          replacementElements.push(activeDocument.createTextNode(textPart));
         }
       }
 

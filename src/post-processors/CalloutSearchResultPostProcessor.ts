@@ -68,7 +68,7 @@ export function createCalloutSearchResultPostProcessor(
     window.setTimeout(() => {
       // Make sure the leaf is active and focused
       plugin.app.workspace.setActiveLeaf(mainLeaf, { focus: true });
-      plugin.app.workspace.revealLeaf(mainLeaf);
+      void plugin.app.workspace.revealLeaf(mainLeaf);
 
       // Get the editor from the file view directly
       const view = mainLeaf.view;
@@ -149,15 +149,17 @@ export function createCalloutSearchResultPostProcessor(
         if (callout.querySelector('.stw-callout-buttons')) continue;
 
         // Create buttons container
-        const buttonsContainer = document.createElement('div');
+        const buttonsContainer = activeDocument.createElement('div');
         buttonsContainer.classList.add('stw-callout-buttons');
 
         // Create copy button
-        const copyButton = document.createElement('button');
+        const copyButton = activeDocument.createElement('button');
         copyButton.classList.add('clickable-icon', 'stw-callout-button');
         setTooltip(copyButton, i18next.t('Copy'));
         setIcon(copyButton, 'copy');
-        copyButton.addEventListener('click', handleCopyButtonClick);
+        copyButton.addEventListener('click', event => {
+          void handleCopyButtonClick(event);
+        });
 
         // Add button to container
         buttonsContainer.appendChild(copyButton);
@@ -167,7 +169,9 @@ export function createCalloutSearchResultPostProcessor(
       }
 
       // Register a click event listener on the callout element
-      callout.addEventListener('click', handleSearchResultCalloutClick);
+      callout.addEventListener('click', event => {
+        void handleSearchResultCalloutClick(event);
+      });
     }
   };
 }

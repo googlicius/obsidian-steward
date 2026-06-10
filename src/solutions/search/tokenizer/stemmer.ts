@@ -123,7 +123,6 @@ export function stemmer(w: string) {
     suffix = fp?.[2];
     re = new RegExp(mgr0);
     if (stem && re.test(stem)) {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       w = stem + step2List[suffix];
     }
@@ -135,10 +134,8 @@ export function stemmer(w: string) {
     stem = fp?.[1];
     suffix = fp?.[2];
     re = new RegExp(mgr0);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     if (stem && re.test(stem)) {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       w = stem + step3List[suffix];
     }

@@ -33,7 +33,7 @@ export class ConversationEventHandler {
       // Listen for file modifications
       this.plugin.app.vault.on('modify', async file => {
         if (file instanceof TFile) {
-          this.initializeChat(file);
+          void this.initializeChat(file);
           // this.initializeIntroduction(file);
         }
       })
@@ -43,7 +43,7 @@ export class ConversationEventHandler {
       this.plugin.registerEvent(
         this.plugin.app.vault.on('create', async file => {
           if (file instanceof TFile) {
-            this.initializeChat(file);
+            void this.initializeChat(file);
             // this.initializeIntroduction(file);
           }
         })
@@ -54,7 +54,7 @@ export class ConversationEventHandler {
     eventEmitter.on(
       Events.CONVERSATION_INTENT_RECEIVED,
       (payload: ConversationIntentReceivedPayload) => {
-        this.handleConversationCommand(payload);
+        void this.handleConversationCommand(payload);
       }
     );
 
@@ -62,7 +62,7 @@ export class ConversationEventHandler {
     eventEmitter.on(
       Events.CONVERSATION_LINK_INSERTED,
       (payload: ConversationLinkInsertedPayload) => {
-        this.handleConversationLinkInserted(payload);
+        void this.handleConversationLinkInserted(payload);
       }
     );
   }

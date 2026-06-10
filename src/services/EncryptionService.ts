@@ -1,8 +1,21 @@
+import { SecretComponent, type App } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { getBundledSyncLibSync } from 'src/utils/bundledLibs';
 import type StewardPlugin from 'src/main';
 
 const CryptoJS = getBundledSyncLibSync('crypto-js');
+
+function supportsSecretStorage(app: App): boolean {
+  return typeof SecretComponent !== 'undefined' && 'secretStorage' in app;
+}
+
+function getStoredSecret(app: App, secretName: string): string | null {
+  if (!supportsSecretStorage(app)) {
+    return null;
+  }
+  // eslint-disable-next-line obsidianmd/no-unsupported-api -- runtime-guarded
+  return app.secretStorage.getSecret(secretName);
+}
 
 /**
  * Service for handling encryption and decryption using vault-specific storage
@@ -37,18 +50,6 @@ export class EncryptionService {
 
     if (salt) {
       return salt;
-    }
-
-    // MIGRATION: Check if salt exists in old global localStorage
-    const legacySalt = localStorage.getItem(saltKeyId);
-    if (legacySalt) {
-      logger.log('Migrating encryption salt from global localStorage to vault-specific storage');
-
-      // Migrate to vault-specific storage
-      this.plugin.app.saveLocalStorage(saltKeyId, legacySalt);
-      localStorage.removeItem(saltKeyId);
-
-      return legacySalt;
     }
 
     // Generate a new random salt
@@ -98,7 +99,7 @@ export class EncryptionService {
     }
 
     try {
-      // Get the salt from vault-specific localStorage (with migration support)
+      // Get the salt from vault-specific localStorage
       const salt = this.getEncryptionSalt(saltKeyId);
 
       // Create the same device-specific encryption key
@@ -147,7 +148,7 @@ export class EncryptionService {
     // Check if using secret storage
     if (providerConfig.apiKeySource === 'secret') {
       // apiKey contains the secret name, retrieve from SecretStorage
-      const secret = this.plugin.app.secretStorage.getSecret(apiKeyValue);
+      const secret = getStoredSecret(this.plugin.app, apiKeyValue);
       return secret || '';
     }
 
@@ -180,7 +181,7 @@ export class EncryptionService {
       await this.plugin.saveSettings();
 
       logger.log(`API key for ${provider} has been encrypted and saved`);
-    } catch (error) {
+    } catch {
       throw new Error(`Could not encrypt ${provider} API key`);
     }
   }

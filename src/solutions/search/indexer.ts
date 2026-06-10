@@ -121,7 +121,7 @@ export class Indexer {
         if (!this.isIndexBuilt) return;
 
         if (file instanceof TFile) {
-          this.removeFromIndex(file.path);
+          void this.removeFromIndex(file.path);
 
           // Clear cache if this was the cached note (for markdown files)
           if (file.extension === 'md' && this.cachedNotePath === file.path) {
@@ -135,7 +135,7 @@ export class Indexer {
         if (!this.isIndexBuilt) return;
 
         if (file instanceof TFile) {
-          this.removeFromIndex(oldPath);
+          await this.removeFromIndex(oldPath);
 
           // Update cache if this was the cached note (for markdown files)
           if (file.extension === 'md' && this.cachedNotePath === oldPath) {
@@ -172,7 +172,7 @@ export class Indexer {
   public queueFileForIndexing(filePath: string) {
     if (!this.indexingQueue.includes(filePath)) {
       this.indexingQueue.push(filePath);
-      this.processQueue();
+      void this.processQueue();
     }
   }
 
@@ -198,7 +198,7 @@ export class Indexer {
       this.isIndexing = false;
       // Continue processing if there are more files
       if (this.indexingQueue.length > 0) {
-        this.processQueue();
+        void this.processQueue();
       }
     }
   }

@@ -1,7 +1,7 @@
 import { logger } from 'src/utils/logger';
 import { Events, EventPayloadMap } from '../types/events';
 
-type EventCallback = (payload: any) => void;
+type EventCallback = (payload: unknown) => void;
 
 class EventEmitter {
   private static instance: EventEmitter;

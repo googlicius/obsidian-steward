@@ -21,7 +21,7 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
 
     for (let i = 0; i < codeBlocks.length; i++) {
       const code = codeBlocks[i];
-      const pre = code.parentElement as HTMLElement | null;
+      const pre = code.parentElement;
 
       if (!pre) continue;
 
@@ -53,7 +53,7 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
       setupAutoScroll(pre);
     }
 
-    const toggleLink = el.querySelector('a.stw-toggle-block') as HTMLAnchorElement | null;
+    const toggleLink = el.querySelector('a.stw-toggle-block');
 
     if (!toggleLink) return;
 
@@ -63,11 +63,13 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
 
       if (!prevDivSibling) return;
 
-      const blockPre = prevDivSibling.querySelector(
+      const blockPreElement = prevDivSibling.querySelector(
         SUPPORTED_BLOCKS.map(code => `pre.language-${code}`).join(',')
-      ) as HTMLElement | null;
-
-      if (!blockPre) return;
+      );
+      if (!(blockPreElement instanceof HTMLElement)) {
+        return;
+      }
+      const blockPre = blockPreElement;
 
       if (blockPre.dataset['lineCount']) {
         toggleLink.textContent = `${i18next.t('common.commandOutput')} (${i18next.t('common.lines', { number: blockPre.dataset['lineCount'] })})`;

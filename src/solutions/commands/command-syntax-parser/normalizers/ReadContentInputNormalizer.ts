@@ -22,7 +22,7 @@ export class ReadContentInputNormalizer implements InputNormalizer {
 
   normalize(input: Record<string, unknown>): Record<string, unknown> {
     const { artifact, ...rest } = input;
-    if (!artifact) return rest;
+    if (!artifact || typeof artifact !== 'string') return rest;
 
     const existingFileNames = (rest.fileNames as string[]) ?? [];
 

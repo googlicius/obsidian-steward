@@ -81,7 +81,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
         // Clear any pending timeout
         if (this.typingDebounceTimeout) {
-          clearTimeout(this.typingDebounceTimeout);
+          window.clearTimeout(this.typingDebounceTimeout);
         }
       }
 
@@ -250,7 +250,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
       private handleKeyPress = (event: KeyboardEvent) => {
         // Clear any existing timeout
         if (this.typingDebounceTimeout) {
-          clearTimeout(this.typingDebounceTimeout);
+          window.clearTimeout(this.typingDebounceTimeout);
         }
 
         // Set a debounced timeout to call onTyping

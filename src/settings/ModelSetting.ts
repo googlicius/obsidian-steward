@@ -107,9 +107,9 @@ export class ModelSetting {
       const currentModel = getCurrentModel();
       select.value = currentModel;
 
-      select.addEventListener('change', async e => {
+      select.addEventListener('change', e => {
         const target = e.target as HTMLSelectElement;
-        await options.onSelectChange(target.value);
+        void options.onSelectChange(target.value);
       });
 
       // Add "Add new model" link
@@ -187,22 +187,24 @@ export class ModelSetting {
       });
 
       // Add button click handler
-      addButton.addEventListener('click', async () => {
-        const inputValue = textInput.value.trim();
+      addButton.addEventListener('click', () => {
+        void (async () => {
+          const inputValue = textInput.value.trim();
 
-        if (!inputValue) {
-          return;
-        }
+          if (!inputValue) {
+            return;
+          }
 
-        if (!validateModelFormat(inputValue)) {
-          textInput.addClass('stw-is-invalid');
-          return;
-        }
+          if (!validateModelFormat(inputValue)) {
+            textInput.addClass('stw-is-invalid');
+            return;
+          }
 
-        textInput.removeClass('stw-is-invalid');
+          textInput.removeClass('stw-is-invalid');
 
-        await options.onAddModel(inputValue);
-        recreateInput('dropdown');
+          await options.onAddModel(inputValue);
+          recreateInput('dropdown');
+        })();
       });
     };
 
@@ -253,10 +255,11 @@ export class ModelSetting {
         setTooltip(deleteButton, t('settings.delete'));
         deleteButton.classList.add('clickable-icon');
 
-        deleteButton.addEventListener('click', async () => {
-          await options.onDeleteModel(modelId);
-          // Recreate the interface to reflect changes
-          recreateInput('delete');
+        deleteButton.addEventListener('click', () => {
+          void (async () => {
+            await options.onDeleteModel(modelId);
+            recreateInput('delete');
+          })();
         });
       }
     };

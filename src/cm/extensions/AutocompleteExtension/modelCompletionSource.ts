@@ -5,7 +5,7 @@ import type StewardPlugin from 'src/main';
 import { Events, type ModelChangedPayload } from 'src/types/events';
 
 function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
-  const customModels: string[] = (plugin.settings.llm.chat.customModels as string[]) || [];
+  const customModels: string[] = plugin.settings.llm.chat.customModels || [];
   const builtInIds = new Set(LLM_MODELS.map(model => model.id));
   const models = LLM_MODELS.map(model => ({ id: model.id, name: model.name }));
 

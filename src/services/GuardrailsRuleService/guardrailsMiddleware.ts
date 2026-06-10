@@ -33,7 +33,7 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
     ctx: ToolHandlerMiddlewareContext,
     next: () => Promise<AgentResult>
   ): Promise<AgentResult> {
-    const toolName = ctx.toolCall.toolName as ToolName;
+    const toolName = ctx.toolCall.toolName;
     const rules = plugin.guardrailsRuleService.getRulesForTool(toolName);
     if (rules.length === 0) {
       return next();

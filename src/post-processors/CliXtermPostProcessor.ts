@@ -106,7 +106,7 @@ function measureCliXtermRowPx(params: { xtermHost: HTMLElement; terminalRows: nu
 /** Walks up the DOM to find the first vertically-scrollable ancestor. */
 function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
   let parent: HTMLElement | null = el.parentElement;
-  while (parent && parent !== document.body) {
+  while (parent && parent !== activeDocument.body) {
     const style = window.getComputedStyle(parent);
     if (/(auto|scroll|overlay)/.test(style.overflowY)) {
       return parent;
@@ -334,7 +334,8 @@ async function mountInteractiveTerminal(params: {
     const serializeLib = await getBundledLib('@xterm/addon-serialize');
     const serializeAddon = new serializeLib.SerializeAddon();
 
-    const styleTarget = params.container.closest('.workspace-leaf') ?? document.documentElement;
+    const styleTarget =
+      params.container.closest('.workspace-leaf') ?? activeDocument.documentElement;
     const background = readComputedBackground(styleTarget, '#1e1e1e');
     const foreground = readCssVariable(styleTarget, '--text-normal', '#dddddd');
     const selectionBackground = readCssVariable(
@@ -364,9 +365,9 @@ async function mountInteractiveTerminal(params: {
     term.loadAddon(fitAddon);
     term.loadAddon(serializeAddon);
 
-    const scrollWrap = document.createElement('div');
+    const scrollWrap = activeDocument.createElement('div');
     scrollWrap.className = 'stw-cli-xterm-scroll-wrap';
-    const xtermHost = document.createElement('div');
+    const xtermHost = activeDocument.createElement('div');
     xtermHost.className = 'stw-cli-xterm-host';
     scrollWrap.appendChild(xtermHost);
     params.container.appendChild(scrollWrap);
@@ -484,12 +485,12 @@ async function mountInteractiveTerminal(params: {
       delete params.container.dataset.stwCliXtermMounted;
     };
 
-    // Watch only the containing leaf instead of all of document.body to
+    // Watch only the containing leaf instead of all of activeDocument.body to
     // avoid the MutationObserver firing on every DOM change in the app.
     const observerRoot =
       params.container.closest('.workspace-leaf-content') ??
       params.container.closest('.workspace-leaf') ??
-      document.body;
+      activeDocument.body;
     const removalWatcher = new MutationObserver(() => {
       if (observerRoot.contains(params.container)) {
         return;
@@ -538,16 +539,16 @@ export function createCliXtermPostProcessor(plugin: StewardPlugin): MarkdownPost
 
       const before = content.slice(0, markerIndex);
       if (before.length > 0) {
-        replacementNodes.push(document.createTextNode(before));
+        replacementNodes.push(activeDocument.createTextNode(before));
       }
 
-      const container = document.createElement('div');
+      const container = activeDocument.createElement('div');
       container.classList.add('stw-cli-xterm');
       replacementNodes.push(container);
 
       const after = content.slice(markerIndex + CLI_XTERM_MARKER.length);
       if (after.length > 0) {
-        replacementNodes.push(document.createTextNode(after));
+        replacementNodes.push(activeDocument.createTextNode(after));
       }
 
       textNode.replaceWith(...replacementNodes);

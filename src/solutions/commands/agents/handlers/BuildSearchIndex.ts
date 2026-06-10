@@ -48,7 +48,6 @@ export class BuildSearchIndex {
     ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<BuildSearchIndexArgs> }
   ): Promise<AgentResult> {
-    const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
 
     try {

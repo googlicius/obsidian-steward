@@ -49,7 +49,7 @@ export class Frontmatter {
     conversationTitle: string,
     agent: string,
     usage: LanguageModelUsage | undefined,
-    totalUsage?: LanguageModelUsage | undefined
+    totalUsage?: LanguageModelUsage
   ): Promise<void> {
     if (!agent || !agent.trim()) {
       return;

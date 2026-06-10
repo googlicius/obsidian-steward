@@ -166,7 +166,7 @@ export class ToolCallExecutor {
         }
 
         default: {
-          if (agent.plugin.mcpService.isMCPToolName(toolCall.toolName as string)) {
+          if (agent.plugin.mcpService.isMCPToolName(toolCall.toolName)) {
             toolCallResult = await agent.mcpToolHandler.handle(invocationCtx, {
               toolCall,
               messages: [],

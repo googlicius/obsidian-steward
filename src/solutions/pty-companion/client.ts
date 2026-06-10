@@ -147,8 +147,8 @@ export function createRemotePtySession(params: {
             stdout,
             stderr,
             on(event: string, listener: (...args: unknown[]) => void): RemotePtyChildShim {
-              procEmitter.on(event, listener as (...args: never[]) => void);
-              return child as RemotePtyChildShim;
+              procEmitter.on(event, listener);
+              return child;
             },
           } as unknown as RemotePtyChildShim;
 

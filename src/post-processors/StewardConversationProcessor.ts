@@ -14,7 +14,7 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
     const value = pendingTitleUpdateMap.get(key);
     if (!value) return;
 
-    clearTimeout(value.timeoutId);
+    window.clearTimeout(value.timeoutId);
     plugin.app.metadataCache.offref(value.eventRef);
     pendingTitleUpdateMap.delete(key);
   };
@@ -35,7 +35,9 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
     };
 
     // Register the event listener
-    const eventRef = plugin.app.metadataCache.on('changed', updateTitleAndCleanup);
+    const eventRef = plugin.app.metadataCache.on('changed', file => {
+      void updateTitleAndCleanup(file);
+    });
 
     // Set a timeout to clean up the event listener after 5 seconds
     const timeoutId = window.setTimeout(() => {
@@ -61,19 +63,19 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
     conversationPath = conversationPath.replace('.md', '');
     const conversationTitle = conversationPath.split('/').pop();
     if (conversationTitle) {
-      plugin.closeConversation(conversationTitle);
+      void plugin.closeConversation(conversationTitle);
       plugin.editor.focus();
     }
   };
 
-  const handleSqueezeButtonClick = async (event: MouseEvent, conversationPath: string) => {
+  const handleSqueezeButtonClick = (event: MouseEvent, conversationPath: string) => {
     event.preventDefault();
     event.stopPropagation();
 
     conversationPath = conversationPath.replace('.md', '');
     const conversationTitle = conversationPath.split('/').pop();
     if (conversationTitle) {
-      plugin.closeConversation(conversationTitle, 'squeeze');
+      void plugin.closeConversation(conversationTitle, 'squeeze');
       plugin.editor.focus();
     }
   };
@@ -116,69 +118,71 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
     // Hack in Post-Processor,
     // When Obsidian renders a note, it builds DOM fragments in memory (not yet inserted into the visible document).
     // This is a workaround to ensure that the stw-conversation class is added to the embed when the note is rendered.
-    window.setTimeout(async () => {
-      const stwConversation = el.closest('.stw-conversation');
+    window.setTimeout(() => {
+      void (async () => {
+        const stwConversation = el.closest('.stw-conversation');
 
-      if (stwConversation) {
-        return;
-      }
-
-      const embedEl = el.closest('.markdown-embed');
-      if (embedEl) {
-        // Add stw-conversation class for event-driven indicator updates
-        embedEl.classList.add('stw-conversation');
-
-        // Prevent reading-view clicks on message text from scrolling the host to ![[...]]
-        const embedContent = embedEl.querySelector('.markdown-embed-content');
-        if (embedContent instanceof HTMLElement) {
-          embedContent.classList.add('interactive-child');
+        if (stwConversation) {
+          return;
         }
 
-        // Update the conversation title
-        const updated = await updateConversationTitleInEmbed(embedEl, ctx.sourcePath);
+        const embedEl = el.closest('.markdown-embed');
+        if (embedEl) {
+          // Add stw-conversation class for event-driven indicator updates
+          embedEl.classList.add('stw-conversation');
 
-        // The initial update is false, then subscribe
-        if (!updated) {
-          subscribeToTitleUpdate(ctx.sourcePath, embedEl);
+          // Prevent reading-view clicks on message text from scrolling the host to ![[...]]
+          const embedContent = embedEl.querySelector('.markdown-embed-content');
+          if (embedContent instanceof HTMLElement) {
+            embedContent.classList.add('interactive-child');
+          }
+
+          // Update the conversation title
+          const updated = await updateConversationTitleInEmbed(embedEl, ctx.sourcePath);
+
+          // The initial update is false, then subscribe
+          if (!updated) {
+            subscribeToTitleUpdate(ctx.sourcePath, embedEl);
+          }
+
+          // delete the markdown-embed-link element
+          const markdownEmbedLink = embedEl.querySelector('.markdown-embed-link');
+          if (markdownEmbedLink) {
+            markdownEmbedLink.remove();
+          }
+
+          // Create button container for better positioning
+          const buttonContainer = activeDocument.createElement('div');
+          buttonContainer.classList.add('conversation-buttons');
+
+          // Add squeeze button
+          const squeezeButton = activeDocument.createElement('button');
+          squeezeButton.classList.add('conversation-button', 'clickable-icon');
+          setTooltip(squeezeButton, i18next.t('chat.squeezeConversation'));
+          setIcon(squeezeButton, 'minimize-2');
+          squeezeButton.addEventListener('click', (event: MouseEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleSqueezeButtonClick(event, ctx.sourcePath);
+          });
+          buttonContainer.appendChild(squeezeButton);
+
+          // Add close button
+          const closeButton = activeDocument.createElement('button');
+          closeButton.classList.add('conversation-button', 'clickable-icon');
+          setTooltip(closeButton, i18next.t('chat.closeConversation'));
+          setIcon(closeButton, 'x');
+          closeButton.addEventListener('click', (event: MouseEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleCloseButtonClick(event, ctx.sourcePath);
+          });
+          buttonContainer.appendChild(closeButton);
+
+          // Add the button container to the embed
+          embedEl.appendChild(buttonContainer);
         }
-
-        // delete the markdown-embed-link element
-        const markdownEmbedLink = embedEl.querySelector('.markdown-embed-link');
-        if (markdownEmbedLink) {
-          markdownEmbedLink.remove();
-        }
-
-        // Create button container for better positioning
-        const buttonContainer = document.createElement('div');
-        buttonContainer.classList.add('conversation-buttons');
-
-        // Add squeeze button
-        const squeezeButton = document.createElement('button');
-        squeezeButton.classList.add('conversation-button', 'clickable-icon');
-        setTooltip(squeezeButton, i18next.t('chat.squeezeConversation'));
-        setIcon(squeezeButton, 'minimize-2');
-        squeezeButton.addEventListener('click', (event: MouseEvent) => {
-          event.preventDefault();
-          event.stopPropagation();
-          handleSqueezeButtonClick(event, ctx.sourcePath);
-        });
-        buttonContainer.appendChild(squeezeButton);
-
-        // Add close button
-        const closeButton = document.createElement('button');
-        closeButton.classList.add('conversation-button', 'clickable-icon');
-        setTooltip(closeButton, i18next.t('chat.closeConversation'));
-        setIcon(closeButton, 'x');
-        closeButton.addEventListener('click', (event: MouseEvent) => {
-          event.preventDefault();
-          event.stopPropagation();
-          handleCloseButtonClick(event, ctx.sourcePath);
-        });
-        buttonContainer.appendChild(closeButton);
-
-        // Add the button container to the embed
-        embedEl.appendChild(buttonContainer);
-      }
+      })();
     });
   };
 }

@@ -64,11 +64,12 @@ export class PropertyCondition extends Condition<IndexedDocument> {
         const docId = doc.id as number;
 
         const matchedProperties: string[] = [];
+        const valueDisplay = String(prop.value);
 
         if (prop.name === 'tag') {
-          matchedProperties.push(`#${prop.value}`);
+          matchedProperties.push(`#${valueDisplay}`);
         } else {
-          matchedProperties.push(`${prop.name}${operatorDisplay} ${prop.value}`);
+          matchedProperties.push(`${prop.name}${operatorDisplay} ${valueDisplay}`);
         }
 
         if (result.has(docId)) {

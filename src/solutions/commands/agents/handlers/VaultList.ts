@@ -43,11 +43,7 @@ export const listToolArgMapSchema = z.object(
       .describe(
         'Optional result type filter: both for files and folders, files for files only, folders for folders only.'
       ),
-    lang: z
-      .string()
-      .nullable()
-      .optional()
-      .describe(userLanguagePrompt.content as string),
+    lang: z.string().nullable().optional().describe(userLanguagePrompt.content),
   },
   {
     description: `List direct files and subfolders in a specific folder (non-recursive).`,
@@ -279,7 +275,7 @@ export class VaultList {
     try {
       const regex = new RegExp(pattern, 'i');
       return regex.test(filename);
-    } catch (error) {
+    } catch {
       // If regex is invalid, return false
       return false;
     }
