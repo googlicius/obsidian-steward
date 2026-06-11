@@ -136,17 +136,6 @@ class StewardSettingTab extends PluginSettingTab {
         });
       });
 
-    // Add show role labels toggle
-    new Setting(commonSettingGroup.settingItems)
-      .setName(t('settings.showRoleLabels'))
-      .setDesc(t('settings.showRoleLabelsDesc'))
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.showPronouns).onChange(async value => {
-          this.plugin.settings.showPronouns = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
     // Add auto-scroll toggle
     new Setting(commonSettingGroup.settingItems)
       .setName(t('settings.autoScroll'))

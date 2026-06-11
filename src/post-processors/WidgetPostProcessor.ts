@@ -9,13 +9,7 @@ import {
 import {
   WIDGET_PROJECT_FENCE_LANGUAGE,
   buildWidgetSrcdoc,
-  WIDGET_ACTION_RESULT,
-  WIDGET_ACTIONS_REGISTERED,
-  WIDGET_APPLY_ACTION,
-  WIDGET_ASSET_REQUEST,
-  WIDGET_ASSET_RESPONSE,
-  WIDGET_RESIZE,
-  WIDGET_STATE_SAVE,
+  WidgetMessageType,
   type WidgetActionBridgeHandle,
 } from 'src/services/WidgetService';
 import { logger } from 'src/utils/logger';
@@ -107,7 +101,7 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
       return;
     }
 
-    if (e.data?.type === WIDGET_RESIZE) {
+    if (e.data?.type === WidgetMessageType.Resize) {
       const h = Number(e.data.height);
       if (Number.isFinite(h) && h > 0) {
         iframe.style.height = `${h}px`;
@@ -115,12 +109,12 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
       return;
     }
 
-    if (e.data?.type === WIDGET_STATE_SAVE && options.onStateSave) {
+    if (e.data?.type === WidgetMessageType.StateSave && options.onStateSave) {
       options.onStateSave(e.data.state);
       return;
     }
 
-    if (e.data?.type === WIDGET_ACTION_RESULT && options.onActionResult) {
+    if (e.data?.type === WidgetMessageType.ActionResult && options.onActionResult) {
       options.onActionResult({
         requestId: e.data.requestId,
         ok: !!e.data.ok,
@@ -130,7 +124,7 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
       return;
     }
 
-    if (e.data?.type === WIDGET_ACTIONS_REGISTERED && options.onActionsRegistered) {
+    if (e.data?.type === WidgetMessageType.ActionsRegistered && options.onActionsRegistered) {
       const actions = Array.isArray(e.data.actions)
         ? e.data.actions.filter((name: unknown) => typeof name === 'string')
         : [];
@@ -138,7 +132,7 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
       return;
     }
 
-    if (e.data?.type === WIDGET_ASSET_REQUEST && options.onAssetRequest) {
+    if (e.data?.type === WidgetMessageType.AssetRequest && options.onAssetRequest) {
       const requestId = typeof e.data.requestId === 'string' ? e.data.requestId : '';
       const assetId = typeof e.data.assetId === 'string' ? e.data.assetId : '';
       if (!requestId || !assetId) {
@@ -272,7 +266,7 @@ async function mountWidgetProject(
           if (!result.ok) {
             iframe.contentWindow.postMessage(
               {
-                type: WIDGET_ASSET_RESPONSE,
+                type: WidgetMessageType.AssetResponse,
                 requestId: data.requestId,
                 ok: false,
                 error: result.error,
@@ -284,7 +278,7 @@ async function mountWidgetProject(
 
           iframe.contentWindow.postMessage(
             {
-              type: WIDGET_ASSET_RESPONSE,
+              type: WidgetMessageType.AssetResponse,
               requestId: data.requestId,
               ok: true,
               buffer: result.buffer,
@@ -339,7 +333,7 @@ async function mountWidgetProject(
       const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
       iframe?.contentWindow?.postMessage(
         {
-          type: WIDGET_APPLY_ACTION,
+          type: WidgetMessageType.ApplyAction,
           action: payload.action,
           params: payload.params,
           requestId: payload.requestId,

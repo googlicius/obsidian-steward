@@ -87,10 +87,10 @@ describe('ConversationRenderer', () => {
       // Mock conversation content as a raw string
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search How to use React hooks',
+        '##### /search How to use React hooks',
         '',
         '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found about React hooks:",
+        "Here's what I found about React hooks:",
         '',
         'React hooks are functions that let you use state and other React features without writing a class.',
       ].join('\n');
@@ -110,10 +110,10 @@ describe('ConversationRenderer', () => {
       // Mock conversation content with search results as a raw string
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search #angular',
+        '##### /search #angular',
         '',
         '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
-        '**Steward:** Searching for tags: #angular',
+        'Searching for tags: #angular',
         '',
         'I found 2 results:',
         '',
@@ -125,13 +125,13 @@ describe('ConversationRenderer', () => {
         ">Angular's light, bright. ==#angular==",
         '',
         '<!--STW ID:ghi789,ROLE:assistant,COMMAND:search,HISTORY:false-->',
-        '**System:** *Artifact search results is created*',
+        '*Artifact search results is created*',
         '',
         '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
-        '##### **User:** How do I use Angular?',
+        '##### How do I use Angular?',
         '',
         '<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->',
-        "**Steward:** Angular is a platform for building web applications. Here's how to get started:",
+        "Angular is a platform for building web applications. Here's how to get started:",
         '',
         '1. Install Node.js and npm',
         '2. Install the Angular CLI: `npm install -g @angular/cli`',
@@ -154,10 +154,10 @@ describe('ConversationRenderer', () => {
     it('should handle conversation with a message has multiple sections', async () => {
       const mockContent = [
         '<!--STW ID:keon4,ROLE:user,COMMAND: -->',
-        '##### **User:** / Read the code block above and update it to not using todos as dependency',
+        '##### / Read the code block above and update it to not using todos as dependency',
         '',
         '<!--STW ID:88nm8,ROLE:steward,COMMAND:read,HISTORY:false-->',
-        "**Steward:** I'll read the code block above to understand how it's using 'todos' as a dependency.",
+        "I'll read the code block above to understand how it's using 'todos' as a dependency.",
         '',
         '<!--STW ID:w968m,ROLE:steward-->',
         "I've found 1 code block above.",
@@ -197,33 +197,33 @@ describe('ConversationRenderer', () => {
       const mockContent = [
         // First topic about React
         '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search React hooks',
+        '##### /search React hooks',
         '',
         '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found about React hooks:",
+        "Here's what I found about React hooks:",
         '',
         'React hooks are functions that let you use state and other React features without writing a class.',
         '',
         '<!--STW ID:ghi789,ROLE:user,COMMAND:confirm-->',
-        '##### **User:** Thanks, that was helpful',
+        '##### Thanks, that was helpful',
         '',
         '<!--STW ID:jkl012,ROLE:steward,COMMAND:thank_you-->',
-        "**Steward:** You're welcome! Let me know if you have any other questions about React hooks.",
+        "You're welcome! Let me know if you have any other questions about React hooks.",
         '',
         // New topic about Angular (should be included)
         '<!--STW ID:mno345,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search Angular components',
+        '##### /search Angular components',
         '',
         '<!--STW ID:pqr678,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found about Angular components:",
+        "Here's what I found about Angular components:",
         '',
         'Angular components are the building blocks of Angular applications.',
         '',
         '<!--STW ID:stu901,ROLE:user,COMMAND: -->',
-        '##### **User:** Can you explain more about component lifecycle?',
+        '##### Can you explain more about component lifecycle?',
         '',
         '<!--STW ID:vwx234,ROLE:steward,COMMAND:read-->',
-        '**Steward:** Angular components have several lifecycle hooks:',
+        'Angular components have several lifecycle hooks:',
         '',
         '1. ngOnInit: Called after the component is initialized',
         '2. ngOnChanges: Called when input properties change',
@@ -689,7 +689,7 @@ describe('ConversationRenderer', () => {
         '```',
         '',
         '<!--STW ID:usr1,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search Angular',
+        '##### /search Angular',
         '',
         '<!--STW ID:asst1,ROLE:steward,COMMAND:search-->',
         'Angular overview text.',
@@ -726,7 +726,7 @@ describe('ConversationRenderer', () => {
         '```',
         '',
         '<!--STW ID:usr1,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search Angular',
+        '##### /search Angular',
         '',
         '<!--STW ID:asst1,ROLE:steward,COMMAND:search-->',
         'Angular overview text.',
@@ -767,7 +767,7 @@ describe('ConversationRenderer', () => {
         '```',
         '',
         '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found about React hooks:",
+        "Here's what I found about React hooks:",
         '',
         'React hooks are functions that let you use state and other React features without writing a class.',
       ].join('\n');
@@ -795,7 +795,7 @@ describe('ConversationRenderer', () => {
         '```',
         '',
         '<!--STW ID:def456,ROLE:steward,COMMAND:generate-->',
-        "**Steward:** Here's how to use React hooks:",
+        "Here's how to use React hooks:",
       ].join('\n');
 
       // Create mock plugin with the conversation content
@@ -818,7 +818,7 @@ describe('ConversationRenderer', () => {
       // Mock initial conversation content
       const mockContent = [
         '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found:",
+        "Here's what I found:",
         '',
         'React hooks are functions that let you use state.',
       ].join('\n');
@@ -856,7 +856,7 @@ describe('ConversationRenderer', () => {
       // Mock initial conversation content
       const mockContent = [
         '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found:",
+        "Here's what I found:",
         '',
         'React hooks are functions that let you use state.',
       ].join('\n');
@@ -895,7 +895,7 @@ describe('ConversationRenderer', () => {
       // Mock initial conversation content with a loading-like text
       const mockContent = [
         '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found:",
+        "Here's what I found:",
         '',
         '*Generating...*',
       ].join('\n');
@@ -934,7 +934,7 @@ describe('ConversationRenderer', () => {
       // Mock initial conversation content
       const mockContent = [
         '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
-        "**Steward:** Here's what I found:",
+        "Here's what I found:",
         '',
         'React hooks are functions that let you use state.',
       ].join('\n');
@@ -1109,7 +1109,7 @@ describe('ConversationRenderer', () => {
       // Mock conversation content
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
-        '##### **User:** /search React hooks',
+        '##### /search React hooks',
       ].join('\n');
 
       // Create mock plugin with the conversation content
@@ -1231,54 +1231,6 @@ describe('ConversationRenderer', () => {
       expect(processedContent).toMatchSnapshot();
     });
 
-    it('should not show label when role is System and showLabel is false', async () => {
-      // Mock uniqueID to return predictable values for testing
-      const mockUniqueID = uniqueID as jest.MockedFunction<typeof uniqueID>;
-      mockUniqueID.mockClear().mockReturnValueOnce('msg-001').mockReturnValueOnce('msg-002');
-
-      // Create mock plugin with the conversation content
-      const mockPlugin = createMockPlugin('');
-      // Set showPronouns to true to show the label by default.
-      mockPlugin.settings.showPronouns = true;
-      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
-
-      const processSpy = jest
-        .spyOn(mockPlugin.app.vault, 'process')
-        .mockImplementation(async (file, processor) => {
-          const result = processor('');
-          return result;
-        });
-
-      await conversationRenderer.updateConversationNote({
-        path: 'test-conversation',
-        newContent: 'This message has a role label',
-        role: 'Steward',
-      });
-
-      await conversationRenderer.updateConversationNote({
-        path: 'test-conversation',
-        newContent: 'This message does not have a role label',
-        role: {
-          name: 'System',
-          showLabel: false,
-        },
-      });
-
-      // Verify that uniqueID was called for each message
-      expect(mockUniqueID).toHaveBeenCalledTimes(2);
-
-      // Verify that vault.process was called
-      expect(processSpy).toHaveBeenCalledTimes(2);
-
-      // Get the processed content from the mocks
-      for (const processCall of processSpy.mock.calls) {
-        const processor = processCall[1];
-        const processedContent = processor('');
-
-        // Verify that the label is not shown
-        expect(processedContent.trim()).toMatchSnapshot();
-      }
-    });
   });
 
   describe('serializeToolInvocation', () => {
@@ -1948,15 +1900,15 @@ describe('ConversationRenderer', () => {
   describe('deleteMessageById', () => {
     const threeMessageContent = [
       '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
-      '##### **User:** /search React hooks',
+      '##### /search React hooks',
       '',
       '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
-      "**Steward:** Here's what I found:",
+      "Here's what I found:",
       '',
       'React hooks are functions that let you use state.',
       '',
       '<!--STW ID:ghi789,ROLE:user,COMMAND:-->',
-      '##### **User:** Thanks!',
+      '##### Thanks!',
     ].join('\n');
 
     it('should remove only the middle message and keep the rest', async () => {
