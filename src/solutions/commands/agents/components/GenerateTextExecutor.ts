@@ -129,17 +129,29 @@ export class GenerateTextExecutor {
       messages.push({ role: 'user', content: params.intent.query });
     }
 
+    const includeCatalogSections = agent.includesDelegatedCatalogSections();
     const includeSkillCatalog =
-      !params.intent.tools ||
-      params.intent.tools.length === 0 ||
-      params.intent.tools.includes(ToolName.CONTENT_READING);
+      includeCatalogSections &&
+      (!params.intent.tools ||
+        params.intent.tools.length === 0 ||
+        params.intent.tools.includes(ToolName.CONTENT_READING));
+    const includeSubAgentCatalog =
+      includeCatalogSections &&
+      (!params.intent.tools ||
+        params.intent.tools.length === 0 ||
+        params.intent.tools.includes(ToolName.CONTENT_READING));
     const skillSectionBody = includeSkillCatalog
       ? this.buildSkillSectionBody({ plugin: agent.plugin, activeTools: allActiveToolNames })
       : '';
-    const userDefinedCommandSectionBody = this.buildUserDefinedCommandSectionBody({
-      plugin: agent.plugin,
-      runCommandAvailable,
-    });
+    const subAgentSectionBody = includeSubAgentCatalog
+      ? this.buildSubAgentSectionBody({ plugin: agent.plugin })
+      : '';
+    const userDefinedCommandSectionBody = includeCatalogSections
+      ? this.buildUserDefinedCommandSectionBody({
+          plugin: agent.plugin,
+          runCommandAvailable,
+        })
+      : '';
 
     const additionalSystemPrompts = params.intent.systemPrompts
       ? [...params.intent.systemPrompts]
@@ -150,6 +162,10 @@ export class GenerateTextExecutor {
 
     if (skillSectionBody) {
       additionalSystemPrompts.push(this.wrapPromptSection('## Skill', skillSectionBody));
+    }
+
+    if (subAgentSectionBody) {
+      additionalSystemPrompts.push(this.wrapPromptSection('## Sub-agent', subAgentSectionBody));
     }
 
     if (userDefinedCommandSectionBody) {

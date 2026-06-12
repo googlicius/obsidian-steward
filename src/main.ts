@@ -75,7 +75,7 @@ import { UserMessageService } from './services/UserMessageService';
 import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionTokenService } from './services/CompactionTokenService';
-import { SubagentSpawnService } from './services/SubagentSpawnService';
+import { SubAgentDefinitionService, SubagentSpawnService } from './services/SubAgent';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
 import { CliSessionService } from './services/CliSessionService/CliSessionService';
@@ -116,6 +116,7 @@ export default class StewardPlugin extends Plugin {
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
   _subAgentSpawnService: SubagentSpawnService;
+  _subAgentDefinitionService: SubAgentDefinitionService;
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
   _cliSessionService: CliSessionService;
@@ -307,6 +308,14 @@ export default class StewardPlugin extends Plugin {
     return this._subAgentSpawnService;
   }
 
+  get subAgentDefinitionService(): SubAgentDefinitionService {
+    if (!this._subAgentDefinitionService) {
+      this._subAgentDefinitionService = SubAgentDefinitionService.getInstance(this);
+      this._subAgentDefinitionService.initialize();
+    }
+    return this._subAgentDefinitionService;
+  }
+
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
   }
@@ -364,6 +373,9 @@ export default class StewardPlugin extends Plugin {
 
       // Tool instruction memory (Steward/Memory/Tool instructions.md)
       this.toolInstructionService;
+
+      // Sub-agent definitions (Steward/Sub Agents.md)
+      this.subAgentDefinitionService;
 
       if (Platform.isDesktopApp) {
         await this.ptyCompanionService.start();

@@ -11,9 +11,12 @@ import { DEFAULT_INTENT_TYPE } from 'src/solutions/commands/agents/intentHelpers
 
 export interface SpawnSubagentJob {
   task: string;
+  /** Catalog id from Steward/Sub Agents.md when spawning a specialized sub-agent. */
+  agentId?: string;
   tools?: ToolName[];
   inactiveTools?: ToolName[];
   systemPrompts?: string[];
+  model?: string;
 }
 
 export interface SubagentRunResult {
@@ -119,9 +122,16 @@ export class SubagentSpawnService {
           { name: 'indicator_text', value: indicatorText },
         ],
       });
-      await this.plugin.conversationRenderer.updateConversationFrontmatter(childTitle, [
+      const childFrontmatter: Array<{ name: string; value: string }> = [
         { name: 'parent', value: params.parentAgentId },
-      ]);
+      ];
+      if (job.agentId) {
+        childFrontmatter.push({ name: 'sub_agent_id', value: job.agentId });
+      }
+      await this.plugin.conversationRenderer.updateConversationFrontmatter(
+        childTitle,
+        childFrontmatter
+      );
 
       await params.onStatus?.('running', {
         childTitle,
@@ -136,6 +146,7 @@ export class SubagentSpawnService {
             type: DEFAULT_INTENT_TYPE,
             query: job.task,
             no_confirm: true,
+            model: job.model,
             systemPrompts: [...(params.defaultSystemPrompts || []), ...(job.systemPrompts || [])],
           },
           lang: params.lang,

@@ -39,6 +39,10 @@ export class SubAgent extends Agent implements AgentHandlerContext {
     return SUBAGENT_VALID_TOOL_NAMES;
   }
 
+  public includesDelegatedCatalogSections(): boolean {
+    return false;
+  }
+
   public buildCorePrompt(_context?: AgentCorePromptContext): string {
     return `You are a subagent worker in Obsidian Steward.
 

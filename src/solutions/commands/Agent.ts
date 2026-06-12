@@ -22,6 +22,8 @@ export interface AgentCorePromptContext {
   readonly currentPosition: number | null;
   /** When true, include the skill catalog in the core prompt. */
   readonly includeSkillCatalog: boolean;
+  /** When true, include the sub-agent catalog in the core prompt. */
+  readonly includeSubAgentCatalog: boolean;
   /** When true, list enabled user-defined commands; otherwise show a placeholder. */
   readonly runCommandAvailable: boolean;
   /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
@@ -82,6 +84,14 @@ export abstract class Agent {
    * Stream executors can pass rich context while text executors can omit it.
    */
   public abstract buildCorePrompt(context?: AgentCorePromptContext): string;
+
+  /**
+   * When false, GenerateTextExecutor omits skill/sub-agent/UDC catalog sections.
+   * Delegated sub-agents receive task-specific instructions via intent.systemPrompts.
+   */
+  public includesDelegatedCatalogSections(): boolean {
+    return true;
+  }
 
   /**
    * Handle an agent invocation with automatic error handling and model fallback
