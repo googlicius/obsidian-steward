@@ -170,10 +170,7 @@ export class SubAgentDefinitionService {
     return this.plugin.markdownDefinitionService;
   }
 
-  private collectSubAgentBlocks(params: {
-    content: string;
-    file: TFile;
-  }): CollectedSubAgentBlocks {
+  private collectSubAgentBlocks(params: { content: string; file: TFile }): CollectedSubAgentBlocks {
     const { blocks, parseErrors } = this.markdownDefinitionService.collectAllYamlBlocks({
       file: params.file,
       content: params.content,

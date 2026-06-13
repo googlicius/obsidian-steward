@@ -25,6 +25,9 @@ function createMockPlugin(): StewardPlugin {
         modify: jest.fn(),
         on: jest.fn().mockReturnValue({ events: [] }),
       },
+      metadataCache: {
+        on: jest.fn(),
+      },
     },
     obsidianAPITools: {
       ensureFolderExists: jest.fn().mockResolvedValue(undefined),

@@ -1045,7 +1045,6 @@ exports[`ConversationRenderer extractConversationHistory should remove the last 
 }
 `;
 
-
 exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided 1`] = `
 "<!--STW ID:abc123,ROLE:user,COMMAND:search-->
 >[!stw-user-message] id:abc123

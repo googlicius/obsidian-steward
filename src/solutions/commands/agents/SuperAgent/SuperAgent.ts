@@ -151,9 +151,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       )
       .addSection(
         '## Sub-agent',
-        context.includeSubAgentCatalog
-          ? this.buildSubAgentSectionBody({ plugin: this.plugin })
-          : ''
+        context.includeSubAgentCatalog ? this.buildSubAgentSectionBody({ plugin: this.plugin }) : ''
       )
       .addSection(
         '## User-defined command',

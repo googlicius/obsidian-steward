@@ -118,6 +118,7 @@ function createProjectTestPlugin(params?: { initialFiles?: Record<string, string
           }
           return { sections: buildMarkdownSections(content) };
         }),
+        on: jest.fn(),
       },
     },
     obsidianAPITools: {
@@ -168,6 +169,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       },
       metadataCache: {
         getFileCache: jest.fn(),
+        on: jest.fn(),
       },
     },
     obsidianAPITools: {

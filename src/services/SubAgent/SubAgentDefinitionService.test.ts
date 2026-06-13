@@ -183,13 +183,9 @@ describe('SubAgentDefinitionService', () => {
   });
 
   it('rejects unsupported yaml block names', () => {
-    const content = [
-      '```yaml',
-      'name: manifest',
-      'entry: index.html',
-      'type: html',
-      '```',
-    ].join('\n');
+    const content = ['```yaml', 'name: manifest', 'entry: index.html', 'type: html', '```'].join(
+      '\n'
+    );
     const plugin = createValidatorPlugin(content);
     const service = SubAgentDefinitionService.getInstance(plugin);
 

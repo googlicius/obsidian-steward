@@ -321,9 +321,9 @@ describe('GenerateTextExecutor', () => {
         path: 'Steward/Skills/guardrails/SKILL.md',
       },
     ]);
-    mockPlugin.subAgentDefinitionService.getCatalog = jest.fn().mockReturnValue([
-      { id: 'image_vision', description: 'Reads images' },
-    ]);
+    mockPlugin.subAgentDefinitionService.getCatalog = jest
+      .fn()
+      .mockReturnValue([{ id: 'image_vision', description: 'Reads images' }]);
 
     await subAgent.executeForTest({
       title: 'parent__subagent_abc',

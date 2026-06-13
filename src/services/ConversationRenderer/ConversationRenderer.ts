@@ -1397,7 +1397,7 @@ export class ConversationRenderer {
               messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
             } else {
               // For backward compatibility, try the old heading format
-              messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+              messageContent = messageContent.replace(/^##### (?:\*\*User:\*\* )?/im, '');
             }
           }
         } else if (metadata.ROLE === 'steward') {

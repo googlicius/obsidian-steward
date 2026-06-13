@@ -1230,7 +1230,6 @@ describe('ConversationRenderer', () => {
       // Verify that only the target message was removed, others remain
       expect(processedContent).toMatchSnapshot();
     });
-
   });
 
   describe('serializeToolInvocation', () => {

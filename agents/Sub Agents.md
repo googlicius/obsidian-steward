@@ -8,16 +8,16 @@ Specialized sub-agents for `spawn_subagent`. Each agent is defined by a level-2 
 
 ## YAML block (`name: agent`)
 
-| Field | Required | Description |
-| ----- | -------- | ----------- |
-| `name` | Yes | Must be `agent` |
-| `id` | Yes | Unique agent id used when spawning |
-| `description` | Yes | Short summary shown in the agent catalog |
-| `instruction` | Yes | System prompt for the sub-agent worker |
-| `model` | No | LLM override in `provider:model` format (e.g. `google:gemini-2.5-flash`) |
-| `enabled` | No | `false` skips this agent; default `true` |
-| `tools` | No | Default active tools for spawned jobs |
-| `inactiveTools` | No | Default inactive tools the sub-agent may activate |
+| Field           | Required | Description                                                              |
+| --------------- | -------- | ------------------------------------------------------------------------ |
+| `name`          | Yes      | Must be `agent`                                                          |
+| `id`            | Yes      | Unique agent id used when spawning                                       |
+| `description`   | Yes      | Short summary shown in the agent catalog                                 |
+| `instruction`   | Yes      | System prompt for the sub-agent worker                                   |
+| `model`         | No       | LLM override in `provider:model` format (e.g. `google:gemini-2.5-flash`) |
+| `enabled`       | No       | `false` skips this agent; default `true`                                 |
+| `tools`         | No       | Default active tools for spawned jobs                                    |
+| `inactiveTools` | No       | Default inactive tools the sub-agent may activate                        |
 
 Only `agent` YAML fences are loaded. Other block types make the file invalid.
 
