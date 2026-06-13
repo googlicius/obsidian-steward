@@ -5,6 +5,20 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.0] - 2026-06-13
+
+### Added
+
+- **Input**: Display thumbnail-size images in the input for any embed wikilink
+- **Sub-agents**: Sub-agent definition system with `image_vision` specialized worker
+
+### Changed
+
+- **Widget**: Remove role labels and consolidate widget message types
+- **Widget**: Switch to `metadataCache` listener and tighten method visibility
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.10.0...2.11.0)
+
 ## [2.10.0] - 2026-06-07
 
 ### Added
