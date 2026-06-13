@@ -715,7 +715,7 @@ export class WidgetService {
     return null;
   }
 
-  /** Resolves a pending applyAction request from a WIDGET_ACTION_RESULT message. */
+  /** Resolves a pending applyAction request from a WidgetMessageType.ActionResult message. */
   public resolveActionResult(params: {
     requestId: string;
     ok: boolean;

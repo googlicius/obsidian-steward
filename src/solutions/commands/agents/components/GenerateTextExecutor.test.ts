@@ -78,6 +78,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       getSkillCatalog: jest.fn().mockReturnValue([]),
       getSkillContents: jest.fn().mockReturnValue({ contents: {} }),
     },
+    subAgentDefinitionService: {
+      getCatalog: jest.fn().mockReturnValue([]),
+      getDefinitionRelativePath: jest.fn().mockReturnValue('Steward/Sub Agents.md'),
+    },
     userDefinedCommandService: {
       getEnabledCommandCatalog: jest.fn().mockReturnValue([]),
     },
@@ -111,6 +115,10 @@ class TestAgent extends GenerateTextExecutor {
 
   public buildCorePrompt(): string {
     return 'core-system-prompt';
+  }
+
+  public includesDelegatedCatalogSections(): boolean {
+    return true;
   }
 
   public async executeForTest(
@@ -238,6 +246,105 @@ describe('GenerateTextExecutor', () => {
     );
     expect(systemText).toContain('content_reading');
     expect(systemText).toContain('readType');
+  });
+
+  it('includes sub-agent catalog with read instruction', async () => {
+    const params: AgentHandlerParams = {
+      title: 'test-conversation',
+      intent: {
+        type: 'vault',
+        query: 'test query',
+      } as Intent,
+    };
+
+    mockPlugin.subAgentDefinitionService.getCatalog = jest.fn().mockReturnValue([
+      {
+        id: 'image_vision',
+        description: 'Reads and analyzes images using a vision-capable model',
+      },
+    ]);
+
+    await testAgent.executeForTest(params, {
+      tools: {},
+    });
+
+    const call = getMockGenerateText().mock.calls[0][0];
+    const systemText = call.messages
+      .filter((message: { role: string }) => message.role === 'system')
+      .map((message: { content: string }) => message.content)
+      .join('\n');
+
+    expect(systemText).toContain('### Available sub-agents');
+    expect(systemText).toContain(
+      '- image_vision: Reads and analyzes images using a vision-capable model'
+    );
+    expect(systemText).toContain('Steward/Sub Agents.md');
+    expect(systemText).toContain('spawn_subagent');
+  });
+
+  it('omits skill, sub-agent, and UDC catalog sections for delegated sub-agents', async () => {
+    class SubAgentTestExecutor extends GenerateTextExecutor {
+      constructor(
+        public plugin: StewardPlugin,
+        public renderer: StewardPlugin['conversationRenderer']
+      ) {
+        super();
+      }
+
+      public getValidToolNames(): ReadonlySet<ToolName> {
+        return new Set([ToolName.CONTENT_READING, ToolName.ACTIVATE]);
+      }
+
+      public buildCorePrompt(): string {
+        return 'subagent-core-prompt';
+      }
+
+      public includesDelegatedCatalogSections(): boolean {
+        return false;
+      }
+
+      public executeForTest(params: AgentHandlerParams) {
+        return this.executeGenerateText({
+          ...params,
+          activeTools: [ToolName.CONTENT_READING],
+          inactiveTools: [],
+          tools: {},
+        });
+      }
+    }
+
+    const subAgent = new SubAgentTestExecutor(mockPlugin, mockPlugin.conversationRenderer);
+    mockPlugin.skillService.getSkillCatalog = jest.fn().mockReturnValue([
+      {
+        name: 'guardrails',
+        description: 'Safety rules',
+        path: 'Steward/Skills/guardrails/SKILL.md',
+      },
+    ]);
+    mockPlugin.subAgentDefinitionService.getCatalog = jest
+      .fn()
+      .mockReturnValue([{ id: 'image_vision', description: 'Reads images' }]);
+
+    await subAgent.executeForTest({
+      title: 'parent__subagent_abc',
+      intent: {
+        type: 'vault',
+        query: 'Describe the image',
+        systemPrompts: ['You are an image analysis agent.'],
+      } as Intent,
+    });
+
+    const call = getMockGenerateText().mock.calls.at(-1)?.[0];
+    const systemText = call.messages
+      .filter((message: { role: string }) => message.role === 'system')
+      .map((message: { content: string }) => message.content)
+      .join('\n');
+
+    expect(systemText).not.toContain('### Available skills');
+    expect(systemText).not.toContain('### Available sub-agents');
+    expect(systemText).not.toContain('User-defined commands combine');
+    expect(systemText).toContain('You are an image analysis agent.');
+    expect(systemText).toContain('## Tool');
   });
 
   it('includes tool instructions prompt when tools are enabled', async () => {

@@ -359,6 +359,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `For jobs that create, edit, move, or delete content, include enough inactiveTools to verify results before concluding (for example: ${ToolName.CONTENT_READING}, ${ToolName.GREP}, ${ToolName.SEARCH}, ${ToolName.LIST}).`,
       `Subagents run in parallel, so ensure jobs do not depend on each other.`,
       `Subagents can activate only when needed; keep tools minimal but include a verification path via inactiveTools.`,
+      `For specialized workers, set agent_id from the sub-agent catalog (e.g. image_vision) and leave tools, systemPrompts, and inactiveTools empty so they are filled from Steward/Sub Agents.md.`,
       `After ${ToolName.SPAWN_SUBAGENT} returns, use its summarized results to continue or finalize in the conversation.`,
     ],
     category: 'orchestration',

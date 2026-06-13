@@ -533,8 +533,6 @@ const en = {
     settings: {
       stewardFolder: 'Steward folder',
       stewardFolderDesc: 'Base folder where Steward data will be stored',
-      showRoleLabels: 'Show role labels',
-      showRoleLabelsDesc: 'Show User/Steward/System labels in conversations',
       autoScroll: 'Auto-scroll',
       autoScrollDesc: 'Automatically scroll to the bottom when new messages are added',
       debugMode: 'Debug mode',

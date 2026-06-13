@@ -763,14 +763,15 @@ export class ContentReadingService {
   public applyImageVisionNotices(params: {
     readingResults: ContentReadingResult[];
     model: string;
+    subAgentDefinitionId?: string | null;
   }): void {
-    const { readingResults, model } = params;
+    const { readingResults, model, subAgentDefinitionId } = params;
     if (this.plugin.llmService.supportsVision(model)) {
       return;
     }
 
     const { modelId } = this.plugin.llmService.parseModel(model);
-    const notice = this.buildImageVisionNotice(modelId);
+    const notice = this.buildImageVisionNotice(modelId, subAgentDefinitionId);
 
     for (const result of readingResults) {
       if (this.collectImagePathsFromReadingResult(result).length > 0) {
@@ -813,11 +814,23 @@ export class ContentReadingService {
   }
 
   /** AI-only message when the chat model cannot receive image bytes from a read. */
-  private buildImageVisionNotice(modelId: string): string {
-    return [
+  private buildImageVisionNotice(modelId: string, subAgentDefinitionId?: string | null): string {
+    const baseLines = [
       `The current chat model (${modelId}) does not support vision/image inputs.`,
       'Image pixels from this read were not attached to the model.',
-      'Either stop and tell the user this model cannot view images, or continue with a non-image approach (paths, filenames, surrounding text only—do not describe pixel content).',
+    ];
+
+    if (subAgentDefinitionId === 'image_vision') {
+      return [
+        ...baseLines,
+        'Either stop and tell the user this model cannot view images, or continue with a non-image approach (paths, filenames, surrounding text only—do not describe pixel content).',
+      ].join(' ');
+    }
+
+    return [
+      ...baseLines,
+      `Use ${ToolName.SPAWN_SUBAGENT} to delegate to the image_vision sub-agent when the user needs image content analyzed.`,
+      'Otherwise, tell the user this model cannot view images, or continue with a non-image approach (paths, filenames, surrounding text only—do not describe pixel content).',
     ].join(' ');
   }
 }

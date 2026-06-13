@@ -149,7 +149,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   encryptionVersion: 1, // Current version
   excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
   debug: false, // Debug logging disabled by default
-  showPronouns: true, // Show pronouns in chat by default
   autoScroll: true, // Auto-scroll enabled by default
   chatViewDock: 'right',
   audio: {

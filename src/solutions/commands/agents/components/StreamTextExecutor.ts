@@ -140,6 +140,10 @@ export class StreamTextExecutor {
       !params.intent.tools ||
       params.intent.tools.length === 0 ||
       params.intent.tools.includes(ToolName.CONTENT_READING);
+    const includeSubAgentCatalog =
+      !params.intent.tools ||
+      params.intent.tools.length === 0 ||
+      params.intent.tools.includes(ToolName.CONTENT_READING);
     const runCommandAvailable = allActiveToolNames.includes(ToolName.RUN_COMMAND);
 
     const resolvedSystemPrompts =
@@ -166,6 +170,7 @@ export class StreamTextExecutor {
       currentNote,
       currentPosition,
       includeSkillCatalog,
+      includeSubAgentCatalog,
       runCommandAvailable,
     });
 

@@ -80,6 +80,23 @@ export class SystemPromptComposer {
     return lines.join('\n');
   }
 
+  protected buildSubAgentSectionBody(params: { plugin: StewardPlugin }): string {
+    const catalog = params.plugin.subAgentDefinitionService.getCatalog();
+    if (catalog.length === 0) {
+      return '';
+    }
+
+    const subAgentsPath = params.plugin.subAgentDefinitionService.getDefinitionRelativePath();
+    const entries = catalog.map(entry => `- ${entry.id}: ${entry.description}`).join('\n');
+
+    return new MarkdownBuilder()
+      .addSection(
+        '### Available sub-agents',
+        `${entries}\n\nRead \`${subAgentsPath}\` with ${ToolName.CONTENT_READING} (readType: "entire") for full definitions before ${ToolName.SPAWN_SUBAGENT} when a specialized agent fits the job.`
+      )
+      .build();
+  }
+
   protected buildSkillSectionBody(params: {
     plugin: StewardPlugin;
     activeTools: readonly string[];

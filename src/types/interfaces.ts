@@ -44,7 +44,6 @@ export interface StewardPluginSettings {
   encryptionVersion?: number; // Track the encryption version for future migrations
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
-  showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
   autoScroll: boolean; // Toggle auto-scroll feature in chat
   /** Where the Steward chat pane should open: main editor area or right sidebar */
   chatViewDock: 'main' | 'right';

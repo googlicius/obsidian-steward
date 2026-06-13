@@ -81,6 +81,11 @@ html[data-stw-language='vi'] {
       color: var(--text-muted);
     }
   }
+
+  /* Thumbnail-size embeds (![[image]]) in the command input */
+  .image-wrapper img {
+    max-width: 50px;
+  }
 }
 
 .stw-chat {

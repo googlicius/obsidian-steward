@@ -262,10 +262,15 @@ export class ReadContent {
       }
     }
 
+    const subAgentDefinitionId = await this.agent.renderer.getConversationProperty<string>(
+      title,
+      'sub_agent_id'
+    );
     this.agent.plugin.contentReadingService.applyImageVisionNotices({
       readingResults,
       model:
         ctx.agentHandlerParams.intent.model?.trim() || this.agent.plugin.settings.llm.chat.model,
+      subAgentDefinitionId,
     });
 
     // Store single artifact with all reading results

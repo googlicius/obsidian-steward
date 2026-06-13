@@ -2,7 +2,7 @@
 
 exports[`ConversationRenderer addUserMessage should add a user message to the conversation note with contentFormat default (callout) 1`] = `
 "<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
-**Steward:** Here's what I found:
+Here's what I found:
 
 React hooks are functions that let you use state.
 
@@ -16,7 +16,7 @@ React hooks are functions that let you use state.
 
 exports[`ConversationRenderer addUserMessage should add a user message to the conversation note with contentFormat hidden 1`] = `
 "<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
-**Steward:** Here's what I found:
+Here's what I found:
 
 React hooks are functions that let you use state.
 
@@ -1043,16 +1043,6 @@ exports[`ConversationRenderer extractConversationHistory should remove the last 
     },
   ],
 }
-`;
-
-exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 1`] = `
-"<!--STW ID:msg-001,ROLE:steward-->
-**Steward:** This message has a role label"
-`;
-
-exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 2`] = `
-"<!--STW ID:msg-002,ROLE:system-->
-This message does not have a role label"
 `;
 
 exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided 1`] = `

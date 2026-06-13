@@ -178,6 +178,7 @@ Steward/
 ├── Trash/          # Stores deleted files
 ├── install-node-pty-runtime.sh   # Downloads node-pty prebuilt (macOS, Linux, Git Bash)
 ├── install-node-pty-runtime.ps1  # Downloads node-pty prebuilt (Windows PowerShell)
+├── Sub Agents.md                 # Specialized sub-agent definitions for spawn_subagent
 └── Chat.md                       # Current active conversation
 ```
 

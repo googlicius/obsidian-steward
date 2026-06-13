@@ -6,7 +6,7 @@ import type { ToolCallPart } from '../../tools/types';
 import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { type SpawnSubagentJob } from 'src/services/SubagentSpawnService';
+import { type SpawnSubagentJob } from 'src/services/SubAgent';
 import { DEFAULT_AGENT_CONFIGS } from '../defaultAgents';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -16,6 +16,13 @@ const spawnSubagentSchema = z.object({
     .array(
       z.object({
         task: z.string().min(1),
+        agent_id: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Sub-agent id from Steward/Sub Agents.md (e.g. image_vision). When provided, leave tools, systemPrompts, and inactiveTools empty; they are filled from the definition.'
+          ),
         tools: z.array(z.string()).optional(),
         inactiveTools: z.array(z.string()).optional(),
         systemPrompts: z.array(z.string()).optional(),
@@ -91,26 +98,41 @@ export class SpawnSubagent {
       return { status: IntentResultStatus.SUCCESS };
     }
 
-    const allowedSubagents = new Set(parentConfig.allowedSubagents || []);
-    const subagentId = 'subagent';
-    if (allowedSubagents.size > 0 && !allowedSubagents.has(subagentId)) {
-      await ctx.serializeInvocation({
-        command: ToolName.SPAWN_SUBAGENT,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: `Subagent "${subagentId}" is not allowed for "${parentAgentId}".`,
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
+    const normalizedJobs: SpawnSubagentJob[] = [];
+    for (let i = 0; i < toolCall.input.jobs.length; i++) {
+      const job = toolCall.input.jobs[i];
+      if (job.agent_id) {
+        const definition = this.agent.plugin.subAgentDefinitionService.getDefinition(job.agent_id);
+        if (!definition) {
+          await ctx.serializeInvocation({
+            command: ToolName.SPAWN_SUBAGENT,
+            toolCall,
+            result: {
+              type: 'error-text',
+              value: `Unknown sub-agent "${job.agent_id}". Check Steward/Sub Agents.md for available agent ids.`,
+            },
+          });
+          return { status: IntentResultStatus.SUCCESS };
+        }
 
-    const normalizedJobs: SpawnSubagentJob[] = toolCall.input.jobs.map(job => ({
-      task: job.task,
-      tools: job.tools as ToolName[] | undefined,
-      inactiveTools: job.inactiveTools as ToolName[] | undefined,
-      systemPrompts: job.systemPrompts,
-    }));
+        normalizedJobs.push({
+          task: job.task,
+          agentId: job.agent_id,
+          tools: definition.tools,
+          inactiveTools: definition.inactiveTools,
+          systemPrompts: [definition.instruction],
+          model: definition.model,
+        });
+        continue;
+      }
+
+      normalizedJobs.push({
+        task: job.task,
+        tools: job.tools as ToolName[] | undefined,
+        inactiveTools: job.inactiveTools as ToolName[] | undefined,
+        systemPrompts: job.systemPrompts,
+      });
+    }
 
     await this.agent.renderer.addGeneratingIndicator(title, t('conversation.working'));
 

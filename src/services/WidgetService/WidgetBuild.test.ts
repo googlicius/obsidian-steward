@@ -1,14 +1,5 @@
 import { buildWidgetSrcdoc, buildWidgetStateHead, WIDGET_SRCDOC_HEAD } from './WidgetBuild';
-import {
-  WIDGET_ACTION_RESULT,
-  WIDGET_ACTIONS_REGISTERED,
-  WIDGET_APPLY_ACTION,
-  WIDGET_ASSET_REQUEST,
-  WIDGET_ASSET_RESPONSE,
-  WIDGET_RESIZE,
-  WIDGET_STATE_GLOBAL,
-  WIDGET_STATE_SAVE,
-} from './WidgetProtocol';
+import { WidgetMessageType, WIDGET_STATE_GLOBAL } from './WidgetProtocol';
 
 describe('buildWidgetSrcdoc', () => {
   it('wraps an HTML fragment with CSP head and allow-scripts sandbox', () => {
@@ -21,7 +12,7 @@ describe('buildWidgetSrcdoc', () => {
     expect(result.usesPostMessageResize).toBe(true);
     expect(result.srcdoc).toContain(WIDGET_SRCDOC_HEAD);
     expect(result.srcdoc).toContain('<p>Hello</p>');
-    expect(result.srcdoc).toContain(WIDGET_RESIZE);
+    expect(result.srcdoc).toContain(WidgetMessageType.Resize);
   });
 
   it('uses allow-same-origin for SVG without scripts', () => {
@@ -54,7 +45,7 @@ describe('buildWidgetStateHead', () => {
 
     expect(head).toContain(`window.${WIDGET_STATE_GLOBAL} = null`);
     expect(head).toContain('window.stw');
-    expect(head).toContain(WIDGET_STATE_SAVE);
+    expect(head).toContain(WidgetMessageType.StateSave);
   });
 
   it('serializes persisted state envelope into the iframe', () => {
@@ -80,8 +71,8 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain('"x":"Images/x.png"');
     expect(head).toContain('getAsset');
     expect(head).toContain('assets:');
-    expect(head).toContain(WIDGET_ASSET_REQUEST);
-    expect(head).toContain(WIDGET_ASSET_RESPONSE);
+    expect(head).toContain(WidgetMessageType.AssetRequest);
+    expect(head).toContain(WidgetMessageType.AssetResponse);
     expect(head).toContain('hydrateDomAssets');
   });
 
@@ -91,8 +82,8 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain('registerAction');
     expect(head).toContain('dispatchAction');
     expect(head).toContain('getRegisteredActions');
-    expect(head).toContain(WIDGET_APPLY_ACTION);
-    expect(head).toContain(WIDGET_ACTION_RESULT);
-    expect(head).toContain(WIDGET_ACTIONS_REGISTERED);
+    expect(head).toContain(WidgetMessageType.ApplyAction);
+    expect(head).toContain(WidgetMessageType.ActionResult);
+    expect(head).toContain(WidgetMessageType.ActionsRegistered);
   });
 });

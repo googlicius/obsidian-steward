@@ -132,6 +132,17 @@ describe('ContentReadingService', () => {
     it('buildImageVisionNotice describes the model limitation for the agent', () => {
       expect(buildImageVisionNotice('deepseek-chat')).toContain('deepseek-chat');
       expect(buildImageVisionNotice('deepseek-chat')).toContain('does not support vision');
+      expect(buildImageVisionNotice('deepseek-chat')).toContain('spawn_subagent');
+      expect(buildImageVisionNotice('deepseek-chat')).toContain('image_vision');
+    });
+
+    it('buildImageVisionNotice omits spawn hint when the current sub-agent is image_vision', () => {
+      const notice = buildImageVisionNotice('deepseek-chat', 'image_vision');
+      expect(notice).toContain('does not support vision');
+      expect(notice).not.toContain('spawn_subagent');
+      expect(notice).toContain(
+        'Either stop and tell the user this model cannot view images, or continue with a non-image approach'
+      );
     });
   });
 

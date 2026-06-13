@@ -1,14 +1,8 @@
 import type { WidgetType } from 'src/solutions/commands/agents/handlers/ShowWidget';
 import {
-  WIDGET_ACTION_RESULT,
-  WIDGET_ACTIONS_REGISTERED,
-  WIDGET_APPLY_ACTION,
-  WIDGET_ASSET_REQUEST,
+  WidgetMessageType,
   WIDGET_ASSET_REQUEST_TIMEOUT_MS,
-  WIDGET_ASSET_RESPONSE,
-  WIDGET_RESIZE,
   WIDGET_STATE_GLOBAL,
-  WIDGET_STATE_SAVE,
   WIDGET_STATE_SAVE_DEBOUNCE_MS,
 } from './WidgetProtocol';
 import type { WidgetState } from './types';
@@ -27,7 +21,7 @@ const WIDGET_RESIZE_SCRIPT = `<script>
     if (height <= 0) {
       return;
     }
-    parent.postMessage({ type: '${WIDGET_RESIZE}', height: height }, '*');
+    parent.postMessage({ type: '${WidgetMessageType.Resize}', height: height }, '*');
   }
   window.addEventListener('load', reportHeight);
   if (typeof ResizeObserver !== 'undefined') {
@@ -74,7 +68,7 @@ export function buildWidgetStateHead(params: {
 
   function notifyRegisteredActions() {
     parent.postMessage({
-      type: '${WIDGET_ACTIONS_REGISTERED}',
+      type: '${WidgetMessageType.ActionsRegistered}',
       actions: Object.keys(actionHandlers)
     }, '*');
   }
@@ -122,7 +116,7 @@ export function buildWidgetStateHead(params: {
       };
 
       parent.postMessage({
-        type: '${WIDGET_ASSET_REQUEST}',
+        type: '${WidgetMessageType.AssetRequest}',
         requestId: requestId,
         assetId: registryPath
       }, '*');
@@ -234,7 +228,7 @@ export function buildWidgetStateHead(params: {
       window.${WIDGET_STATE_GLOBAL} = { version: 1, data: data };
       clearTimeout(saveTimer);
       saveTimer = setTimeout(function () {
-        parent.postMessage({ type: '${WIDGET_STATE_SAVE}', state: data }, '*');
+        parent.postMessage({ type: '${WidgetMessageType.StateSave}', state: data }, '*');
       }, ${WIDGET_STATE_SAVE_DEBOUNCE_MS});
     },
     registerAction: function (name, fn) {
@@ -283,7 +277,7 @@ export function buildWidgetStateHead(params: {
       return;
     }
 
-    if (e.data.type === '${WIDGET_ASSET_RESPONSE}') {
+    if (e.data.type === '${WidgetMessageType.AssetResponse}') {
       var pending = pendingAssetRequests[e.data.requestId];
       if (!pending) {
         return;
@@ -301,13 +295,13 @@ export function buildWidgetStateHead(params: {
       return;
     }
 
-    if (e.data.type !== '${WIDGET_APPLY_ACTION}') {
+    if (e.data.type !== '${WidgetMessageType.ApplyAction}') {
       return;
     }
 
     var result = window.stw.dispatchAction(e.data.action, e.data.params);
     parent.postMessage({
-      type: '${WIDGET_ACTION_RESULT}',
+      type: '${WidgetMessageType.ActionResult}',
       requestId: e.data.requestId,
       ok: !!result.ok,
       error: result.error,

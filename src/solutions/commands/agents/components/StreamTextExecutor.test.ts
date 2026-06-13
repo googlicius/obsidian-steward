@@ -90,6 +90,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       getSkillCatalog: jest.fn().mockReturnValue([]),
       getSkillContents: jest.fn().mockReturnValue({ contents: {} }),
     },
+    subAgentDefinitionService: {
+      getCatalog: jest.fn().mockReturnValue([]),
+      getDefinitionRelativePath: jest.fn().mockReturnValue('Steward/Sub Agents.md'),
+    },
     userMessageService: {
       sanitizeQuery: jest.fn((query: string) => query),
     },

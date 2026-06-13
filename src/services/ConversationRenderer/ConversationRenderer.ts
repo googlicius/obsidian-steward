@@ -124,21 +124,6 @@ export class ConversationRenderer {
   }
 
   /**
-   * Formats role text based on the showLabel parameter and showPronouns setting
-   */
-  private formatRoleText(role?: string, showLabel?: boolean): string {
-    if (!role) {
-      return '';
-    }
-
-    if (showLabel === false || !this.plugin.settings.showPronouns) {
-      return '';
-    }
-
-    return `**${role}:** `;
-  }
-
-  /**
    * Gets the content after deleting a message and all messages below it
    * This is a pure function that doesn't read or modify the vault
    * @param content The full conversation content
@@ -279,10 +264,9 @@ export class ConversationRenderer {
           // Add separator before user message
           currentContent = `${currentContent}\n\n---`;
 
-          const roleText = this.formatRoleText('User', undefined);
           // Format user message as a callout (default)
           contentToAdd = this.plugin.noteContentService.formatCallout(
-            `${roleText}${sanitizedContent}`,
+            sanitizedContent,
             'stw-user-message',
             { id: messageId }
           );
@@ -316,15 +300,10 @@ export class ConversationRenderer {
      */
     artifactContent?: string;
     /**
-     * The role of the message.
-     * If not provided, the role will be Steward by default, but not displayed in the conversation
+     * The role of the message for metadata.
+     * If not provided, the role will be Steward by default.
      */
-    role?:
-      | string
-      | {
-          name: string;
-          showLabel: boolean;
-        };
+    role?: string;
     /**
      * The history will be included in conversation context.
      * If not provided, the history will be included by default.
@@ -354,8 +333,7 @@ export class ConversationRenderer {
       const file = this.getConversationFileByName(params.path);
 
       // Handle user messages by delegating to addUserMessage
-      const checkRoleName = typeof params.role === 'string' ? params.role : params.role?.name;
-      if (checkRoleName === 'User') {
+      if (params.role === 'User') {
         return await this.addUserMessage({
           path: params.path,
           newContent: params.newContent,
@@ -364,12 +342,7 @@ export class ConversationRenderer {
         });
       }
 
-      const { roleName, showLabel } = (() => {
-        if (typeof params.role === 'string') {
-          return { roleName: params.role, showLabel: undefined };
-        }
-        return { roleName: params.role?.name, showLabel: params.role?.showLabel };
-      })();
+      const roleName = params.role;
 
       // Get message metadata
       const { messageId, comment } = await this.buildMessageMetadata(params.path, {
@@ -416,14 +389,9 @@ export class ConversationRenderer {
         }
 
         // Prepare the content to be added
-        // For Steward or System messages, use the regular format
-        const roleText = this.formatRoleText(roleName, showLabel);
-        let contentToAdd = `${roleText}${params.newContent}`;
-
-        // Add hidden content after visible content if provided
-        if (processedArtifactContent) {
-          contentToAdd += processedArtifactContent;
-        }
+        const contentToAdd = processedArtifactContent
+          ? `${params.newContent}${processedArtifactContent}`
+          : params.newContent;
 
         // Return the updated content
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
@@ -444,7 +412,6 @@ export class ConversationRenderer {
   public async streamConversationNote(params: {
     path: string;
     stream: AsyncIterable<string>;
-    role?: 'Steward';
     folderPath?: string;
     command?: string;
     position?: number;
@@ -493,14 +460,12 @@ export class ConversationRenderer {
         }),
       });
 
-      const roleText = this.formatRoleText(params.role);
-
       let contentToModify = '';
 
       // Write the initial content
       await this.plugin.app.vault.process(file, currentContent => {
         // Prepare the initial content with metadata
-        const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
+        const initialContent = `${currentContent}\n\n${comment}\n`;
 
         // If position is provided, insert at that position
         // Otherwise, append to the end
@@ -782,7 +747,7 @@ export class ConversationRenderer {
 
       // Format user message as a callout with the role text
       const userMessage = this.plugin.noteContentService.formatCallout(
-        `${this.formatRoleText('User')}/${options.intent.type.trim()} ${sanitizedQuery}`,
+        `/${options.intent.type.trim()} ${sanitizedQuery}`,
         'stw-user-message',
         { id: messageId }
       );
@@ -911,13 +876,9 @@ export class ConversationRenderer {
         );
 
         if (calloutContent) {
-          // Remove the role text if present
-          messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+          messageContent = calloutContent;
         }
       }
-
-      // Remove any role name with the syntax **Role:**
-      messageContent = messageContent.replace(/\*\*(User|Steward|System):\*\* /g, '');
 
       // Remove separator lines
       messageContent = messageContent.replace(/^---$/gm, '');
@@ -1436,7 +1397,7 @@ export class ConversationRenderer {
               messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
             } else {
               // For backward compatibility, try the old heading format
-              messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+              messageContent = messageContent.replace(/^##### (?:\*\*User:\*\* )?/im, '');
             }
           }
         } else if (metadata.ROLE === 'steward') {
