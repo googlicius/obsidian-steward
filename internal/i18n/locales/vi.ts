@@ -488,6 +488,8 @@ const vi = {
       apiKey: 'Khóa API',
       addNewProvider: 'Thêm nhà cung cấp mới',
       addNewProviderDesc: 'Thêm nhà cung cấp tùy chỉnh với khóa API và cấu hình riêng',
+      defaultNewProviderDesc:
+        'Nhập tên nhà cung cấp, trường tương thích và URL sẽ được tự động điền.',
       providerName: 'Tên nhà cung cấp',
       providerNamePlaceholder: 'Nhập tên nhà cung cấp (không có khoảng trắng)',
       providerNameNoSpaces: 'Tên nhà cung cấp không được chứa khoảng trắng',

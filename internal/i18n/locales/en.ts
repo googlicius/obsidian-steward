@@ -552,6 +552,7 @@ const en = {
       apiKey: 'API Key',
       addNewProvider: 'Add new provider',
       addNewProviderDesc: 'Add a custom provider with its own API key and configuration',
+      defaultNewProviderDesc: 'Enter a provider name, compatibility and URL will be auto-filled.',
       providerName: 'Provider name',
       providerNamePlaceholder: 'Enter provider name (no spaces)',
       providerNameNoSpaces: 'Provider name cannot contain spaces',

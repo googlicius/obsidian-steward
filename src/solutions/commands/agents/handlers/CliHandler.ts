@@ -1,5 +1,5 @@
 import { z } from 'zod/v3';
-import { normalizePath, Platform } from 'obsidian';
+import { FileSystemAdapter, normalizePath, Platform } from 'obsidian';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
@@ -508,6 +508,48 @@ export class CliHandler {
   }
 
   /**
+   * Resolves the working directory for a CLI session based on the active file.
+   *
+   * When the active file is the Chat view ({@code Chat.md}), returns {@code undefined}
+   * so the session falls back to the vault root (or the user's configured directory).
+   *
+   * When the active file is a regular note (not a conversation note, not the chat file),
+   * returns the absolute filesystem path of that note's parent folder.
+   */
+  private resolveNoteWorkingDirectory(): string | undefined {
+    const activeFile = this.agent.plugin.app.workspace.getActiveFile();
+    if (!activeFile) {
+      return undefined;
+    }
+
+    // Chat view: use vault root.
+    if (
+      activeFile.basename === this.agent.plugin.chatTitle ||
+      activeFile.basename.startsWith(`${this.agent.plugin.chatTitle} `)
+    ) {
+      return undefined;
+    }
+
+    // Conversation notes: their parent folder is always Conversations/ — not useful.
+    const conversationsPrefix = `${this.agent.plugin.settings.stewardFolder}/Conversations/`;
+    if (activeFile.path.startsWith(conversationsPrefix)) {
+      return undefined;
+    }
+
+    const parentFolder = activeFile.parent;
+    if (!parentFolder || parentFolder.isRoot()) {
+      return undefined;
+    }
+
+    const adapter = this.agent.plugin.app.vault.adapter;
+    if (adapter instanceof FileSystemAdapter) {
+      return normalizePath(`${adapter.getBasePath()}/${parentFolder.path}`);
+    }
+
+    return undefined;
+  }
+
+  /**
    * Runs the shell session logic (see {@link CliHandler.handle} for model-side confirmation).
    */
   private async runShellSession(
@@ -552,6 +594,9 @@ export class CliHandler {
         await this.cliSessionService.resolveWorkingDirectoryFromTranscriptCdHistory(
           transcriptConversationTitle
         );
+    }
+    if (!workingDirectory) {
+      workingDirectory = this.resolveNoteWorkingDirectory();
     }
 
     const trimmedIntentShell = (await this.resolveUdcCliFromFrontmatter(ctx.title))?.shell?.trim();

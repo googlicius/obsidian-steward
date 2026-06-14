@@ -45,6 +45,77 @@ const BUILT_IN_PROVIDERS: ProviderNeedApiKey[] = [
   'hume',
 ];
 
+// Popular provider presets — auto-fill compatibility, base URL, and description
+// when the user types a matching custom provider name (fuzzy: "deepseek-1", "openrouter2", etc.)
+const POPULAR_PROVIDER_PRESETS: Record<
+  string,
+  { compatibility: ProviderNeedApiKey; baseUrl: string; description: string }
+> = {
+  deepseek: {
+    compatibility: 'openai',
+    baseUrl: 'https://api.deepseek.com/v1',
+    description:
+      'OpenAI-compatible.\nModels: https://api-docs.deepseek.com/quick_start/pricing\nAPI keys: https://platform.deepseek.com/api_keys',
+  },
+  openrouter: {
+    compatibility: 'openai',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    description:
+      'Multi-model gateway.\nModels: https://openrouter.ai/models\nAPI keys: https://openrouter.ai/keys',
+  },
+  groq: {
+    compatibility: 'openai',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    description:
+      'Fast inference, OpenAI-compatible.\nModels: https://console.groq.com/docs/models\nAPI keys: https://console.groq.com/keys',
+  },
+  kimi: {
+    compatibility: 'openai',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    description:
+      'Moonshot AI, OpenAI-compatible.\nModels: https://platform.moonshot.cn/docs\nAPI keys: https://platform.moonshot.cn/console/api-keys',
+  },
+  'z.ai': {
+    compatibility: 'openai',
+    baseUrl: 'https://api.z.ai/v1',
+    description:
+      '01.AI Yi models, OpenAI-compatible.\nModels: https://z.ai/models\nAPI keys: https://z.ai/api-keys',
+  },
+};
+
+/**
+ * Fuzzy-match a provider name against popular presets and built-in providers.
+ * Returns compatibility + optional baseUrl, or null if no match.
+ */
+function findProviderPreset(
+  name: string
+): { compatibility: ProviderNeedApiKey; baseUrl?: string; description?: string } | null {
+  const normalizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!normalizedName) return null;
+
+  // Check popular presets first
+  for (const [key, preset] of Object.entries(POPULAR_PROVIDER_PRESETS)) {
+    const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normalizedName.includes(normalizedKey)) {
+      return {
+        compatibility: preset.compatibility,
+        baseUrl: preset.baseUrl,
+        description: preset.description,
+      };
+    }
+  }
+
+  // Check built-in providers (fill compatibility, leave URL empty to use default)
+  for (const builtIn of BUILT_IN_PROVIDERS) {
+    const normalizedBuiltIn = builtIn.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normalizedName.includes(normalizedBuiltIn)) {
+      return { compatibility: builtIn };
+    }
+  }
+
+  return null;
+}
+
 export class ProviderSetting {
   protected plugin: StewardPlugin;
 
@@ -128,6 +199,9 @@ export class ProviderSetting {
     const description = this.getProviderDescription(provider);
     if (description) {
       setting.setDesc(createFragmentFromText(description));
+    } else if (isCustom && !config.name) {
+      // Show hint for newly-added custom providers that haven't been named yet
+      setting.setDesc(createFragmentFromText(t('settings.defaultNewProviderDesc')));
     }
 
     let currentInputWrapper: HTMLElement | null = null;
@@ -207,6 +281,11 @@ export class ProviderSetting {
         cls: 'stw-setting-wrapper stw-provider-setting-wrapper',
       });
 
+      // References for auto-fill — assigned when compatibility/baseUrl/description elements are created
+      let compatibilitySelectEl: HTMLSelectElement | null = null;
+      let baseUrlInputEl: HTMLInputElement | null = null;
+      let descriptionTextareaEl: HTMLTextAreaElement | null = null;
+
       // Add "Back" link
       const backLink = currentInputWrapper.createEl('a', {
         text: t('settings.back'),
@@ -252,6 +331,26 @@ export class ProviderSetting {
             providerConfig.name = value;
             void this.plugin.saveSettings();
             setting.setName(this.getDisplayName(value));
+            setting.setDesc('');
+
+            // Auto-fill compatibility, base URL, and description for known popular providers
+            const preset = findProviderPreset(value);
+            if (preset) {
+              if (compatibilitySelectEl) {
+                compatibilitySelectEl.value = preset.compatibility;
+                providerConfig.compatibility = preset.compatibility;
+              }
+              if (baseUrlInputEl && preset.baseUrl !== undefined) {
+                baseUrlInputEl.value = preset.baseUrl;
+                providerConfig.baseUrl = preset.baseUrl;
+              }
+              if (descriptionTextareaEl && preset.description !== undefined) {
+                descriptionTextareaEl.value = preset.description;
+                providerConfig.description = preset.description;
+                setting.setDesc(createFragmentFromText(preset.description));
+              }
+              void this.plugin.saveSettings();
+            }
           }
         });
       }
@@ -270,6 +369,7 @@ export class ProviderSetting {
         const compatibilitySelect = compatibilityWrapper.createEl('select', {
           cls: 'dropdown',
         });
+        compatibilitySelectEl = compatibilitySelect;
 
         // Add options for built-in providers
         for (const builtInProvider of BUILT_IN_PROVIDERS) {
@@ -461,6 +561,7 @@ export class ProviderSetting {
         cls: 'text-input',
         value: currentBaseUrl,
       });
+      baseUrlInputEl = baseUrlInput;
 
       baseUrlInput.addEventListener('change', e => {
         const target = e.target as HTMLInputElement;
@@ -481,6 +582,7 @@ export class ProviderSetting {
         const descriptionTextarea = descriptionWrapper.createEl('textarea', {
           cls: 'text-input w-full',
         });
+        descriptionTextareaEl = descriptionTextarea;
 
         // Set textarea attributes for better UX
         descriptionTextarea.setAttribute('rows', '2');

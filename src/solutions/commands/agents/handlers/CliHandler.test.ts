@@ -35,6 +35,11 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
       getConversationProperty: jest.fn().mockResolvedValue(undefined),
     },
     plugin: {
+      app: {
+        workspace: {
+          getActiveFile: jest.fn(),
+        },
+      },
       settings: {
         stewardFolder: 'Steward',
       },
