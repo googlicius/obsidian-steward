@@ -112,15 +112,20 @@ export class SubagentSpawnService {
         DEFAULT_INTENT_TYPE,
         conversationLanguage
       );
+      const childProperties: Array<{ name: string; value: string }> = [
+        { name: 'lang', value: conversationLanguage },
+        { name: 'indicator_text', value: indicatorText },
+      ];
+      if (job.model) {
+        childProperties.unshift({ name: 'model', value: job.model });
+      }
+
       await this.plugin.conversationRenderer.createConversationNote(childTitle, {
         intent: {
           type: DEFAULT_INTENT_TYPE,
           query: job.task,
         },
-        properties: [
-          { name: 'lang', value: conversationLanguage },
-          { name: 'indicator_text', value: indicatorText },
-        ],
+        properties: childProperties,
       });
       const childFrontmatter: Array<{ name: string; value: string }> = [
         { name: 'parent', value: params.parentAgentId },

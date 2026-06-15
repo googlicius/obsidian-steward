@@ -262,6 +262,10 @@ pre:has(> code.language-cli-model) {
       border-radius: var(--radius-s);
       padding: 0 var(--size-2-1);
 
+      img {
+        max-width: 50px;
+      }
+
       .stw-history-link {
         flex: 1;
         min-width: 0;

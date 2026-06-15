@@ -171,12 +171,16 @@ export abstract class Agent {
    * Get current model from the intent or frontmatter.
    */
   private async getCurrentModel(title: string, intent: Intent) {
+    if (intent.model) {
+      return intent.model;
+    }
+
     // Check if model fallback is enabled
     const fallbackEnabled = this.plugin.modelFallbackService.isEnabled();
     const modelPromise = this.renderer.getConversationProperty<string>(title, 'model');
 
     // First, try to get the current model from the fallback state if available
-    let currentModel = intent.model || (await modelPromise);
+    let currentModel = await modelPromise;
 
     if (fallbackEnabled) {
       const currentModelFromState = await this.plugin.modelFallbackService.getCurrentModel(title);

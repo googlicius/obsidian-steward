@@ -729,10 +729,10 @@ export class ConversationRenderer {
       // Generate a message ID
       const messageId = uniqueID();
 
-      const frontmatterProperties = [
-        { name: 'model', value: this.plugin.settings.llm.chat.model },
-        ...(options.properties || []),
-      ];
+      const properties = options.properties || [];
+      const frontmatterProperties = properties.some(property => property.name === 'model')
+        ? properties
+        : [{ name: 'model', value: this.plugin.settings.llm.chat.model }, ...properties];
 
       const activeNote = this.plugin.app.workspace.getActiveFile();
 
