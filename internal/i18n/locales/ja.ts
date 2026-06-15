@@ -466,6 +466,7 @@ const ja = {
       continuingProcessing: '処理を続行中...',
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
       stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
+      subagentReviewType: 'サブエージェント',
     },
     // Model fallback messages
     modelFallback: {

@@ -132,8 +132,25 @@ html[data-stw-language='vi'] {
 }
 
 .callout[data-callout='stw-review'] {
-  max-height: 200px;
-  overflow: hidden;
+  & > .callout-content {
+    max-height: 200px;
+    overflow: hidden;
+  }
+
+  &[data-review_type]::before {
+    content: attr(data-review_type);
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    opacity: 0.35;
+    pointer-events: none;
+    line-height: 1;
+  }
 
   &::after {
     content: '';
@@ -150,13 +167,13 @@ html[data-stw-language='vi'] {
     display: none;
   }
 
-  &.stw-expanded {
+  &.stw-expanded > .callout-content {
     max-height: none;
     overflow: visible;
+  }
 
-    &::after {
-      display: none;
-    }
+  &.stw-expanded::after {
+    display: none;
   }
 
   & .internal-embed {

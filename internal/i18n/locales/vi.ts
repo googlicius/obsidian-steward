@@ -459,6 +459,7 @@ const vi = {
       processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
       stepLimitReached:
         'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
+      subagentReviewType: 'Sub-agent',
     },
     // Model fallback messages
     modelFallback: {

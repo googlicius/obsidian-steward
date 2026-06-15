@@ -7,6 +7,9 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
  *
  * Example: >[!stw-search-result] line:4,pos:1
  * Will be processed into: data-line="4" data-pos="1"
+ *
+ * Example: >[!stw-review] streaming:true,review_type:image_vision
+ * Will be processed into: data-streaming="true" data-review_type="image_vision"
  */
 export function createCalloutMetadataProcessor(): MarkdownPostProcessor {
   return (el, ctx) => {

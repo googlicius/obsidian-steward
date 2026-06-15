@@ -523,6 +523,7 @@ const en = {
       processingBatch: 'Processing batch {{current}} of {{total}}...',
       stepLimitReached:
         'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
+      subagentReviewType: 'Sub-agent',
     },
     // Model fallback messages
     modelFallback: {

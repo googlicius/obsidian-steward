@@ -7,7 +7,7 @@ import { hasSelectedTextInElement, setupAutoScroll } from 'src/utils/scrollUtils
  * and expand fully when clicked by toggling the `stw-expanded` CSS class.
  *
  * When `data-streaming="true"` is set (during active streaming), a MutationObserver
- * keeps the callout scrolled to the bottom so the user always sees the latest content.
+ * keeps the callout content scrolled to the bottom so the user always sees the latest content.
  */
 export function createCalloutEditPreviewPostProcessor(): MarkdownPostProcessor {
   return el => {
@@ -31,7 +31,10 @@ export function createCalloutEditPreviewPostProcessor(): MarkdownPostProcessor {
       });
 
       if (callout.dataset.streaming === 'true') {
-        setupAutoScroll(callout);
+        const scrollTarget = callout.querySelector('.callout-content');
+        if (scrollTarget instanceof HTMLElement) {
+          setupAutoScroll(scrollTarget);
+        }
       }
     }
   };

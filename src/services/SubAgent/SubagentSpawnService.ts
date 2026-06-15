@@ -27,6 +27,11 @@ export interface SubagentRunResult {
   error?: string;
 }
 
+export type SubagentStatusPatch = Partial<SubagentRunResult> & {
+  agentId?: string;
+  status?: 'queued' | 'running' | 'done' | 'failed';
+};
+
 export class SubagentSpawnService {
   constructor(
     private readonly plugin: StewardPlugin,
@@ -79,7 +84,7 @@ export class SubagentSpawnService {
     step?: number;
     onStatus?: (
       status: 'queued' | 'running' | 'done' | 'failed',
-      patch?: Partial<SubagentRunResult>
+      patch?: SubagentStatusPatch
     ) => Promise<void>;
     defaultTools?: ToolName[];
     defaultSystemPrompts?: string[];
@@ -105,6 +110,7 @@ export class SubagentSpawnService {
       await params.onStatus?.('queued', {
         childTitle,
         task: job.task,
+        agentId: job.agentId,
       });
 
       const conversationLanguage = params.lang || getLanguage();
@@ -141,6 +147,7 @@ export class SubagentSpawnService {
       await params.onStatus?.('running', {
         childTitle,
         task: job.task,
+        agentId: job.agentId,
       });
 
       try {

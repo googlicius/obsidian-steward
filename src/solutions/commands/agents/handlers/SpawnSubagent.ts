@@ -148,10 +148,11 @@ export class SpawnSubagent {
       onStatus: async (status, patch) => {
         if (status === 'running') {
           if (patch?.childTitle) {
+            const reviewType = patch.agentId || t('conversation.subagentReviewType');
             const subagentEmbed = this.agent.plugin.noteContentService.formatCallout(
               `![[${patch.childTitle}]]`,
               'stw-review',
-              { streaming: 'true' }
+              { streaming: 'true', review_type: reviewType }
             );
             await ctx.updateConversationNote({
               newContent: subagentEmbed,

@@ -6,7 +6,7 @@ import {
   ViewUpdate,
   keymap,
 } from '@codemirror/view';
-import { Extension, Line, Prec } from '@codemirror/state';
+import { EditorState, Extension, Line, Prec } from '@codemirror/state';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
@@ -15,6 +15,13 @@ import { completionStatus } from '@codemirror/autocomplete';
 import { cliSessionDecorationRefresh } from 'src/services/CommandInputService';
 
 const { i18next } = getBundledInternal('i18n');
+
+/** Standalone embed wikilink whose target ends in `.png` (optional `|width` suffix). */
+const PNG_EMBED_WIKILINK_PATTERN = /^!\[\[[^\]]+\.png(?:\|[^\]]*)?\]\]$/i;
+
+function isPngEmbedWikilink(text: string): boolean {
+  return PNG_EMBED_WIKILINK_PATTERN.test(text);
+}
 
 export interface CommandInputOptions {
   /**
@@ -55,6 +62,7 @@ export function createCommandInputExtension(
     createInputExtension(plugin, options),
     createCommandKeymapExtension(plugin, options),
     createPasteHandlerExtension(plugin),
+    createPngEmbedTrailingSpaceExtension(plugin),
   ];
 }
 
@@ -279,6 +287,51 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 }
 
 /**
+ * After Obsidian (or any single-shot insert) adds a standalone `![[*.png]]` embed in a
+ * command input line, append a trailing space so the wikilink text and thumbnail preview
+ * do not render flush against each other.
+ */
+function createPngEmbedTrailingSpaceExtension(plugin: StewardPlugin): Extension {
+  return EditorState.transactionFilter.of(tr => {
+    if (!tr.docChanged) {
+      return tr;
+    }
+
+    const extraChanges: { from: number; insert: string }[] = [];
+    let cursorAfterSpace: number | null = null;
+
+    tr.changes.iterChanges((_fromA, _toA, fromB, _toB, inserted) => {
+      const text = inserted.toString();
+      if (!isPngEmbedWikilink(text) || text.endsWith(' ')) {
+        return;
+      }
+
+      const line = tr.newDoc.lineAt(fromB);
+      if (!plugin.commandInputService.getInputPrefix(line, tr.newDoc)) {
+        return;
+      }
+
+      const spacePos = fromB + text.length;
+      extraChanges.push({ from: spacePos, insert: ' ' });
+      cursorAfterSpace = spacePos + 1;
+    });
+
+    if (extraChanges.length === 0 || cursorAfterSpace === null) {
+      return tr;
+    }
+
+    return [
+      tr,
+      {
+        changes: extraChanges,
+        sequential: true,
+        selection: { anchor: cursorAfterSpace },
+      },
+    ];
+  });
+}
+
+/**
  * Creates an extension to handle paste events for multi-line indentation
  */
 function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
@@ -383,6 +436,36 @@ function createArrowDownNewLineExtension(plugin: StewardPlugin): Extension {
   );
 }
 
+const GENERAL_COMMAND_PREFIX = '/ ';
+const SHELL_COMMAND_PREFIX = '/>';
+
+/**
+ * When the general input is empty (`/ `), typing `!` switches to shell mode (`/>`).
+ */
+function tryApplyShellBangShortcut(view: EditorView): boolean {
+  const selection = view.state.selection.main;
+  if (!selection.empty) {
+    return false;
+  }
+
+  const pos = selection.head;
+  const line = view.state.doc.lineAt(pos);
+  if (line.text !== GENERAL_COMMAND_PREFIX) {
+    return false;
+  }
+
+  if (pos !== line.from + GENERAL_COMMAND_PREFIX.length) {
+    return false;
+  }
+
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: SHELL_COMMAND_PREFIX },
+    selection: { anchor: line.from + SHELL_COMMAND_PREFIX.length },
+  });
+
+  return true;
+}
+
 /**
  * Add keymap with high precedence
  */
@@ -428,6 +511,15 @@ function createCommandKeymapExtension(
             return options.onEnter(view);
           }
           return false;
+        },
+      },
+      {
+        key: '!',
+        run: view => {
+          if (completionStatus(view.state)) {
+            return false;
+          }
+          return tryApplyShellBangShortcut(view);
         },
       },
       {

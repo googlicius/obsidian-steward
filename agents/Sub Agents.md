@@ -1,5 +1,5 @@
 ---
-version: 2
+version: 3
 ---
 
 Specialized sub-agents for `spawn_subagent`. Each agent is defined by a level-2 heading and a `name: agent` YAML fence directly below it.
@@ -24,7 +24,7 @@ Only `agent` YAML fences are loaded. Other block types make the file invalid.
 ```yaml
 name: agent
 id: image_vision
-description: Reads and analyzes images using a vision-capable model
+description: Reads and analyzes images using a vision-capable model. Provides the exact image name(s) to it.
 model: google:gemini-2.5-flash
 instruction: |
   You are an image analysis agent in Obsidian Steward.
