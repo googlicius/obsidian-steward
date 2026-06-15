@@ -1,8 +1,6 @@
 ---
-version: 1
+version: 2
 ---
-
-# Sub-agents
 
 Specialized sub-agents for `spawn_subagent`. Each agent is defined by a level-2 heading and a `name: agent` YAML fence directly below it.
 

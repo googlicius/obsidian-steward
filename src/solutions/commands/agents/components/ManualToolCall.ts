@@ -250,11 +250,46 @@ export class ManualToolCall {
 
       case '>':
       case 'shell': {
+        /**
+         * Parses a leading or trailing `-i` flag from the shell query string.
+         * When present, the flag is stripped and `needsInteractiveMode` is set to `true`.
+         * The `-i` must be a standalone token (surrounded by whitespace or at the boundary).
+         */
+        const parseInteractiveFlag = (
+          query: string
+        ): {
+          argsLine: string;
+          needsInteractiveMode: boolean;
+        } => {
+          const trimmed = query.trim();
+          let needsInteractiveMode = false;
+          let result = trimmed;
+
+          // Leading -i (must be first token)
+          if (/^-i(\s+|$)/.test(result)) {
+            needsInteractiveMode = true;
+            result = result.slice(result.startsWith('-i ') ? 3 : 2).trimStart();
+          }
+
+          // Trailing -i (must be last token; don't re-check if result is now empty)
+          if (result.length > 0 && /\s+-i$/.test(result)) {
+            needsInteractiveMode = true;
+            result = result.slice(0, -3).trimEnd();
+          }
+
+          return { argsLine: result, needsInteractiveMode };
+        };
+
+        const parsed = parseInteractiveFlag(query);
+
         return {
           type: 'tool-call',
           toolName: ToolName.SHELL,
           toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
-          input: { argsLine: query },
+          input: {
+            argsLine: parsed.argsLine,
+            ...(parsed.needsInteractiveMode ? { needsInteractiveMode: true } : {}),
+          },
         };
       }
 

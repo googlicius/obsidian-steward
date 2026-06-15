@@ -99,7 +99,7 @@ const en = {
         'Interactive CLI needs a local folder vault (FileSystemAdapter) so the node-pty native bundle path can be resolved.',
       ptyNativeBundleMissing:
         'The node-pty native bundle folder is missing or is not a directory: {{path}}. Run the Steward installer script or set a valid folder in CLI settings.',
-      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellPrefix: 'Shell | -i for interactive mode',
       inputLineCaptionShellActive: 'Shell, Ctrl-C to exit',
       nodePtyInstallWindowsHeading: 'Install on Windows',
       nodePtyInstallUnixHeading: 'Install on Mac / Linux',

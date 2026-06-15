@@ -95,7 +95,7 @@ const ja = {
         'インタラクティブ CLI には、node-pty のネイティブバンドルパスを解決できるローカルフォルダ保管庫（FileSystemAdapter）が必要です。',
       ptyNativeBundleMissing:
         'node-pty のネイティブバンドルフォルダが見つからないか、フォルダではありません: {{path}}。Steward のインストールスクリプトを実行するか、CLI 設定で有効なフォルダを指定してください。',
-      inputLineCaptionShellPrefix: 'シェル',
+      inputLineCaptionShellPrefix: 'シェル | -i で対話モード',
       inputLineCaptionShellActive: 'シェル（Ctrl+C で終了）',
       nodePtyInstallWindowsHeading: 'Windows でインストール',
       nodePtyInstallUnixHeading: 'Mac / Linux でインストール',

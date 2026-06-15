@@ -91,7 +91,7 @@ const vi = {
         'CLI tương tác cần vault lưu trên ổ đĩa (FileSystemAdapter) để xác định thư mục native của node-pty.',
       ptyNativeBundleMissing:
         'Thư mục native node-pty không tồn tại hoặc không phải thư mục: {{path}}. Chạy script cài đặt của Steward hoặc đặt đường dẫn hợp lệ trong cài đặt CLI.',
-      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellPrefix: 'Shell | -i cho chế độ tương tác',
       inputLineCaptionShellActive: 'Shell, nhấn Ctrl+C để thoát',
       nodePtyInstallWindowsHeading: 'Cài trên Windows',
       nodePtyInstallUnixHeading: 'Cài trên Mac / Linux',

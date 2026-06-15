@@ -192,6 +192,10 @@ pre:has(> code.language-cli-model) {
 
   & > .callout-content {
     padding-left: 8px;
+
+    img {
+      max-width: 50px;
+    }
   }
 }
 
