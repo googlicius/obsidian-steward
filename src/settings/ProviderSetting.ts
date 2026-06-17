@@ -194,6 +194,7 @@ export class ProviderSetting {
 
     // Create the Setting instance
     const setting = new Setting(containerEl).setName(settingName);
+    setting.settingEl.dataset.providerKey = provider;
 
     // Add description for both built-in and custom providers
     const description = this.getProviderDescription(provider);
@@ -660,5 +661,16 @@ export class ProviderSetting {
 
   private getDisplayName(name: string): string {
     return capitalizeString(name.replace(/_/g, ' '));
+  }
+
+  public highlightProviderSetting(this: StewardSettingTab, providerKey: string): void {
+    const row = this.containerEl.querySelector(
+      `[data-provider-key="${CSS.escape(providerKey)}"]`
+    );
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+
+    row.classList.add('stw-provider-highlight');
   }
 }

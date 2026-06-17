@@ -1,4 +1,4 @@
-import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
+import { getLanguage, setIcon, Setting, setTooltip, Notice } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { capitalizeString } from 'src/utils/capitalizeString';
@@ -25,6 +25,7 @@ export class ModelSetting {
       onSelectChange: (modelId: string) => Promise<void>;
       onAddModel: (modelId: string) => Promise<void>;
       onDeleteModel: (modelId: string) => Promise<void>;
+      onTestModel?: (modelId: string) => Promise<void>;
       includeEmptyOption?: boolean;
       emptyOptionLabel?: string;
       emptyOptionValue?: string;
@@ -181,10 +182,56 @@ export class ModelSetting {
         target.removeClass('stw-is-invalid');
       });
 
+      // Add Test button next to the text input
+      const testButton = options.onTestModel
+        ? wrapper.createEl('button', {
+            text: t('settings.testModel'),
+          })
+        : null;
+
       // Add Add button next to the text input
       const addButton = wrapper.createEl('button', {
         text: t('settings.add'),
       });
+
+      const setActionButtonsDisabled = (disabled: boolean) => {
+        if (testButton) {
+          testButton.disabled = disabled;
+        }
+        addButton.disabled = disabled;
+      };
+
+      if (testButton && options.onTestModel) {
+        const onTestModel = options.onTestModel;
+        testButton.addEventListener('click', () => {
+          void (async () => {
+            const inputValue = textInput.value.trim();
+
+            if (!inputValue) {
+              return;
+            }
+
+            if (!validateModelFormat(inputValue)) {
+              textInput.addClass('stw-is-invalid');
+              return;
+            }
+
+            textInput.removeClass('stw-is-invalid');
+            setActionButtonsDisabled(true);
+            new Notice(t('settings.testModelRunning'));
+
+            try {
+              await onTestModel(inputValue);
+              new Notice(t('settings.testModelSuccess'));
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              new Notice(t('settings.testModelFailed', { message }), 5000);
+            } finally {
+              setActionButtonsDisabled(false);
+            }
+          })();
+        });
+      }
 
       // Add button click handler
       addButton.addEventListener('click', () => {

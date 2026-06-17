@@ -225,35 +225,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   },
 };
 
-// Model options grouped by provider
-export interface ModelOption {
-  id: string;
-  name: string;
-  isReasoning?: boolean;
-}
-
-export const LLM_MODELS: ModelOption[] = [
-  // OpenAI models
-  { id: 'openai:gpt-4o', name: 'GPT-4o' },
-  { id: 'openai:o3', name: 'O3', isReasoning: true },
-  { id: 'openai:o4-mini', name: 'O4 Mini', isReasoning: true },
-
-  // Google models
-  { id: 'google:gemini-3-pro-preview', name: 'Gemini 3 Pro', isReasoning: true },
-  { id: 'google:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-
-  // Ollama models
-  { id: 'ollama:gemma4:31b-cloud', name: 'Gemma 4 31B Cloud' },
-  { id: 'ollama:llama3.1:latest', name: 'Llama 3.1 8B' },
-  { id: 'ollama:llama3.2:latest', name: 'Llama 3.2' },
-  { id: 'ollama:mistral:latest', name: 'Mistral' },
-  { id: 'ollama:mixtral:latest', name: 'Mixtral' },
-
-  // Anthropic models
-  { id: 'anthropic:claude-sonnet-4-20250514', name: 'Claude 4 Sonnet' },
-  { id: 'anthropic:claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', isReasoning: true },
-];
-
 export type ProviderNeedApiKey =
   | 'openai'
   | 'elevenlabs'

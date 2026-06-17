@@ -2,7 +2,7 @@ import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { get } from 'src/utils/lodash-like';
-import { LLM_MODELS } from 'src/constants';
+import { LLM_MODELS } from 'src/services/LLMService';
 import type StewardPlugin from 'src/main';
 
 const { getTranslation } = getBundledInternal('i18n');

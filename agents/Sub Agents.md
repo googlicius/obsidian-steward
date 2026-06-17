@@ -1,5 +1,5 @@
 ---
-version: 3
+version: 4
 ---
 
 Specialized sub-agents for `spawn_subagent`. Each agent is defined by a level-2 heading and a `name: agent` YAML fence directly below it.
@@ -17,7 +17,6 @@ Specialized sub-agents for `spawn_subagent`. Each agent is defined by a level-2 
 | `tools`         | No       | Default active tools for spawned jobs                                    |
 | `inactiveTools` | No       | Default inactive tools the sub-agent may activate                        |
 
-Only `agent` YAML fences are loaded. Other block types make the file invalid.
 
 ## Image vision
 
@@ -37,3 +36,6 @@ inactiveTools:
   - grep
   - search
 ```
+
+Note:
+- Remember to activate the `spawn_subagent` tool if it is inactive.

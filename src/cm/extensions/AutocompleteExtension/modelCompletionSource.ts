@@ -1,6 +1,7 @@
 import { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
-import { LLM_MODELS, SELECTED_MODEL_PREFIX_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
+import { SELECTED_MODEL_PREFIX_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
+import { LLM_MODELS } from 'src/services/LLMService';
 import type StewardPlugin from 'src/main';
 import { Events, type ModelChangedPayload } from 'src/types/events';
 

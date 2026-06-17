@@ -717,3 +717,22 @@ a.stw-run {
 a.stw-no-underline {
   text-decoration: none;
 }
+
+@keyframes stw-provider-highlight-fade {
+  from {
+    background-color: color-mix(
+      in srgb,
+      var(--interactive-accent) 22%,
+      var(--background-primary)
+    );
+  }
+
+  to {
+    background-color: transparent;
+  }
+}
+
+.stw-provider-highlight {
+  animation: stw-provider-highlight-fade 0.7s ease-out forwards;
+  border-radius: var(--radius-s);
+}

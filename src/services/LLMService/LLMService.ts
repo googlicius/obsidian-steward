@@ -215,6 +215,30 @@ export class LLMService {
   }
 
   /**
+   * Send a minimal generation request to verify provider, credentials, and model id.
+   */
+  public async testModel(model: string): Promise<void> {
+    const trimmed = model?.trim() ?? '';
+    if (!trimmed) {
+      throw new Error('Model is required');
+    }
+
+    const { provider, modelId, name } = await this.getProviderFromModel(trimmed);
+
+    if (['elevenlabs', 'hume'].includes(name)) {
+      throw new Error(`${name} does not support chat models`);
+    }
+
+    const { generateText } = await getBundledLib('ai');
+    await generateText({
+      model: provider(modelId) as LanguageModel,
+      prompt: 'Reply with exactly: OK',
+      maxOutputTokens: 16,
+      temperature: 0,
+    });
+  }
+
+  /**
    * Determine the provider from the model name
    * Supports both built-in providers and custom providers (using compatibility)
    */
@@ -519,8 +543,10 @@ export class LLMService {
 
     switch (providerName) {
       case 'openai':
-        // GPT-4 models with vision support
         return (
+          modelIdLower.startsWith('gpt-5') ||
+          /^o\d/.test(modelIdLower) ||
+          modelIdLower.includes('gpt-4.1') ||
           modelIdLower.includes('gpt-4o') ||
           modelIdLower.includes('gpt-4-turbo') ||
           modelIdLower.includes('gpt-4-vision') ||
@@ -530,12 +556,7 @@ export class LLMService {
 
       case 'google':
         // Gemini models generally support vision
-        return (
-          modelIdLower.includes('gemini') ||
-          modelIdLower.includes('gemini-pro') ||
-          modelIdLower.includes('gemini-1.5') ||
-          modelIdLower.includes('gemini-2')
-        );
+        return modelIdLower.includes('gemini');
 
       case 'anthropic':
         // Claude 3+ models support vision

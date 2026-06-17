@@ -60,7 +60,7 @@ import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
 import { MarkdownDefinitionService } from './services/MarkdownDefinitionService';
-import { LLMService } from './services/LLMService';
+import { LLMService } from 'src/services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSourceBlocksExtension } from './cm/extensions/StwSourceBlockExtension';
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';

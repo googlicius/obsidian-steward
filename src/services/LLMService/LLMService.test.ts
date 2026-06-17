@@ -277,4 +277,28 @@ describe('LLMService', () => {
       expect(llmService.getModelContextLengthTokens('')).toBe(128_000);
     });
   });
+
+  describe('supportsVision', () => {
+    it('recognizes OpenAI GPT-5 and o-series models', () => {
+      expect(llmService.supportsVision('openai:gpt-5.4')).toBe(true);
+      expect(llmService.supportsVision('openai:gpt-5.5')).toBe(true);
+      expect(llmService.supportsVision('openai:o3')).toBe(true);
+      expect(llmService.supportsVision('openai:o4-mini')).toBe(true);
+    });
+
+    it('recognizes legacy OpenAI vision models', () => {
+      expect(llmService.supportsVision('openai:gpt-4o')).toBe(true);
+      expect(llmService.supportsVision('openai:gpt-4-turbo')).toBe(true);
+    });
+
+    it('rejects non-vision OpenAI models', () => {
+      expect(llmService.supportsVision('openai:gpt-3.5-turbo')).toBe(false);
+      expect(llmService.supportsVision('openai:gpt-4')).toBe(false);
+    });
+
+    it('recognizes Gemini and Claude vision models', () => {
+      expect(llmService.supportsVision('google:gemini-3.5-flash')).toBe(true);
+      expect(llmService.supportsVision('anthropic:claude-sonnet-4-6')).toBe(true);
+    });
+  });
 });

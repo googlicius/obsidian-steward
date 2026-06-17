@@ -1,13 +1,8 @@
 import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
 import { getBundledLib } from './utils/bundledLibs';
 import { logger } from './utils/logger';
-import {
-  LLM_MODELS,
-  EMBEDDING_MODELS,
-  SPEECH_MODELS,
-  IMAGE_MODELS,
-  DEFAULT_VOICES,
-} from './constants';
+import { EMBEDDING_MODELS, SPEECH_MODELS, IMAGE_MODELS, DEFAULT_VOICES } from './constants';
+import { LLM_MODELS } from './services/LLMService';
 import { getBundledInternal } from './utils/bundledInternals';
 import type StewardPlugin from './main';
 import { StewardPluginSettings } from './types/interfaces';
@@ -215,6 +210,8 @@ class StewardSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
 
             await this.refreshSettingTab(200);
+
+            this.highlightProviderSetting(providerKey);
           });
       });
 
@@ -276,6 +273,9 @@ class StewardSettingTab extends PluginSettingTab {
           }
 
           await this.plugin.saveSettings();
+        },
+        onTestModel: async (modelId: string) => {
+          await this.plugin.llmService.testModel(modelId);
         },
       }
     );
@@ -401,6 +401,9 @@ class StewardSettingTab extends PluginSettingTab {
 
           await this.plugin.saveSettings();
         },
+        onTestModel: async (modelId: string) => {
+          await this.plugin.llmService.testModel(modelId);
+        },
       }
     );
 
@@ -460,6 +463,9 @@ class StewardSettingTab extends PluginSettingTab {
           }
 
           await this.plugin.saveSettings();
+        },
+        onTestModel: async (modelId: string) => {
+          await this.plugin.llmService.testModel(modelId);
         },
       }
     );
