@@ -63,6 +63,7 @@ export class Handlers {
   private _speech: handlers.Speech;
   private _image: handlers.Image;
   private _showWidget: handlers.ShowWidget;
+  private _widgetActionHandler: handlers.WidgetActionHandler;
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
   private _spawnSubagent: handlers.SpawnSubagent;
@@ -206,6 +207,13 @@ export class Handlers {
     return this._showWidget;
   }
 
+  public get widgetActionHandler(): handlers.WidgetActionHandler {
+    if (!this._widgetActionHandler) {
+      this._widgetActionHandler = new handlers.WidgetActionHandler(this.getAgent());
+    }
+    return this._widgetActionHandler;
+  }
+
   public get todoList(): handlers.TodoList {
     if (!this._todoList) this._todoList = new handlers.TodoList(this.getAgent());
     return this._todoList;
@@ -296,6 +304,7 @@ export class Handlers {
       [ToolName.SPEECH]: () => this.speech,
       [ToolName.IMAGE]: () => this.image,
       [ToolName.SHOW_WIDGET]: () => this.showWidget,
+      [ToolName.WIDGET_ACTION]: () => this.widgetActionHandler,
       [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,

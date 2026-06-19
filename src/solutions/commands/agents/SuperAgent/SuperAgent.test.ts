@@ -177,12 +177,17 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 /** `createMockPlugin` sets this at runtime; StewardPlugin typing does not expose the test mock shape. */
 function getTestCommandProcessorMocks(plugin: StewardPlugin): {
   getLastResult: jest.Mock;
+  setLastResult: jest.Mock;
   clearLastResult: jest.Mock;
 } {
   return (
     plugin as unknown as {
       commandProcessorService: {
-        commandProcessor: { getLastResult: jest.Mock; clearLastResult: jest.Mock };
+        commandProcessor: {
+          getLastResult: jest.Mock;
+          setLastResult: jest.Mock;
+          clearLastResult: jest.Mock;
+        };
       };
     }
   ).commandProcessorService.commandProcessor;
@@ -1715,6 +1720,115 @@ describe('SuperAgent', () => {
 
       expect(mockPlugin.conversationRenderer.removeConfirmationButtons).not.toHaveBeenCalled();
       expect(commandProcessor.clearLastResult).not.toHaveBeenCalled();
+    });
+
+    it('defers pending confirmation on btw side question without removing buttons', async () => {
+      const title = 'conv-btw-side-question';
+      const handlerId = 'handler-btw-defer';
+      const pendingToolCall = {
+        toolName: ToolName.EDIT,
+        toolCallId: 'pending-edit-1',
+        input: { operations: [] },
+      };
+
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+
+      commandProcessor.getLastResult.mockReturnValue({
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        toolCall: pendingToolCall,
+        onConfirmation: jest.fn(),
+      });
+
+      const params: AgentHandlerParams = {
+        title,
+        handlerId,
+        intent: {
+          type: ' ',
+          query: 'btw: What does change 2 do?',
+        } as Intent,
+        activeTools: [ToolName.EDIT],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      jest.spyOn(superAgent, 'executeStreamText').mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      await superAgent.handle(params);
+
+      expect(mockPlugin.conversationRenderer.removeConfirmationButtons).not.toHaveBeenCalled();
+      expect(commandProcessor.clearLastResult).not.toHaveBeenCalled();
+      expect(commandProcessor.setLastResult).toHaveBeenCalledWith(
+        title,
+        expect.objectContaining({
+          status: IntentResultStatus.NEEDS_CONFIRMATION,
+          deferred: true,
+        })
+      );
+      expect(mockPlugin.conversationRenderer.serializeToolInvocation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: title,
+          command: String(ToolName.EDIT),
+          handlerId,
+          toolInvocations: [
+            expect.objectContaining({
+              toolName: pendingToolCall.toolName,
+              toolCallId: pendingToolCall.toolCallId,
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'Confirmation pending. User asked a side question before confirming.',
+              },
+            }),
+          ],
+        })
+      );
+      expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: title,
+          newContent: 'btw: What does change 2 do?',
+        })
+      );
+    });
+
+    it('does not re-serialize deferred confirmation on a second btw side question', async () => {
+      const title = 'conv-btw-second';
+      const handlerId = 'handler-btw-second';
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+
+      commandProcessor.getLastResult.mockReturnValue({
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        deferred: true,
+        toolCall: {
+          toolName: ToolName.EDIT,
+          toolCallId: 'pending-edit-2',
+          input: { operations: [] },
+        },
+        onConfirmation: jest.fn(),
+      });
+
+      const params: AgentHandlerParams = {
+        title,
+        handlerId,
+        intent: {
+          type: ' ',
+          query: 'btw: And change 3?',
+        } as Intent,
+        activeTools: [ToolName.EDIT],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      jest.spyOn(superAgent, 'executeStreamText').mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      await superAgent.handle(params);
+
+      expect(mockPlugin.conversationRenderer.serializeToolInvocation).not.toHaveBeenCalled();
+      expect(commandProcessor.setLastResult).not.toHaveBeenCalled();
+      expect(mockPlugin.conversationRenderer.removeConfirmationButtons).not.toHaveBeenCalled();
     });
   });
 });

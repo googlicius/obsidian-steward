@@ -236,7 +236,7 @@ export class ConversationRenderer {
     newContent: string;
     includeHistory?: boolean;
     step?: number;
-    contentFormat?: 'callout' | 'hidden';
+    contentFormat?: 'callout' | 'hidden' | 'plain';
   }): Promise<string | undefined> {
     try {
       const file = this.getConversationFileByName(params.path);
@@ -260,6 +260,9 @@ export class ConversationRenderer {
           // Escape backticks in content to prevent breaking the code block
           const escapedContent = sanitizedContent.replace(/`/g, '\\`');
           contentToAdd = `\`\`\`stw-hidden-from-user\n${escapedContent}\n\`\`\``;
+        } else if (format === 'plain') {
+          currentContent = `${currentContent}\n\n---`;
+          contentToAdd = sanitizedContent;
         } else {
           // Add separator before user message
           currentContent = `${currentContent}\n\n---`;

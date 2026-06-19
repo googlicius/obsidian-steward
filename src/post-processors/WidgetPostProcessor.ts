@@ -29,12 +29,19 @@ function getWidgetType(code: HTMLElement): WidgetType | null {
 
 interface MountIframeOptions {
   extraHead?: string;
-  onStateSave?: (state: unknown) => void;
+  onStateSave?: (payload: { state: unknown; options?: { intent?: string } }) => void;
+  onStartSession?: () => void;
   onActionResult?: (data: {
     requestId: string;
     ok: boolean;
     error?: string;
     state?: unknown;
+  }) => void;
+  onStatePresentationResult?: (data: {
+    requestId: string;
+    ok: boolean;
+    presentation?: string;
+    error?: string;
   }) => void;
   onActionsRegistered?: (actions: string[]) => void;
   onAssetRequest?: (data: { requestId: string; assetId: string }) => void;
@@ -92,7 +99,9 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
   const needsMessageListener =
     usesPostMessageResize ||
     !!options.onStateSave ||
+    !!options.onStartSession ||
     !!options.onActionResult ||
+    !!options.onStatePresentationResult ||
     !!options.onActionsRegistered ||
     !!options.onAssetRequest;
 
@@ -109,17 +118,58 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
       return;
     }
 
+    if (e.data?.type === WidgetMessageType.Log) {
+      const message = typeof e.data.message === 'string' ? e.data.message : '[widget]';
+      if (e.data.data !== undefined) {
+        logger.log(message, e.data.data);
+      } else {
+        logger.log(message);
+      }
+      return;
+    }
+
     if (e.data?.type === WidgetMessageType.StateSave && options.onStateSave) {
-      options.onStateSave(e.data.state);
+      options.onStateSave({
+        state: e.data.state,
+        options: e.data.options && typeof e.data.options === 'object' ? e.data.options : undefined,
+      });
+      return;
+    }
+
+    if (e.data?.type === WidgetMessageType.StartSession && options.onStartSession) {
+      options.onStartSession();
       return;
     }
 
     if (e.data?.type === WidgetMessageType.ActionResult && options.onActionResult) {
+      logger.log('[STW widget_action] host received ActionResult', {
+        requestId: e.data.requestId,
+        ok: !!e.data.ok,
+        error: typeof e.data.error === 'string' ? e.data.error : undefined,
+      });
       options.onActionResult({
         requestId: e.data.requestId,
         ok: !!e.data.ok,
         error: typeof e.data.error === 'string' ? e.data.error : undefined,
         state: e.data.state,
+      });
+      return;
+    }
+
+    if (
+      e.data?.type === WidgetMessageType.StatePresentationResult &&
+      options.onStatePresentationResult
+    ) {
+      logger.log('[STW widget_action] host received StatePresentationResult', {
+        requestId: e.data.requestId,
+        ok: !!e.data.ok,
+        error: typeof e.data.error === 'string' ? e.data.error : undefined,
+      });
+      options.onStatePresentationResult({
+        requestId: e.data.requestId,
+        ok: !!e.data.ok,
+        presentation: typeof e.data.presentation === 'string' ? e.data.presentation : undefined,
+        error: typeof e.data.error === 'string' ? e.data.error : undefined,
       });
       return;
     }
@@ -219,6 +269,9 @@ async function mountWidgetProject(
   let unregister: (() => void) | undefined;
   let unregisterActionBridge: (() => void) | undefined;
   let sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'] | undefined;
+  let sendRequestStatePresentation:
+    | WidgetActionBridgeHandle['sendRequestStatePresentation']
+    | undefined;
 
   watchRemoval(container, () => {
     teardownIframe?.();
@@ -240,11 +293,30 @@ async function mountWidgetProject(
     const isArtifactView = plugin.widgetService.isArtifactPath(sourcePath);
 
     const iframeCallbacks: MountIframeOptions = {
-      onStateSave: data => {
-        void widgetService.stateService.writeState({ projectPath, data });
+      onStateSave: payload => {
+        void widgetService.orchestrator.handleStateSave({
+          projectPath,
+          widgetId: parsed.widgetId,
+          incomingData: payload.state,
+          saveOptions: payload.options?.intent === 'reset' ? { intent: 'reset' } : undefined,
+          lang: parsed.lang,
+        });
+      },
+      onStartSession: () => {
+        void (async () => {
+          await widgetService.sessionService.startNewSession({
+            projectPath,
+            widgetId: parsed.widgetId,
+            lang: parsed.lang,
+          });
+          await refresh();
+        })();
       },
       onActionResult: data => {
         widgetService.resolveActionResult(data);
+      },
+      onStatePresentationResult: data => {
+        widgetService.resolveStatePresentationResult(data);
       },
       onActionsRegistered: actions => {
         if (!sendApplyAction) {
@@ -331,6 +403,15 @@ async function mountWidgetProject(
     });
     sendApplyAction = payload => {
       const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+      const hasIframe = !!iframe;
+      const hasContentWindow = !!iframe?.contentWindow;
+      logger.log('[STW widget_action] postMessage ApplyAction', {
+        projectPath,
+        requestId: payload.requestId,
+        action: payload.action,
+        hasIframe,
+        hasContentWindow,
+      });
       iframe?.contentWindow?.postMessage(
         {
           type: WidgetMessageType.ApplyAction,
@@ -341,9 +422,26 @@ async function mountWidgetProject(
         '*'
       );
     };
+    sendRequestStatePresentation = payload => {
+      const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+      logger.log('[STW widget_action] postMessage RequestStatePresentation', {
+        projectPath,
+        requestId: payload.requestId,
+        hasIframe: !!iframe,
+        hasContentWindow: !!iframe?.contentWindow,
+      });
+      iframe?.contentWindow?.postMessage(
+        {
+          type: WidgetMessageType.RequestStatePresentation,
+          requestId: payload.requestId,
+        },
+        '*'
+      );
+    };
     unregisterActionBridge = widgetService.registerActionBridge({
       projectPath,
       sendApplyAction,
+      sendRequestStatePresentation,
     });
 
     if (generatedVaultFile) {
@@ -370,9 +468,16 @@ async function mountWidgetProject(
       appendWidgetActionLinks(container, plugin, {
         widgetId: parsed.widgetId,
         widgetName,
+        projectPath,
         lang: parsed.lang,
       });
     }
+
+    void widgetService.orchestrator.handleMount({
+      projectPath,
+      widgetId: parsed.widgetId,
+      lang: parsed.lang,
+    });
   } catch (e) {
     logger.error('Failed to mount widget project:', e);
     container.textContent = 'Failed to load widget project.';
@@ -382,7 +487,12 @@ async function mountWidgetProject(
 function appendWidgetActionLinks(
   container: HTMLElement,
   plugin: StewardPlugin,
-  params: { widgetId: string; widgetName: string; lang: string | null }
+  params: {
+    widgetId: string;
+    widgetName: string;
+    projectPath: string;
+    lang: string | null;
+  }
 ): void {
   const t = getTranslation(params.lang);
   const smallEl = activeDocument.createElement('small');

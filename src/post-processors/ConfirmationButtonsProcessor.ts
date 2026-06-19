@@ -111,7 +111,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
 
         buttonsContainer.createEl('span', {
           cls: 'hint',
-          text: t('ui.orTypeToSkip'),
+          text: t('ui.confirmationButtonsHint'),
         });
 
         replacementElements.push(buttonsContainer);

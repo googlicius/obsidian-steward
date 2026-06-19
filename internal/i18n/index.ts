@@ -11,11 +11,11 @@ const defaultLang = ['en', 'vi', 'ja'].includes(obsidianLang) ? obsidianLang : '
 
 // Function to update the language attribute on the HTML element
 export function updateLanguageAttribute(lang: string) {
-  document.documentElement.setAttribute('data-stw-language', lang);
+  activeDocument.documentElement.setAttribute('data-stw-language', lang);
 }
 
 // Initialize i18next
-i18next.init({
+void i18next.init({
   lng: defaultLang, // Use Obsidian's language if supported, otherwise English
   fallbackLng: 'en',
   resources: {

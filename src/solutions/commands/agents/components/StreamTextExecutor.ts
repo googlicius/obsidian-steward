@@ -51,7 +51,8 @@ export class StreamTextExecutor {
 
     const modelForStream = params.intent.model?.trim() || agent.plugin.settings.llm.chat.model;
     const historyResult = await agent.plugin.conversationRenderer.extractConversationHistory(
-      params.title
+      params.title,
+      { maxMessages: params.intent.maxHistoryMessages ?? null }
     );
 
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
@@ -164,15 +165,17 @@ export class StreamTextExecutor {
       }
     }
 
-    const coreSystemPrompt = agent.buildCorePrompt({
-      registry,
-      availableTools: declaredNormalized ?? allSuperAgentKeys,
-      currentNote,
-      currentPosition,
-      includeSkillCatalog,
-      includeSubAgentCatalog,
-      runCommandAvailable,
-    });
+    const coreSystemPrompt =
+      params.intent.coreSystemPrompt ??
+      agent.buildCorePrompt({
+        registry,
+        availableTools: declaredNormalized ?? allSuperAgentKeys,
+        currentNote,
+        currentPosition,
+        includeSkillCatalog,
+        includeSubAgentCatalog,
+        runCommandAvailable,
+      });
 
     type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];
 

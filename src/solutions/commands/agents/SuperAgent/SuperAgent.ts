@@ -296,7 +296,11 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     }
 
     if (!params.invocationCount && intent.type.trim() !== 'user_confirm') {
-      await this.skipPendingConfirmation(invocationCtx);
+      if (this.isBtwSideQuestion(intent.query)) {
+        await this.deferPendingConfirmation(invocationCtx);
+      } else {
+        await this.skipPendingConfirmation(invocationCtx);
+      }
     }
 
     // Add user message to conversation note for the first iteration
@@ -525,6 +529,50 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     }
 
     return toolProcessingResult;
+  }
+
+  private isBtwSideQuestion(query: string): boolean {
+    const trimmed = query.trim();
+    if (!/^btw[:\s]+/i.test(trimmed)) {
+      return false;
+    }
+
+    const afterPrefix = trimmed.replace(/^btw[:\s]+/i, '').trim();
+    return afterPrefix.length > 0;
+  }
+
+  /**
+   * When the user prefixes a message with btw while confirmation is pending,
+   * record a deferred tool result but keep buttons and lastResult for Yes/No.
+   */
+  private async deferPendingConfirmation(ctx: HandlerInvocationContext): Promise<void> {
+    const lastResult = this.commandProcessor.getLastResult(ctx.title);
+    if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION) {
+      return;
+    }
+
+    if (lastResult.deferred) {
+      return;
+    }
+
+    const toolCall = lastResult.toolCall;
+    if (!toolCall) {
+      return;
+    }
+
+    await ctx.serializeInvocation({
+      command: String(toolCall.toolName),
+      toolCall,
+      result: {
+        type: 'text',
+        value: 'Confirmation pending. User asked a side question before confirming.',
+      },
+    });
+
+    this.commandProcessor.setLastResult(ctx.title, {
+      ...lastResult,
+      deferred: true,
+    });
   }
 
   /**

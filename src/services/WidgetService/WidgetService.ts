@@ -7,6 +7,8 @@ import { uniqueID } from 'src/utils/uniqueID';
 import { WidgetBundler } from './WidgetBundler';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
 import { WidgetStateService } from './WidgetStateService';
+import { WidgetSessionService } from './WidgetSessionService';
+import { WidgetOrchestrator } from './WidgetOrchestrator';
 import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
 import { WIDGET_ACTION_APPLY_TIMEOUT_MS } from './WidgetProtocol';
@@ -16,6 +18,7 @@ import {
   type WidgetActionResult,
   type WidgetActionsCatalog,
   type WidgetProjectBundle,
+  type WidgetStatePresentationResult,
   WidgetProjectFenceData,
 } from './types';
 import { stringifyYamlFence } from '../MarkdownDefinitionService';
@@ -44,6 +47,7 @@ export interface WidgetActionBridgeHandle {
     params: Record<string, unknown>;
     requestId: string;
   }) => void;
+  sendRequestStatePresentation: (payload: { requestId: string }) => void;
 }
 
 interface MountedWidgetEntry {
@@ -53,11 +57,18 @@ interface MountedWidgetEntry {
 
 interface WidgetActionBridgeEntry {
   sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'];
+  sendRequestStatePresentation: WidgetActionBridgeHandle['sendRequestStatePresentation'];
   registeredActions: string[];
 }
 
 interface PendingActionRequest {
   resolve: (result: WidgetActionResult) => void;
+  reject: (error: Error) => void;
+  timer: number;
+}
+
+interface PendingStatePresentationRequest {
+  resolve: (result: WidgetStatePresentationResult) => void;
   reject: (error: Error) => void;
   timer: number;
 }
@@ -72,9 +83,15 @@ export class WidgetService {
   private readonly mountedByPath = new Map<string, Set<MountedWidgetEntry>>();
   private readonly actionBridgeEntriesByPath = new Map<string, Set<WidgetActionBridgeEntry>>();
   private readonly pendingActionRequests = new Map<string, PendingActionRequest>();
+  private readonly pendingStatePresentationRequests = new Map<
+    string,
+    PendingStatePresentationRequest
+  >();
   private modifyListenerRegistered = false;
   private readonly _definitionService: WidgetDefinitionService;
   private readonly _stateService: WidgetStateService;
+  private readonly _sessionService: WidgetSessionService;
+  private readonly _orchestrator: WidgetOrchestrator;
   private readonly _assets: WidgetAsset;
 
   private constructor(private readonly plugin: StewardPlugin) {
@@ -84,6 +101,8 @@ export class WidgetService {
     this._definitionService = WidgetDefinitionService.getInstance(plugin);
     this._definitionService.initialize();
     this._stateService = WidgetStateService.getInstance(plugin);
+    this._sessionService = WidgetSessionService.getInstance(plugin);
+    this._orchestrator = WidgetOrchestrator.getInstance(plugin);
   }
 
   /** Widget.md definition read, validate, and frontmatter logic. */
@@ -94,6 +113,16 @@ export class WidgetService {
   /** Widget runtime state in state.json per project folder. */
   public get stateService(): WidgetStateService {
     return this._stateService;
+  }
+
+  /** Interactive widget session conversations and model turns. */
+  public get sessionService(): WidgetSessionService {
+    return this._sessionService;
+  }
+
+  /** Turn scheduling after iframe state saves and on mount. */
+  public get orchestrator(): WidgetOrchestrator {
+    return this._orchestrator;
   }
 
   /** Vault asset size limits and blob URL resolution. */
@@ -652,6 +681,7 @@ export class WidgetService {
     const normalizedPath = normalizePath(handle.projectPath);
     const entry: WidgetActionBridgeEntry = {
       sendApplyAction: handle.sendApplyAction,
+      sendRequestStatePresentation: handle.sendRequestStatePresentation,
       registeredActions: [],
     };
 
@@ -736,6 +766,70 @@ export class WidgetService {
     });
   }
 
+  /** Resolves a pending state-presentation request from the iframe. */
+  public resolveStatePresentationResult(params: {
+    requestId: string;
+    ok: boolean;
+    presentation?: string;
+    error?: string;
+  }): void {
+    const pending = this.pendingStatePresentationRequests.get(params.requestId);
+    if (!pending) {
+      return;
+    }
+
+    window.clearTimeout(pending.timer);
+    this.pendingStatePresentationRequests.delete(params.requestId);
+    pending.resolve({
+      ok: params.ok,
+      presentation: params.presentation,
+      error: params.error,
+    });
+  }
+
+  /** Asks the mounted iframe for a text rendering of current widget data. */
+  public async getStatePresentation(params: {
+    projectPath: string;
+  }): Promise<WidgetStatePresentationResult> {
+    const normalizedPath = normalizePath(params.projectPath);
+    const bridge = this.resolveAnyActionBridgeEntry(normalizedPath);
+    if (!bridge) {
+      return { ok: false, error: 'widget_not_mounted' };
+    }
+
+    const requestId = `stw-present-${uniqueID()}`;
+
+    return new Promise<WidgetStatePresentationResult>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        this.pendingStatePresentationRequests.delete(requestId);
+        logger.log('[STW widget_action] getStatePresentation: timeout', {
+          projectPath: normalizedPath,
+          requestId,
+        });
+        reject(new Error('state_presentation_timeout'));
+      }, WIDGET_ACTION_APPLY_TIMEOUT_MS);
+
+      this.pendingStatePresentationRequests.set(requestId, { resolve, reject, timer });
+      bridge.sendRequestStatePresentation({ requestId });
+    }).catch(error => {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message };
+    });
+  }
+
+  private resolveAnyActionBridgeEntry(projectPath: string): WidgetActionBridgeEntry | null {
+    const entries = this.actionBridgeEntriesByPath.get(normalizePath(projectPath));
+    if (!entries || entries.size === 0) {
+      return null;
+    }
+
+    for (const entry of entries) {
+      return entry;
+    }
+
+    return null;
+  }
+
   /**
    * Dispatches a registered widget action into the mounted iframe.
    * Validates against Widget.md before dispatch; persistence uses the iframe setState path.
@@ -777,6 +871,12 @@ export class WidgetService {
     return new Promise<WidgetActionResult>((resolve, reject) => {
       const timer = window.setTimeout(() => {
         this.pendingActionRequests.delete(requestId);
+        logger.log('[STW widget_action] applyAction: timeout (no ActionResult from iframe)', {
+          projectPath: normalizedPath,
+          action: params.action,
+          requestId,
+          timeoutMs: WIDGET_ACTION_APPLY_TIMEOUT_MS,
+        });
         reject(new Error('widget_action_timeout'));
       }, WIDGET_ACTION_APPLY_TIMEOUT_MS);
 

@@ -664,9 +664,7 @@ export class ProviderSetting {
   }
 
   public highlightProviderSetting(this: StewardSettingTab, providerKey: string): void {
-    const row = this.containerEl.querySelector(
-      `[data-provider-key="${CSS.escape(providerKey)}"]`
-    );
+    const row = this.containerEl.querySelector(`[data-provider-key="${CSS.escape(providerKey)}"]`);
     if (!(row instanceof HTMLElement)) {
       return;
     }

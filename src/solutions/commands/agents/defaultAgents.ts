@@ -57,6 +57,14 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     canUseTools: true,
   },
   {
+    id: 'widget_actor',
+    name: 'Widget Actor',
+    factory: 'super',
+    tools: [ToolName.WIDGET_ACTION],
+    canUseTools: true,
+    canSpawnSubagents: false,
+  },
+  {
     id: 'title',
     name: 'Conversation Title Agent',
     factory: 'title',

@@ -51,6 +51,7 @@ export function buildWidgetStateHead(params: {
   window.${WIDGET_STATE_GLOBAL} = ${serialized};
   var saveTimer;
   var actionHandlers = {};
+  var statePresentationHandler = null;
   var assetRegistry = ${serializedAssets};
   var assetUrlCache = {};
   var pendingAssetRequests = {};
@@ -65,6 +66,14 @@ export function buildWidgetStateHead(params: {
     EMBED: 'src',
     OBJECT: 'data'
   };
+
+  function stwLog(message, data) {
+    parent.postMessage({
+      type: '${WidgetMessageType.Log}',
+      message: message,
+      data: data
+    }, '*');
+  }
 
   function notifyRegisteredActions() {
     parent.postMessage({
@@ -224,16 +233,33 @@ export function buildWidgetStateHead(params: {
       var envelope = window.${WIDGET_STATE_GLOBAL};
       return envelope ? envelope.data : null;
     },
-    setState: function (data) {
+    getSession: function () {
+      var envelope = window.${WIDGET_STATE_GLOBAL};
+      return envelope && envelope.session ? envelope.session : null;
+    },
+    setState: function (data, options) {
       window.${WIDGET_STATE_GLOBAL} = { version: 1, data: data };
       clearTimeout(saveTimer);
       saveTimer = setTimeout(function () {
-        parent.postMessage({ type: '${WidgetMessageType.StateSave}', state: data }, '*');
+        parent.postMessage({
+          type: '${WidgetMessageType.StateSave}',
+          state: data,
+          options: options && typeof options === 'object' ? options : undefined
+        }, '*');
       }, ${WIDGET_STATE_SAVE_DEBOUNCE_MS});
+    },
+    startNewSession: function () {
+      parent.postMessage({ type: '${WidgetMessageType.StartSession}' }, '*');
     },
     registerAction: function (name, fn) {
       actionHandlers[name] = fn;
       notifyRegisteredActions();
+    },
+    registerStatePresentation: function (fn) {
+      if (typeof fn !== 'function') {
+        return;
+      }
+      statePresentationHandler = fn;
     },
     dispatchAction: function (name, params) {
       var handler = actionHandlers[name];
@@ -296,10 +322,64 @@ export function buildWidgetStateHead(params: {
     }
 
     if (e.data.type !== '${WidgetMessageType.ApplyAction}') {
+      if (e.data.type === '${WidgetMessageType.RequestStatePresentation}') {
+        stwLog('[STW widget_action] iframe received RequestStatePresentation', {
+          requestId: e.data.requestId,
+          hasHandler: !!statePresentationHandler
+        });
+        if (!statePresentationHandler) {
+          parent.postMessage({
+            type: '${WidgetMessageType.StatePresentationResult}',
+            requestId: e.data.requestId,
+            ok: false,
+            error: 'state_presentation_not_registered'
+          }, '*');
+          return;
+        }
+
+        try {
+          var presentation = statePresentationHandler(window.stw.getState());
+          if (typeof presentation !== 'string' || !presentation.trim()) {
+            parent.postMessage({
+              type: '${WidgetMessageType.StatePresentationResult}',
+              requestId: e.data.requestId,
+              ok: false,
+              error: 'state_presentation_invalid'
+            }, '*');
+            return;
+          }
+
+          parent.postMessage({
+            type: '${WidgetMessageType.StatePresentationResult}',
+            requestId: e.data.requestId,
+            ok: true,
+            presentation: presentation
+          }, '*');
+        } catch (err) {
+          parent.postMessage({
+            type: '${WidgetMessageType.StatePresentationResult}',
+            requestId: e.data.requestId,
+            ok: false,
+            error: err && err.message ? err.message : 'state_presentation_failed'
+          }, '*');
+        }
+      }
       return;
     }
 
+    stwLog('[STW widget_action] iframe received ApplyAction', {
+      requestId: e.data.requestId,
+      action: e.data.action,
+      params: e.data.params
+    });
+
     var result = window.stw.dispatchAction(e.data.action, e.data.params);
+    stwLog('[STW widget_action] iframe dispatchAction finished', {
+      requestId: e.data.requestId,
+      action: e.data.action,
+      ok: !!(result && result.ok),
+      error: result && result.error ? result.error : undefined
+    });
     parent.postMessage({
       type: '${WidgetMessageType.ActionResult}',
       requestId: e.data.requestId,

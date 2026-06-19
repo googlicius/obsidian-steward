@@ -17,7 +17,6 @@ Specialized sub-agents for `spawn_subagent`. Each agent is defined by a level-2 
 | `tools`         | No       | Default active tools for spawned jobs                                    |
 | `inactiveTools` | No       | Default inactive tools the sub-agent may activate                        |
 
-
 ## Image vision
 
 ```yaml
@@ -38,4 +37,5 @@ inactiveTools:
 ```
 
 Note:
+
 - Remember to activate the `spawn_subagent` tool if it is inactive.

@@ -59,6 +59,8 @@ const ja = {
         'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのビューを更新してください。',
       artifactRefreshNotify:
         'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのアーティファクトを更新してください。',
+      sessionMove: '**{{actor}}** が `{{action}}` を実行しました{{comment}}',
+      humanMove: '私が手を打ちました。あなたの番です',
     },
     community: {
       browseCommands: 'コミュニティコマンドを見る',
@@ -374,7 +376,7 @@ const ja = {
       yes: 'はい',
       no: 'いいえ',
       run: '実行',
-      orTypeToSkip: 'または入力でスキップ',
+      confirmationButtonsHint: "スキップするには入力、追加質問は 'btw' を先頭に付ける",
       openStewardChat: 'チャットを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:

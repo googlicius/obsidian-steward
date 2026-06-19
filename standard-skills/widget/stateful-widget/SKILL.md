@@ -37,12 +37,12 @@ Only **project (HTML multi-file) widgets** get the state bridge and `state.json`
 
 ## How state is managed
 
-| Piece                       | Role                                                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `window.stw`                | API injected into the iframe by the host (not written by you in vault files).                                           |
-| `window.stw.getState()`     | Returns last saved **data** object, or `null` on first load.                                                            |
-| `window.stw.setState(data)` | Saves a **JSON-serializable** snapshot; debounced ~400ms, then written to vault.                                        |
-| `state.json`                | Created **lazily** in the project folder on first successful `setState`. Host-owned; do not author or edit it manually. |
+| Piece                                 | Role                                                                                                                                                                                                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `window.stw`                          | API injected into the iframe by the host (not written by you in vault files).                                                                                                                               |
+| `window.stw.getState()`               | Returns last saved **data** object, or `null` on first load.                                                                                                                                                |
+| `window.stw.setState(data, options?)` | Saves a **JSON-serializable** snapshot; debounced ~400ms, then written to vault. Optional **`options`** (host-only, not stored in `data`) — e.g. `{ intent: 'reset' }` clears host session on "Play again". |
+| `state.json`                          | Created **lazily** in the project folder on first successful `setState`. Host-owned; do not author or edit it manually.                                                                                     |
 
 Note: You **must** call `setState` after every meaningful state change. Without it, `state.json` never appears.
 
@@ -157,17 +157,17 @@ Rules:
 
 ## `Widget.md` — `name: manifest` block (host-maintained)
 
-`show_widget` creates `{projectPath}/Widget.md` with a single `yaml` fence at the **top** of the note body. The host writes it on create — **do not** remove or replace the block. You may **edit** it later to add or update `assets` and `maxAssetSize` (e.g. for large audio). Any other fences (`actions`, `actors`, `agent`) go **below** the manifest fence (see **interactive-widget**).
+`show_widget` creates `{projectPath}/Widget.md` with a single `yaml` fence at the **top** of the note body. The host writes it on create — **do not** remove or replace the block. You may **edit** it later to add or update `assets` and `maxAssetSize` (e.g. for large audio).
 
-| Field          | Type             | Required | Description                                                                                                                                                                                                                                                                             |
-| -------------- | ---------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | `manifest`       | **Yes**  | Block type literal.                                                                                                                                                                                                                                                                     |
-| `entry`        | string           | **Yes**  | Relative path to the HTML entry file (e.g. `index.html`).                                                                                                                                                                                                                               |
-| `type`         | `html`           | **Yes**  | Must be `html` for project widgets.                                                                                                                                                                                                                                                     |
-| `widgetId`     | string           | No       | Project folder id; host sets on create.                                                                                                                                                                                                                                                 |
-| `widgetName`   | string           | No       | Display name from `show_widget`.                                                                                                                                                                                                                                                        |
-| `assets`       | array of strings | No       | **Allowlist** of vault paths the iframe may request. Exposed on `window.stw.assets`; resolve with `await getAsset(stem)` or `await getAsset("Path/to/file")`. Reference in static HTML/CSS/JS as `asset:Path/to/file`. Only listed paths are served.                                    |
-| `maxAssetSize` | string or number | No       | Per-file byte cap when the host reads an asset. Plain numbers are bytes (e.g. `5000000`). Suffixes supported: `B`, `KB`, `MB`, `GB` (spacing optional, e.g. `5MB`, `5 mb`, `5 MB`). Host sets `5MB` on create; default when omitted from manifest: `5MB`. Raise this for larger assets. |
+| Field          | Type             | Required | Description                                                                                                                                                                                                                                              |
+| -------------- | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | `manifest`       | **Yes**  | Block type literal.                                                                                                                                                                                                                                      |
+| `entry`        | string           | **Yes**  | Relative path to the HTML entry file (e.g. `index.html`).                                                                                                                                                                                                |
+| `type`         | `html`           | **Yes**  | Must be `html` for project widgets.                                                                                                                                                                                                                      |
+| `widgetId`     | string           | No       | Project folder id; host sets on create.                                                                                                                                                                                                                  |
+| `widgetName`   | string           | No       | Display name from `show_widget`.                                                                                                                                                                                                                         |
+| `assets`       | array of strings | No       | **Allowlist** of vault paths the iframe may request. Exposed on `window.stw.assets`; resolve with `await getAsset(stem)` or `await getAsset("Path/to/file")`. Reference in static HTML/CSS/JS as `asset:Path/to/file`. Only listed paths are served.     |
+| `maxAssetSize` | string or number | No       | Per-file byte cap when the host reads an asset. Plain numbers are bytes (e.g. `5000000`). Suffixes supported: `B`, `KB`, `MB`, `GB` (e.g. `5 MB`). Host sets `5 MB` on create; default when omitted from manifest: `5 MB`. Raise this for larger assets. |
 
 Example (host-written on create):
 
@@ -177,7 +177,7 @@ entry: index.html
 type: html
 widgetId: My-Game-abc12
 widgetName: My Game
-maxAssetSize: 5MB
+maxAssetSize: 5 MB
 assets:
   - Images/sprite.png
 ```

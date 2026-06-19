@@ -58,6 +58,8 @@ const vi = {
       newTabRefreshNotify: 'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới view này.',
       artifactRefreshNotify:
         'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới artifact này.',
+      sessionMove: '**{{actor}}** đã chơi `{{action}}`{{comment}}',
+      humanMove: 'Tôi đã đi, đến lượt bạn',
     },
     community: {
       browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',
@@ -364,7 +366,7 @@ const vi = {
       yes: 'Có',
       no: 'Không',
       run: 'Chạy',
-      orTypeToSkip: 'hoặc gõ để bỏ qua',
+      confirmationButtonsHint: "Gõ để bỏ qua, thêm tiền tố 'btw' để hỏi thêm",
       openStewardChat: 'Mở chat',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:

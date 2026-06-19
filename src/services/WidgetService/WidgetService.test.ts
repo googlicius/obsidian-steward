@@ -405,7 +405,7 @@ describe('WidgetService', () => {
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
-        maxAssetSize: '5MB',
+        maxAssetSize: '5 MB',
       });
     });
 
@@ -430,7 +430,7 @@ describe('WidgetService', () => {
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
-        maxAssetSize: '5MB',
+        maxAssetSize: '5 MB',
       });
     });
 
@@ -535,7 +535,7 @@ describe('WidgetService', () => {
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
-        maxAssetSize: '5MB',
+        maxAssetSize: '5 MB',
         assets: ['Images/logo.png', 'Docs/bg.png'],
       });
     });
@@ -559,7 +559,7 @@ describe('WidgetService', () => {
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
-        maxAssetSize: '5MB',
+        maxAssetSize: '5 MB',
       });
       expect(manifest.assets).toBeUndefined();
     });
@@ -608,6 +608,7 @@ describe('WidgetService', () => {
 
   describe('getWidgetDefinition actions and applyAction', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
+    const noopPresentationRequest = () => {};
 
     const actionsWidgetMd = [
       '```yaml',
@@ -705,6 +706,7 @@ describe('WidgetService', () => {
       const unregister = service.registerActionBridge({
         projectPath,
         sendApplyAction,
+        sendRequestStatePresentation: noopPresentationRequest,
       });
 
       const result = await service.applyAction({
@@ -731,6 +733,7 @@ describe('WidgetService', () => {
         sendApplyAction: () => {
           throw new Error('should not dispatch');
         },
+        sendRequestStatePresentation: noopPresentationRequest,
       });
 
       const result = await service.applyAction({
@@ -809,10 +812,12 @@ describe('WidgetService', () => {
         sendApplyAction: () => {
           throw new Error('secondary bridge should not receive dispatch');
         },
+        sendRequestStatePresentation: noopPresentationRequest,
       });
       const unregisterPrimary = service.registerActionBridge({
         projectPath,
         sendApplyAction: primarySendApplyAction,
+        sendRequestStatePresentation: noopPresentationRequest,
       });
 
       unregisterSecondary();
@@ -825,6 +830,39 @@ describe('WidgetService', () => {
 
       unregisterPrimary();
       expect(result.ok).toBe(true);
+    });
+
+    it('returns state presentation from the mounted iframe', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+      let capturedRequestId = '';
+      const sendRequestStatePresentation = (payload: { requestId: string }) => {
+        capturedRequestId = payload.requestId;
+        service.resolveStatePresentationResult({
+          requestId: payload.requestId,
+          ok: true,
+          presentation: 'X | O | .\n-+-+-\n. | . | .',
+        });
+      };
+
+      const unregister = service.registerActionBridge({
+        projectPath,
+        sendApplyAction: () => {
+          throw new Error('applyAction should not run');
+        },
+        sendRequestStatePresentation,
+      });
+
+      const result = await service.getStatePresentation({ projectPath });
+
+      unregister();
+      expect(capturedRequestId).toMatch(/^stw-present-/);
+      expect(result.ok).toBe(true);
+      expect(result.presentation).toContain('X | O');
     });
   });
 

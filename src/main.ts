@@ -6,6 +6,8 @@ import {
   WorkspaceParent,
   addIcon,
   getLanguage,
+  MarkdownView,
+  normalizePath,
 } from 'obsidian';
 import { getBundledInternal } from './utils/bundledInternals';
 import StewardSettingTab from './settings';
@@ -931,6 +933,24 @@ export default class StewardPlugin extends Plugin {
   }): Promise<void> {
     const leaf = this.app.workspace.getLeaf('tab');
     await this.openReadingView({ filePath, leaf, revealLeaf });
+  }
+
+  /** Opens a vault markdown note in a new tab (standard editor/preview, not {@link ReadingView}). */
+  public async openMarkdownInNewTab({ filePath }: { filePath: string }): Promise<void> {
+    const normalized = normalizePath(filePath);
+    const file = this.app.vault.getFileByPath(normalized);
+    if (!file) {
+      logger.warn('Markdown file not found:', normalized);
+      return;
+    }
+
+    const leaf = this.app.workspace.getLeaf('tab');
+    await leaf.openFile(file);
+    await this.app.workspace.setActiveLeaf(leaf, { focus: true });
+
+    if (leaf.view instanceof MarkdownView) {
+      this.setCursorToEndOfFile(leaf.view.editor as ObsidianEditor);
+    }
   }
 
   public async startNewChat(leaf: WorkspaceLeaf): Promise<void> {

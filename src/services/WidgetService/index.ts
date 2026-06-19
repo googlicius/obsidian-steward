@@ -6,4 +6,7 @@ export * from './WidgetBuild';
 export * from './WidgetJsValidator';
 export * from './WidgetProtocol';
 export * from './WidgetDefinitionService';
+export * from './WidgetSessionService';
+export * from './WidgetOrchestrator';
+export * from './widgetActorPrompt';
 export * from './WidgetService';

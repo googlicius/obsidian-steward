@@ -891,6 +891,33 @@ describe('ConversationRenderer', () => {
       expect(processedContent).toMatchSnapshot();
     });
 
+    it('should add a user message as plain text without callout', async () => {
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "Here's what I found:",
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      let processedContent = '';
+      jest.spyOn(mockPlugin.app.vault, 'process').mockImplementation(async (file, processor) => {
+        processedContent = processor(mockContent);
+        return processedContent;
+      });
+
+      await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: 'I moved, your turn',
+        contentFormat: 'plain',
+        includeHistory: false,
+      });
+
+      expect(processedContent).toContain('<!--STW ID:mock-id-123,ROLE:user,HISTORY:false-->');
+      expect(processedContent).toContain('I moved, your turn');
+      expect(processedContent).not.toContain('stw-user-message');
+    });
+
     it('should append hidden content without in-content indicator handling', async () => {
       // Mock initial conversation content with a loading-like text
       const mockContent = [

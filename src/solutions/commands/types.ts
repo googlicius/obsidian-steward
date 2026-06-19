@@ -8,10 +8,14 @@ export interface Intent {
   type: string;
   query: string;
   systemPrompts?: string[];
+  /** When set, replaces the agent core prompt entirely (e.g. widget actor turns). */
+  coreSystemPrompt?: string;
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
   /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */
   tools?: ToolName[];
+  /** When set, limits how many trailing conversation messages are replayed as model history. */
+  maxHistoryMessages?: number;
 }
 
 export interface ContextAugmentationIntent extends Intent {
@@ -71,6 +75,8 @@ export type ConfirmationResult<T = unknown> = {
     reject?: string;
   };
   toolCall?: ToolCallPart<T>;
+  /** Set after the first btw side question serializes a deferred tool result. */
+  deferred?: boolean;
   onConfirmation: (message: string) => Promise<AgentResult> | AgentResult;
   onRejection?: (message: string) => Promise<AgentResult> | AgentResult;
   onFinal?: () => Promise<void> | void;

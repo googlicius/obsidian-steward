@@ -63,6 +63,8 @@ const en = {
         'After editing widget files, click **{{action}}** again to refresh this view.',
       artifactRefreshNotify:
         'After editing widget files, click **{{action}}** again to refresh this artifact.',
+      sessionMove: '**{{actor}}** played `{{action}}`{{comment}}',
+      humanMove: 'I moved, your turn',
     },
     community: {
       browseCommands: 'Browse community commands',
@@ -428,7 +430,7 @@ const en = {
       yes: 'Yes',
       no: 'No',
       run: 'Run',
-      orTypeToSkip: 'or type to skip',
+      confirmationButtonsHint: "Type to skip, prefix 'btw' for side question",
       openStewardChat: 'Open chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',

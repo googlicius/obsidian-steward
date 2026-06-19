@@ -30,6 +30,18 @@ export interface WidgetActionResult {
   state?: unknown;
 }
 
+export interface WidgetStatePresentationResult {
+  ok: boolean;
+  presentation?: string;
+  error?: string;
+}
+
+/** Optional second argument to `window.stw.setState(data, options)`. Host-only; never stored in `data`. */
+export interface WidgetStateSaveOptions {
+  /** Clears `session` after save. Use for new game / play again / restart. Does not trigger a model turn. */
+  intent?: 'reset';
+}
+
 export const widgetManifestSchema = z.object({
   name: z.literal('manifest'),
   entry: z.string().min(1),
@@ -71,6 +83,62 @@ export const widgetAgentSchema = z.object({
 
 export type WidgetAgent = z.infer<typeof widgetAgentSchema>;
 
+export const widgetSessionPhaseSchema = z.enum(['awaiting_input', 'thinking', 'ended']);
+
+export const widgetSessionMoveSchema = z.object({
+  actor: z.string().min(1),
+  action: z.string().min(1),
+  comment: z.string().optional(),
+  at: z.string().min(1),
+});
+
+export const widgetSessionSchema = z.object({
+  conversationTitle: z.string().min(1),
+  actor: z.string().min(1),
+  turnIndex: z.number().int().nonnegative(),
+  phase: widgetSessionPhaseSchema,
+  moveLog: z.array(widgetSessionMoveSchema).optional(),
+  /** Host snapshot of `data` after last processed turn (dedupe debounced iframe saves). */
+  lastDataSnapshot: z.unknown().optional(),
+  /** When true, the next human-actor `setState` only syncs `lastDataSnapshot` (e.g. after startNewSession board reset). */
+  suppressHumanAdvanceOnce: z.boolean().optional(),
+  /** What to include in the next model turn user message (from last widget_action). Defaults both true. */
+  turnContextPrefs: z
+    .object({
+      includeJson: z.boolean(),
+      includePresentation: z.boolean(),
+    })
+    .optional(),
+});
+
+export type WidgetSessionPhase = z.infer<typeof widgetSessionPhaseSchema>;
+export type WidgetSessionMove = z.infer<typeof widgetSessionMoveSchema>;
+export type WidgetSessionData = z.infer<typeof widgetSessionSchema>;
+
+export type WidgetTurnContextPrefs = NonNullable<WidgetSessionData['turnContextPrefs']>;
+
+export const WIDGET_STATE_VERSION = 1;
+
+/** Persisted widget runtime state envelope stored in state.json */
+export const widgetStateSchema = z
+  .object({
+    version: z.literal(WIDGET_STATE_VERSION),
+    updatedAt: z.string().min(1),
+    data: z.unknown(),
+    session: widgetSessionSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!Object.prototype.hasOwnProperty.call(value, 'data') || value.data === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'data is required',
+        path: ['data'],
+      });
+    }
+  });
+
+export type WidgetState = z.infer<typeof widgetStateSchema>;
+
 export interface WidgetDefinition {
   manifest: WidgetManifest | null;
   actions: WidgetActionsCatalog | null;
@@ -94,6 +162,3 @@ export interface WidgetProjectBundle {
   html: string;
   assets: WidgetAssetRegistryMap;
 }
-
-export type { WidgetState } from './WidgetStateService';
-export { WIDGET_STATE_VERSION, widgetStateSchema } from './WidgetStateService';

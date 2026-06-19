@@ -1,29 +1,15 @@
 import { normalizePath } from 'obsidian';
-import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { buildWidgetStateHead } from './WidgetBuild';
+import {
+  WIDGET_STATE_VERSION,
+  widgetStateSchema,
+  type WidgetSessionData,
+  type WidgetState,
+} from './types';
 
-export const WIDGET_STATE_VERSION = 1;
-
-/** Persisted widget runtime state envelope stored in state.json */
-export const widgetStateSchema = z
-  .object({
-    version: z.literal(WIDGET_STATE_VERSION),
-    updatedAt: z.string().min(1),
-    data: z.unknown(),
-  })
-  .superRefine((value, ctx) => {
-    if (!Object.prototype.hasOwnProperty.call(value, 'data') || value.data === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'data is required',
-        path: ['data'],
-      });
-    }
-  });
-
-export type WidgetState = z.infer<typeof widgetStateSchema>;
+export { WIDGET_STATE_VERSION, widgetStateSchema, type WidgetState } from './types';
 
 type ParseWidgetStateResult =
   | { valid: true; data: WidgetState }
@@ -77,12 +63,23 @@ export class WidgetStateService {
     }
   }
 
-  /** Writes widget runtime data to state.json (creates or updates). */
-  public async writeState(params: { projectPath: string; data: unknown }): Promise<void> {
+  /** Writes widget runtime data to state.json (creates or updates). Preserves prior session when omitted. */
+  public async writeState(params: {
+    projectPath: string;
+    data: unknown;
+    session?: WidgetSessionData;
+  }): Promise<void> {
+    let session = params.session;
+    if (session === undefined) {
+      const previous = await this.readState(params.projectPath);
+      session = previous?.session;
+    }
+
     const envelope = widgetStateSchema.parse({
       version: WIDGET_STATE_VERSION,
       updatedAt: new Date().toISOString(),
       data: params.data,
+      ...(session !== undefined ? { session } : {}),
     });
     const statePath = this.getStatePath(params.projectPath);
     const content = JSON.stringify(envelope, null, 2);
@@ -94,6 +91,46 @@ export class WidgetStateService {
 
     await this.plugin.obsidianAPITools.ensureFolderExists(params.projectPath);
     await this.plugin.app.vault.create(statePath, content);
+  }
+
+  /** Reads host-owned session from the state envelope sibling field. */
+  public async readSession(projectPath: string): Promise<WidgetSessionData | null> {
+    const state = await this.readState(projectPath);
+    return state?.session ?? null;
+  }
+
+  /** Removes the session sibling from state.json; leaves `data` unchanged. */
+  public async clearSession(projectPath: string): Promise<void> {
+    const previous = await this.readState(projectPath);
+    if (!previous) {
+      return;
+    }
+
+    const envelope = widgetStateSchema.parse({
+      version: WIDGET_STATE_VERSION,
+      updatedAt: new Date().toISOString(),
+      data: previous.data,
+    });
+    const statePath = this.getStatePath(projectPath);
+    const content = JSON.stringify(envelope, null, 2);
+    const stateFile = this.plugin.app.vault.getFileByPath(statePath);
+    if (stateFile) {
+      await this.plugin.app.vault.modify(stateFile, content);
+    }
+  }
+
+  /** Updates only the session sibling without changing widget data. */
+  public async writeSession(params: {
+    projectPath: string;
+    session: WidgetSessionData;
+  }): Promise<void> {
+    const previous = await this.readState(params.projectPath);
+    const data = previous?.data ?? {};
+    await this.writeState({
+      projectPath: params.projectPath,
+      data,
+      session: params.session,
+    });
   }
 
   private parseWidgetState(data: unknown): ParseWidgetStateResult {

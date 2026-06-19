@@ -21,6 +21,7 @@ export * from './SearchMore';
 export * from './Speech';
 export * from './Image';
 export * from './ShowWidget';
+export * from './WidgetActionHandler';
 export * from './TodoList';
 export * from './Dynamic';
 export * from './ActivateToolHandler';
