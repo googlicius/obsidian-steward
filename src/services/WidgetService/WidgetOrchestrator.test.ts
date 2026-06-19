@@ -30,7 +30,7 @@ const definition: WidgetDefinition = {
     o: {
       name: 'agent',
       id: 'o',
-      instruction: 'Play O',
+      instructions: ['Play O'],
       actions: ['playCell'],
     },
   },

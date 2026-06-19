@@ -59,7 +59,7 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
   {
     id: 'widget_actor',
     name: 'Widget Actor',
-    factory: 'super',
+    factory: 'widget_actor',
     tools: [ToolName.WIDGET_ACTION],
     canUseTools: true,
     canSpawnSubagents: false,

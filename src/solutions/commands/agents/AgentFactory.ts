@@ -3,6 +3,7 @@ import { SuperAgent } from './SuperAgent/SuperAgent';
 import { SubAgent } from './SubAgent/SubAgent';
 import { ConversationTitleAgent } from './ConversationTitleAgent/ConversationTitleAgent';
 import { CompactionSummaryAgent } from './CompactionSummaryAgent/CompactionSummaryAgent';
+import { WidgetActorAgent } from './WidgetActorAgent/WidgetActorAgent';
 import type { AgentConfig } from './AgentConfig';
 import { ToolName } from '../ToolRegistry';
 
@@ -10,6 +11,7 @@ import { ToolName } from '../ToolRegistry';
 export type AgentFactoryProduct =
   | SuperAgent
   | SubAgent
+  | WidgetActorAgent
   | ConversationTitleAgent
   | CompactionSummaryAgent;
 
@@ -32,6 +34,8 @@ export function createAgentFromConfig(
       return new ConversationTitleAgent(plugin);
     case 'compaction_summary':
       return new CompactionSummaryAgent(plugin);
+    case 'widget_actor':
+      return new WidgetActorAgent(plugin, tools);
     default: {
       const _exhaustive: never = config.factory;
       throw new Error(`Unknown agent factory: ${_exhaustive as string}`);

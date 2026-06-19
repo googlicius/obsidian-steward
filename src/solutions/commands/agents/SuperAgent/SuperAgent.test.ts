@@ -1722,6 +1722,52 @@ describe('SuperAgent', () => {
       expect(commandProcessor.clearLastResult).not.toHaveBeenCalled();
     });
 
+    it('defers pending confirmation on btw side question with comma prefix', async () => {
+      const title = 'conv-btw-comma-side-question';
+      const handlerId = 'handler-btw-comma-defer';
+      const pendingToolCall = {
+        toolName: ToolName.EDIT,
+        toolCallId: 'pending-edit-comma-1',
+        input: { operations: [] },
+      };
+
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+
+      commandProcessor.getLastResult.mockReturnValue({
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        toolCall: pendingToolCall,
+        onConfirmation: jest.fn(),
+      });
+
+      const params: AgentHandlerParams = {
+        title,
+        handlerId,
+        intent: {
+          type: ' ',
+          query: 'btw, while do you keep updating? If error, just update the affected lines',
+        } as Intent,
+        activeTools: [ToolName.EDIT],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      jest.spyOn(superAgent, 'executeStreamText').mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      await superAgent.handle(params);
+
+      expect(mockPlugin.conversationRenderer.removeConfirmationButtons).not.toHaveBeenCalled();
+      expect(commandProcessor.clearLastResult).not.toHaveBeenCalled();
+      expect(commandProcessor.setLastResult).toHaveBeenCalledWith(
+        title,
+        expect.objectContaining({
+          status: IntentResultStatus.NEEDS_CONFIRMATION,
+          deferred: true,
+        })
+      );
+    });
+
     it('defers pending confirmation on btw side question without removing buttons', async () => {
       const title = 'conv-btw-side-question';
       const handlerId = 'handler-btw-defer';

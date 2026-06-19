@@ -4,8 +4,8 @@ export const AgentConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().optional(),
   default: z.boolean().optional(),
-  /** Factory: 'super' | 'subagent' | 'title' | 'compaction_summary' */
-  factory: z.enum(['super', 'subagent', 'title', 'compaction_summary']),
+  /** Factory: 'super' | 'subagent' | 'title' | 'compaction_summary' | 'widget_actor' */
+  factory: z.enum(['super', 'subagent', 'title', 'compaction_summary', 'widget_actor']),
   /** For factory 'super': tools to activate. Empty = all tools. */
   tools: z.array(z.string()).optional(),
   /** Whether content is required for this agent */

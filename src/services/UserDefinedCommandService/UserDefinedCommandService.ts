@@ -278,7 +278,8 @@ version: ${udc.version}
           const result = await loadUDCVersion(
             rawData as { command_name: string; version?: number; [key: string]: unknown },
             file.path,
-            noteEnabled
+            noteEnabled,
+            this.plugin
           );
 
           if (!result.success) {

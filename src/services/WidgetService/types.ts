@@ -1,4 +1,5 @@
 import { z } from 'zod/v3';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 export const widgetActionsSchema = z.object({
   name: z.literal('actions'),
@@ -76,9 +77,11 @@ export type WidgetActors = z.infer<typeof widgetActorsSchema>;
 export const widgetAgentSchema = z.object({
   name: z.literal('agent'),
   id: z.string().min(1),
-  instruction: z.string().min(1),
+  instructions: z.array(z.string().min(1)).min(1),
   actions: z.array(z.string().min(1)).min(1),
   model: z.string().optional(),
+  /** Steward tools for this actor; widget_action is always included. */
+  tools: z.array(z.nativeEnum(ToolName)).optional(),
 });
 
 export type WidgetAgent = z.infer<typeof widgetAgentSchema>;

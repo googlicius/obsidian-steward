@@ -1,3 +1,4 @@
+import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { IVersionedUserDefinedCommand } from './types';
 import { z } from 'zod/v3';
@@ -16,7 +17,8 @@ export async function loadUDCVersion(
   rawData: { command_name: string; version?: number; [key: string]: unknown },
   filePath: string,
   /** From the defining note's YAML frontmatter: omit / true → true, false → false. */
-  noteEnabled = true
+  noteEnabled = true,
+  plugin?: StewardPlugin
 ): Promise<LoadCommandResult> {
   try {
     // Check for explicit version field, default to version 2 if not specified
@@ -34,7 +36,7 @@ export async function loadUDCVersion(
       const { UserDefinedCommandV2 } = await import('./v2');
       const v2Data = UserDefinedCommandV2.validate(rawData);
       v2Data.file_path = filePath;
-      return { success: true, command: new UserDefinedCommandV2(v2Data, noteEnabled) };
+      return { success: true, command: new UserDefinedCommandV2(v2Data, noteEnabled, plugin) };
     }
 
     // Unsupported version

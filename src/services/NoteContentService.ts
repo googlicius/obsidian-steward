@@ -106,6 +106,26 @@ export class NoteContentService {
   }
 
   /**
+   * Rewrites heading-only wikilinks ([[#Heading]]) to include the file path.
+   */
+  public transformHeadingOnlyWikilinks(content: string, filePath: string): string {
+    if (!filePath) {
+      return content;
+    }
+
+    const notePath = filePath.replace(/\.md$/, '');
+    const wikiLinkRegex = new RegExp(WIKI_LINK_PATTERN, 'g');
+
+    return content.replace(wikiLinkRegex, (match, linkContent: string) => {
+      if (linkContent.startsWith('#')) {
+        const heading = linkContent.substring(1);
+        return `[[${notePath}#${heading}]]`;
+      }
+      return match;
+    });
+  }
+
+  /**
    * Extracts image links from text content
    * @param content The text content to extract image links from
    * @returns Array of image paths extracted from the content

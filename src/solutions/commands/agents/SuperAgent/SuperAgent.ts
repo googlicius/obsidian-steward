@@ -532,13 +532,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
   }
 
   private isBtwSideQuestion(query: string): boolean {
-    const trimmed = query.trim();
-    if (!/^btw[:\s]+/i.test(trimmed)) {
-      return false;
-    }
-
-    const afterPrefix = trimmed.replace(/^btw[:\s]+/i, '').trim();
-    return afterPrefix.length > 0;
+    return /^btw\b/i.test(query.trim());
   }
 
   /**

@@ -1,3 +1,5 @@
+import type StewardPlugin from 'src/main';
+import { NoteContentService } from 'src/services/NoteContentService';
 import {
   UserDefinedCommandV2,
   userDefinedCommandV2Schema,
@@ -5,8 +7,18 @@ import {
   type UserDefinedCommandV2Data,
 } from './v2';
 
+function createTestPlugin(): StewardPlugin {
+  const plugin = {} as StewardPlugin;
+  (NoteContentService as unknown as { instance?: NoteContentService }).instance = undefined;
+  return {
+    noteContentService: NoteContentService.getInstance(plugin),
+  } as StewardPlugin;
+}
+
 describe('UserDefinedCommandV2', () => {
   describe('heading-only wikilink transformation', () => {
+    const plugin = createTestPlugin();
+
     it('should transform heading-only wikilinks in root-level system_prompt', () => {
       const data: UserDefinedCommandV2Data = {
         command_name: 'test_command',
@@ -15,7 +27,7 @@ describe('UserDefinedCommandV2', () => {
         system_prompt: ['[[#Guidelines]]', 'Some other text', '[[#Instructions]]'],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
@@ -43,7 +55,7 @@ describe('UserDefinedCommandV2', () => {
         ],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.steps[0].system_prompt).toEqual([
@@ -69,7 +81,7 @@ describe('UserDefinedCommandV2', () => {
         ],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual(['[[Steward/Commands/MyCommand#RootGuidelines]]']);
@@ -91,7 +103,7 @@ describe('UserDefinedCommandV2', () => {
         steps: [{ query: 'test query' }],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
@@ -110,7 +122,7 @@ describe('UserDefinedCommandV2', () => {
         steps: [{ query: 'test query' }],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
@@ -126,7 +138,7 @@ describe('UserDefinedCommandV2', () => {
         steps: [{ query: 'test query' }],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual(['[[MyCommand#Guidelines]]']);
@@ -140,7 +152,7 @@ describe('UserDefinedCommandV2', () => {
         steps: [{ query: 'test query' }],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
@@ -156,7 +168,7 @@ describe('UserDefinedCommandV2', () => {
         steps: [{ query: 'test query' }],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual(['[[#Guidelines]]']);
@@ -170,7 +182,7 @@ describe('UserDefinedCommandV2', () => {
         steps: [{ query: 'test query' }],
       };
 
-      const command = new UserDefinedCommandV2(data);
+      const command = new UserDefinedCommandV2(data, true, plugin);
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual(['[[#Guidelines]]']);

@@ -82,6 +82,24 @@ Is the image above a lake, pond, reservoir, or sea?`;
     });
   });
 
+  describe('transformHeadingOnlyWikilinks', () => {
+    it('rewrites heading-only wikilinks to include the file path', () => {
+      const result = noteContentService.transformHeadingOnlyWikilinks(
+        'See [[#Rules]] for details.',
+        'Steward/Widgets/game/Widget.md'
+      );
+      expect(result).toBe('See [[Steward/Widgets/game/Widget#Rules]] for details.');
+    });
+
+    it('leaves full wikilinks unchanged', () => {
+      const result = noteContentService.transformHeadingOnlyWikilinks(
+        '[[Other Note]]',
+        'Steward/Widgets/game/Widget.md'
+      );
+      expect(result).toBe('[[Other Note]]');
+    });
+  });
+
   describe('extractContentUnderHeading', () => {
     it('should extract content under heading directly', () => {
       // Test the extractContentUnderHeading method directly

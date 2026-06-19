@@ -332,7 +332,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Apply one allowed widget action during a widget session turn. Used by model actors in turn-based interactive widgets.',
     guidelines: [
-      'Turn prompts include JSON state and a widget text view by default.',
+      'Call exactly once with one allowed action, then stop.',
+      'Do not use any other tool. Keep the optional comment to one short sentence.',
+      'Turn prompts include JSON state and a text view when available (both default on).',
       'Optional with_json (default true) and with_presentation (default true) control what appears on your next turn; at least one must stay true.',
       'Set with_json: false or with_presentation: false when that view was unhelpful.',
     ],

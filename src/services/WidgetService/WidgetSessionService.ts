@@ -3,7 +3,7 @@ import type StewardPlugin from 'src/main';
 import { uniqueID } from 'src/utils/uniqueID';
 import { logger } from 'src/utils/logger';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
+import { ToolName, ToolRegistry } from 'src/solutions/commands/ToolRegistry';
 import { createAgentFromConfig } from 'src/solutions/commands/agents/AgentFactory';
 import { DEFAULT_AGENT_CONFIGS } from 'src/solutions/commands/agents/defaultAgents';
 import type { Agent } from 'src/solutions/commands/Agent';
@@ -15,7 +15,6 @@ import type {
   WidgetSessionData,
   WidgetTurnContextPrefs,
 } from './types';
-import { buildWidgetActorSystemPrompt } from './widgetActorPrompt';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
 import { WidgetStateService } from './WidgetStateService';
 
@@ -92,12 +91,15 @@ export class WidgetSessionService {
     }
 
     const conversationTitle = this.buildSessionConversationTitle(params.widgetId);
+    const definition = await this.definitionService.getWidgetDefinition(params.projectPath);
+    const agent = definition.agents[params.actorId];
     await this.createSessionConversation({
       conversationTitle,
       projectPath: params.projectPath,
       widgetId: params.widgetId,
       actorId: params.actorId,
       lang: params.lang,
+      tools: this.resolveActorTools(agent),
     });
 
     if (params.precedingHumanMove) {
@@ -151,6 +153,7 @@ export class WidgetSessionService {
     widgetId: string;
     actorId: string;
     lang?: string | null;
+    tools: ToolName[];
   }): Promise<void> {
     const conversationLanguage = params.lang ?? 'en';
     const indicatorText = this.plugin.conversationRenderer.getIndicatorTextByIntentType(
@@ -174,7 +177,7 @@ export class WidgetSessionService {
       { name: 'widget_id', value: params.widgetId },
       { name: 'widget_actor_id', value: params.actorId },
       { name: 'session_type', value: 'widget' },
-      { name: 'tools', value: [ToolName.WIDGET_ACTION] },
+      { name: 'tools', value: params.tools },
     ]);
   }
 
@@ -275,11 +278,20 @@ export class WidgetSessionService {
     }
 
     const runnableAgent = agentProduct as Agent;
+    const actorTools = this.resolveActorTools(params.agent);
 
     await this.plugin.conversationRenderer.updateConversationFrontmatter(
       params.session.conversationTitle,
-      [{ name: 'widget_actor_id', value: params.actorId }]
+      [
+        { name: 'widget_actor_id', value: params.actorId },
+        { name: 'tools', value: actorTools },
+      ]
     );
+
+    const systemPrompts = await this.resolveActorSystemPrompts({
+      agent: params.agent,
+      projectPath: params.projectPath,
+    });
 
     const turnQuery = await this.buildTurnContext({
       projectPath: params.projectPath,
@@ -293,12 +305,10 @@ export class WidgetSessionService {
     const handlerParams: AgentHandlerParams = {
       title: params.session.conversationTitle,
       intent: {
-        type: 'widget_turn',
+        type: ' ',
         query: turnQuery,
-        tools: [ToolName.WIDGET_ACTION],
-        coreSystemPrompt: buildWidgetActorSystemPrompt({
-          agentInstruction: params.agent.instruction,
-        }),
+        tools: actorTools,
+        systemPrompts,
         model: params.agent.model,
         no_confirm: true,
         maxHistoryMessages: WIDGET_TURN_HISTORY_LIMIT,
@@ -306,7 +316,7 @@ export class WidgetSessionService {
       lang: params.lang,
       handlerId: uniqueID(),
       invocationCount: 0,
-      activeTools: [ToolName.WIDGET_ACTION],
+      activeTools: actorTools,
     };
 
     try {
@@ -442,6 +452,53 @@ export class WidgetSessionService {
 
     lines.push('', 'Take exactly one allowed action via widget_action.');
     return lines.join('\n');
+  }
+
+  private async resolveActorSystemPrompts(params: {
+    agent: WidgetAgent;
+    projectPath: string;
+  }): Promise<string[]> {
+    const definitionPath = normalizePath(`${params.projectPath}/Widget.md`);
+    const rawPrompts = params.agent.instructions;
+
+    const transformed: string[] = [];
+    for (let i = 0; i < rawPrompts.length; i++) {
+      transformed.push(
+        this.plugin.noteContentService.transformHeadingOnlyWikilinks(rawPrompts[i], definitionPath)
+      );
+    }
+
+    const resolved: string[] = [];
+    for (let i = 0; i < transformed.length; i++) {
+      try {
+        const processed = await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+          [transformed[i]]
+        );
+        resolved.push(processed[0]);
+      } catch (error) {
+        logger.warn('Widget actor system prompt wikilink resolution failed:', error);
+        resolved.push(transformed[i]);
+      }
+    }
+
+    return resolved;
+  }
+
+  private resolveActorTools(agent: WidgetAgent | undefined): ToolName[] {
+    const sharedTools = agent?.tools ?? [];
+    const result: ToolName[] = [ToolName.WIDGET_ACTION];
+    const seen = new Set<ToolName>([ToolName.WIDGET_ACTION]);
+
+    for (let i = 0; i < sharedTools.length; i++) {
+      const tool = sharedTools[i];
+      if (seen.has(tool)) {
+        continue;
+      }
+      seen.add(tool);
+      result.push(tool);
+    }
+
+    return ToolRegistry.expandWithCompanionTools(result);
   }
 
   private formatPresentationUnavailableNote(error?: string): string {

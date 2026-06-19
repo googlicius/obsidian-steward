@@ -4,7 +4,7 @@ description: >-
   Expose model-callable widget actions and configure turn-based play via
   Widget.md (actions, actors, agent blocks). Read after stateful-widget when
   humans and models take turns.
-version: 20
+version: 23
 tools:
   - show_widget
 ---
@@ -126,7 +126,7 @@ Do not hand-author `session`; prefer deleting it and letting the host recreate i
 
 ### How the host runs a model turn
 
-When `actors.<id>.kind: model` and it's that actor's turn, the host runs a widget-focused agent (`agent.instruction` + public `data` snapshot + allowed actions). That agent calls `widget_action`, which the host dispatches into your **`registerAction`** handler — the **same function** a human click calls locally. Watch turns in **Playground** (`[[Steward/Playground.md]]` when `{stewardFolder}` is `Steward`).
+When `actors.<id>.kind: model` and it's that actor's turn, the host runs a **widget actor** agent defined by the matching `agent` block (`instructions`, `tools`, `actions`). The host injects detailed per-tool instructions (same as the main assistant). Watch turns in **Playground** (`[[Steward/Playground.md]]` when `{stewardFolder}` is `Steward`).
 
 ### State presentation for model turns
 
@@ -216,11 +216,11 @@ Only **one** `actions` block is allowed. Required when any `agent` block exists.
 
 Turn roster and policy. Required when any `agent` block exists.
 
-| Field       | Type             | Required | Description                                                                                                                  |
-| ----------- | ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `name`      | `actors`         | **Yes**  | Block type literal.                                                                                                          |
-| `mode`      | string           | **Yes**  | `user_and_models` — wait for human actors between model turns. `models_only` — chain model turns (host burst limit applies). |
-| `turnOrder` | array of strings | **Yes**  | Ordered actor ids; length defines participant count (2–N). Each id must exist in `actors`.                                   |
+| Field          | Type             | Required | Description                                                                                                                                                                                                                                                        |
+| -------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`         | `actors`         | **Yes**  | Block type literal.                                                                                                                                                                                                                                                |
+| `mode`         | string           | **Yes**  | `user_and_models` — wait for human actors between model turns. `models_only` — chain model turns (host burst limit applies).                                                                                                                                       |
+| `turnOrder`    | array of strings | **Yes**  | Ordered actor ids; length defines participant count (2–N). Each id must exist in `actors`.                                                                                                                                                                           |
 | `actors`    | object (map)     | **Yes**  | Actor id → actor entry (see below).                                                                                          |
 
 **Actor entry** (`actors.<actorId>`):
@@ -235,13 +235,14 @@ Only **one** `actors` block is allowed. At least one `kind: model` actor is requ
 
 One fence **per model actor**. Repeat the block for each `kind: model` entry in `actors`.
 
-| Field         | Type             | Required | Description                                                                                                                                                                                                                                                                                               |
-| ------------- | ---------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | `agent`          | **Yes**  | Block type literal.                                                                                                                                                                                                                                                                                       |
-| `id`          | string           | **Yes**  | Must match an `actors` key with `kind: model`.                                                                                                                                                                                                                                                            |
-| `instruction` | string           | **Yes**  | This actor's persona/strategy. The host runs the turn as a **widget-focused agent** (not the Obsidian assistant) whose system prompt is host framing ("take one turn, call `widget_action`") **plus this instruction**. Write it as that actor's playing strategy/role. Plain text, no heading wikilinks. |
-| `actions`     | array of strings | **Yes**  | Subset of action names from the `actions` catalog this actor may call.                                                                                                                                                                                                                                    |
-| `model`       | string           | No       | LLM model id override for this actor; omit for plugin default chat model.                                                                                                                                                                                                                                 |
+| Field          | Type             | Required | Description                                                                                                                                                                                                                               |
+| -------------- | ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | `agent`          | **Yes**  | Block type literal.                                                                                                                                                                                                                       |
+| `id`           | string           | **Yes**  | Must match an `actors` key with `kind: model`.                                                                                                                                                                                           |
+| `instructions` | array of strings | **Yes**  | System prompts for this actor (plain text or wikilinks). Prefer one internal heading in this `Widget.md` — e.g. `[[#Actor instructions]]` — that holds rules, examples, and any inline skill notes in a single section. Heading-only links resolve against this file. |
+| `actions`      | array of strings | **Yes**  | Subset of action names from the `actions` catalog this actor may call.                                                                                                                                                                    |
+| `tools`        | array of strings | No       | Steward tools for this actor. `widget_action` is always included (listing it is optional). The host injects detailed per-tool guidelines automatically.                                                                                     |
+| `model`        | string           | No       | LLM model id override for this actor; omit for plugin default chat model.                                                                                                                                                                 |
 
 Each `agent.id` must be unique across `agent` blocks.
 
@@ -260,6 +261,34 @@ On save, the host checks (including the host-maintained `manifest` block):
 - No duplicate `agent.id`.
 
 Fix `status` errors before expecting model turns to run.
+
+### Recommended: one instruction section in `Widget.md`
+
+Below your YAML fences, add **one** markdown heading that bundles rules, examples, and any inline skill guidance. Link it from the `agent` block `instructions`:
+
+```markdown
+## Actor instructions
+
+### Rules
+- Take exactly one allowed action per turn.
+- Prefer blocking moves over random plays.
+
+### Examples
+- Opening: center cell when available.
+- Defense: block opponent two-in-a-row.
+
+### Skills (inline)
+When the board is symmetric, treat corner and edge plays as equivalent unless a win/block is available.
+```
+
+Then in the `agent` block:
+
+```yaml
+instructions:
+  - "[[#Actor instructions]]"
+```
+
+Repeat the same `instructions` wikilink in each `agent` block when multiple model actors share the same guidance.
 
 ---
 
@@ -304,8 +333,10 @@ actors:
 ```yaml
 name: agent
 id: o
-instruction: |
-  You play O in tic-tac-toe. Pick one empty cell via playCell.
+instructions:
+  - "[[#Actor instructions]]"
+tools:
+  - content_reading
 actions:
   - playCell
 ```
