@@ -10,7 +10,7 @@ import {
   WIDGET_PROJECT_FENCE_LANGUAGE,
   buildWidgetSrcdoc,
   WidgetMessageType,
-  type WidgetActionBridgeHandle,
+  type WidgetIframeBridgeHandle,
 } from 'src/services/WidgetService';
 import { logger } from 'src/utils/logger';
 
@@ -37,13 +37,14 @@ interface MountIframeOptions {
     error?: string;
     state?: unknown;
   }) => void;
-  onStatePresentationResult?: (data: {
+  onQueryResult?: (data: {
     requestId: string;
     ok: boolean;
-    presentation?: string;
     error?: string;
+    data?: unknown;
   }) => void;
   onActionsRegistered?: (actions: string[]) => void;
+  onQueriesRegistered?: (queries: string[]) => void;
   onAssetRequest?: (data: { requestId: string; assetId: string }) => void;
 }
 
@@ -101,8 +102,9 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
     !!options.onStateSave ||
     !!options.onStartSession ||
     !!options.onActionResult ||
-    !!options.onStatePresentationResult ||
+    !!options.onQueryResult ||
     !!options.onActionsRegistered ||
+    !!options.onQueriesRegistered ||
     !!options.onAssetRequest;
 
   const onMessage = (e: MessageEvent) => {
@@ -156,20 +158,17 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
       return;
     }
 
-    if (
-      e.data?.type === WidgetMessageType.StatePresentationResult &&
-      options.onStatePresentationResult
-    ) {
-      logger.log('[STW widget_action] host received StatePresentationResult', {
+    if (e.data?.type === WidgetMessageType.QueryResult && options.onQueryResult) {
+      logger.log('[STW widget_query] host received QueryResult', {
         requestId: e.data.requestId,
         ok: !!e.data.ok,
         error: typeof e.data.error === 'string' ? e.data.error : undefined,
       });
-      options.onStatePresentationResult({
+      options.onQueryResult({
         requestId: e.data.requestId,
         ok: !!e.data.ok,
-        presentation: typeof e.data.presentation === 'string' ? e.data.presentation : undefined,
         error: typeof e.data.error === 'string' ? e.data.error : undefined,
+        data: e.data.data,
       });
       return;
     }
@@ -179,6 +178,14 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
         ? e.data.actions.filter((name: unknown) => typeof name === 'string')
         : [];
       options.onActionsRegistered(actions);
+      return;
+    }
+
+    if (e.data?.type === WidgetMessageType.QueriesRegistered && options.onQueriesRegistered) {
+      const queries = Array.isArray(e.data.queries)
+        ? e.data.queries.filter((name: unknown) => typeof name === 'string')
+        : [];
+      options.onQueriesRegistered(queries);
       return;
     }
 
@@ -267,16 +274,14 @@ async function mountWidgetProject(
 
   let teardownIframe: (() => void) | undefined;
   let unregister: (() => void) | undefined;
-  let unregisterActionBridge: (() => void) | undefined;
-  let sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'] | undefined;
-  let sendRequestStatePresentation:
-    | WidgetActionBridgeHandle['sendRequestStatePresentation']
-    | undefined;
+  let unregisterWidgetBridge: (() => void) | undefined;
+  let sendApplyAction: WidgetIframeBridgeHandle['sendApplyAction'] | undefined;
+  let sendDispatchQuery: WidgetIframeBridgeHandle['sendDispatchQuery'] | undefined;
 
   watchRemoval(container, () => {
     teardownIframe?.();
     unregister?.();
-    unregisterActionBridge?.();
+    unregisterWidgetBridge?.();
     delete container.dataset.stwWidgetMounted;
   });
 
@@ -313,10 +318,10 @@ async function mountWidgetProject(
         })();
       },
       onActionResult: data => {
-        widgetService.resolveActionResult(data);
+        widgetService.resolveBridgeMessage('action', data);
       },
-      onStatePresentationResult: data => {
-        widgetService.resolveStatePresentationResult(data);
+      onQueryResult: data => {
+        widgetService.resolveBridgeMessage('query', data);
       },
       onActionsRegistered: actions => {
         if (!sendApplyAction) {
@@ -326,6 +331,16 @@ async function mountWidgetProject(
           projectPath,
           sendApplyAction,
           actions,
+        });
+      },
+      onQueriesRegistered: queries => {
+        if (!sendDispatchQuery) {
+          return;
+        }
+        widgetService.setRegisteredQueries({
+          projectPath,
+          sendDispatchQuery,
+          queries,
         });
       },
       onAssetRequest: data => {
@@ -422,26 +437,29 @@ async function mountWidgetProject(
         '*'
       );
     };
-    sendRequestStatePresentation = payload => {
+    sendDispatchQuery = payload => {
       const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
-      logger.log('[STW widget_action] postMessage RequestStatePresentation', {
+      logger.log('[STW widget_query] postMessage DispatchQuery', {
         projectPath,
         requestId: payload.requestId,
+        query: payload.query,
         hasIframe: !!iframe,
         hasContentWindow: !!iframe?.contentWindow,
       });
       iframe?.contentWindow?.postMessage(
         {
-          type: WidgetMessageType.RequestStatePresentation,
+          type: WidgetMessageType.DispatchQuery,
+          query: payload.query,
+          params: payload.params,
           requestId: payload.requestId,
         },
         '*'
       );
     };
-    unregisterActionBridge = widgetService.registerActionBridge({
+    unregisterWidgetBridge = widgetService.registerWidgetBridge({
       projectPath,
       sendApplyAction,
-      sendRequestStatePresentation,
+      sendDispatchQuery,
     });
 
     if (generatedVaultFile) {

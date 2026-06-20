@@ -14,11 +14,12 @@ import { WidgetJsValidator } from './WidgetJsValidator';
 import { WIDGET_ACTION_APPLY_TIMEOUT_MS } from './WidgetProtocol';
 import { WidgetAsset, type WidgetAssetReadResponse } from './WidgetAsset';
 import {
+  DEFAULT_WIDGET_QUERY_NAME,
   type WidgetActionParamSpec,
   type WidgetActionResult,
-  type WidgetActionsCatalog,
   type WidgetProjectBundle,
-  type WidgetStatePresentationResult,
+  type WidgetQueryParamSpec,
+  type WidgetQueryResult,
   WidgetProjectFenceData,
 } from './types';
 import { stringifyYamlFence } from '../MarkdownDefinitionService';
@@ -40,14 +41,18 @@ export interface MountedWidgetHandle {
   refresh: () => Promise<void>;
 }
 
-export interface WidgetActionBridgeHandle {
+export interface WidgetIframeBridgeHandle {
   projectPath: string;
   sendApplyAction: (payload: {
     action: string;
     params: Record<string, unknown>;
     requestId: string;
   }) => void;
-  sendRequestStatePresentation: (payload: { requestId: string }) => void;
+  sendDispatchQuery: (payload: {
+    query: string;
+    params: Record<string, unknown>;
+    requestId: string;
+  }) => void;
 }
 
 interface MountedWidgetEntry {
@@ -55,20 +60,17 @@ interface MountedWidgetEntry {
   refresh: () => Promise<void>;
 }
 
-interface WidgetActionBridgeEntry {
-  sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'];
-  sendRequestStatePresentation: WidgetActionBridgeHandle['sendRequestStatePresentation'];
+type WidgetBridgeCapability = 'actions' | 'queries';
+
+interface WidgetIframeBridgeEntry {
+  sendApplyAction: WidgetIframeBridgeHandle['sendApplyAction'];
+  sendDispatchQuery: WidgetIframeBridgeHandle['sendDispatchQuery'];
   registeredActions: string[];
+  registeredQueries: string[];
 }
 
-interface PendingActionRequest {
-  resolve: (result: WidgetActionResult) => void;
-  reject: (error: Error) => void;
-  timer: number;
-}
-
-interface PendingStatePresentationRequest {
-  resolve: (result: WidgetStatePresentationResult) => void;
+interface PendingBridgeRequest<TResult> {
+  resolve: (result: TResult) => void;
   reject: (error: Error) => void;
   timer: number;
 }
@@ -81,12 +83,9 @@ export class WidgetService {
   private readonly bundler: WidgetBundler;
   public readonly jsValidator: WidgetJsValidator;
   private readonly mountedByPath = new Map<string, Set<MountedWidgetEntry>>();
-  private readonly actionBridgeEntriesByPath = new Map<string, Set<WidgetActionBridgeEntry>>();
-  private readonly pendingActionRequests = new Map<string, PendingActionRequest>();
-  private readonly pendingStatePresentationRequests = new Map<
-    string,
-    PendingStatePresentationRequest
-  >();
+  private readonly iframeBridgeEntriesByPath = new Map<string, Set<WidgetIframeBridgeEntry>>();
+  private readonly pendingActionRequests = new Map<string, PendingBridgeRequest<WidgetActionResult>>();
+  private readonly pendingQueryRequests = new Map<string, PendingBridgeRequest<WidgetQueryResult>>();
   private modifyListenerRegistered = false;
   private readonly _definitionService: WidgetDefinitionService;
   private readonly _stateService: WidgetStateService;
@@ -586,19 +585,19 @@ export class WidgetService {
     return files;
   }
 
-  /** Validates action params against the Widget.md actions catalog. */
-  private validateActionParams(params: {
-    catalog: WidgetActionsCatalog;
-    action: string;
-    actionParams: Record<string, unknown>;
+  private validateCatalogParams(params: {
+    catalog: Record<string, { params?: Record<string, WidgetActionParamSpec | WidgetQueryParamSpec> }>;
+    name: string;
+    nameLabel: 'action' | 'query';
+    values: Record<string, unknown>;
   }): { valid: true } | { valid: false; errors: string[] } {
-    const actionDef = params.catalog.actions[params.action];
-    if (!actionDef) {
-      return { valid: false, errors: [`Unknown action "${params.action}"`] };
+    const entry = params.catalog[params.name];
+    if (!entry) {
+      return { valid: false, errors: [`Unknown ${params.nameLabel} "${params.name}"`] };
     }
 
-    const schema = this.buildActionParamsSchema(actionDef.params ?? {});
-    const parsed = schema.safeParse(params.actionParams);
+    const schema = this.buildParamsSchema(entry.params ?? {});
+    const parsed = schema.safeParse(params.values);
     if (parsed.success) {
       return { valid: true };
     }
@@ -609,8 +608,8 @@ export class WidgetService {
     };
   }
 
-  private buildActionParamsSchema(
-    paramSpecs: NonNullable<WidgetActionsCatalog['actions'][string]['params']>
+  private buildParamsSchema(
+    paramSpecs: Record<string, WidgetActionParamSpec | WidgetQueryParamSpec>
   ): z.ZodObject<Record<string, z.ZodTypeAny>> {
     const shape: Record<string, z.ZodTypeAny> = {};
     const paramNames = Object.keys(paramSpecs);
@@ -623,11 +622,15 @@ export class WidgetService {
     return z.object(shape);
   }
 
-  private buildParamZodSchema(paramName: string, spec: WidgetActionParamSpec): z.ZodTypeAny {
+  private buildParamZodSchema(
+    paramName: string,
+    spec: WidgetActionParamSpec | WidgetQueryParamSpec
+  ): z.ZodTypeAny {
     const paramType = spec.type ?? 'string';
+    let schema: z.ZodTypeAny;
 
     if (paramType === 'integer') {
-      let schema = z
+      let numberSchema = z
         .number({
           required_error: `Missing required param "${paramName}"`,
           invalid_type_error: `Param "${paramName}" must be an integer`,
@@ -635,71 +638,86 @@ export class WidgetService {
         .int(`Param "${paramName}" must be an integer`);
 
       if (spec.minimum !== undefined) {
-        schema = schema.min(spec.minimum, `Param "${paramName}" must be >= ${spec.minimum}`);
+        numberSchema = numberSchema.min(
+          spec.minimum,
+          `Param "${paramName}" must be >= ${spec.minimum}`
+        );
       }
       if (spec.maximum !== undefined) {
-        schema = schema.max(spec.maximum, `Param "${paramName}" must be <= ${spec.maximum}`);
+        numberSchema = numberSchema.max(
+          spec.maximum,
+          `Param "${paramName}" must be <= ${spec.maximum}`
+        );
       }
 
-      return schema;
-    }
-
-    if (paramType === 'number') {
-      let schema = z.number({
+      schema = numberSchema;
+    } else if (paramType === 'number') {
+      let numberSchema = z.number({
         required_error: `Missing required param "${paramName}"`,
         invalid_type_error: `Param "${paramName}" must be a number`,
       });
 
       if (spec.minimum !== undefined) {
-        schema = schema.min(spec.minimum, `Param "${paramName}" must be >= ${spec.minimum}`);
+        numberSchema = numberSchema.min(
+          spec.minimum,
+          `Param "${paramName}" must be >= ${spec.minimum}`
+        );
       }
       if (spec.maximum !== undefined) {
-        schema = schema.max(spec.maximum, `Param "${paramName}" must be <= ${spec.maximum}`);
+        numberSchema = numberSchema.max(
+          spec.maximum,
+          `Param "${paramName}" must be <= ${spec.maximum}`
+        );
       }
 
-      return schema;
-    }
-
-    if (paramType === 'boolean') {
-      return z.boolean({
+      schema = numberSchema;
+    } else if (paramType === 'boolean') {
+      schema = z.boolean({
         required_error: `Missing required param "${paramName}"`,
         invalid_type_error: `Param "${paramName}" must be a boolean`,
       });
+    } else {
+      schema = z.string({
+        required_error: `Missing required param "${paramName}"`,
+        invalid_type_error: `Param "${paramName}" must be a string`,
+      });
     }
 
-    return z.string({
-      required_error: `Missing required param "${paramName}"`,
-      invalid_type_error: `Param "${paramName}" must be a string`,
-    });
+    if (spec.required === false) {
+      return schema.optional();
+    }
+
+    return schema;
   }
 
   /**
-   * Registers the host→iframe bridge for dispatching actions on a mounted project widget.
+   * Registers the host→iframe bridge for actions and queries.
    * @returns Unregister function to call on DOM teardown.
    */
-  public registerActionBridge(handle: WidgetActionBridgeHandle): () => void {
+  public registerWidgetBridge(handle: WidgetIframeBridgeHandle): () => void {
     const normalizedPath = normalizePath(handle.projectPath);
-    const entry: WidgetActionBridgeEntry = {
+    const entry: WidgetIframeBridgeEntry = {
       sendApplyAction: handle.sendApplyAction,
-      sendRequestStatePresentation: handle.sendRequestStatePresentation,
+      sendDispatchQuery: handle.sendDispatchQuery,
       registeredActions: [],
+      registeredQueries: [],
     };
 
-    let entries = this.actionBridgeEntriesByPath.get(normalizedPath);
+    let entries = this.iframeBridgeEntriesByPath.get(normalizedPath);
     if (!entries) {
       entries = new Set();
-      this.actionBridgeEntriesByPath.set(normalizedPath, entries);
+      this.iframeBridgeEntriesByPath.set(normalizedPath, entries);
     }
     entries.add(entry);
 
     return () => {
-      const current = this.actionBridgeEntriesByPath.get(normalizedPath);
+      const current = this.iframeBridgeEntriesByPath.get(normalizedPath);
       if (!current) {
         return;
       }
       current.delete(entry);
       if (current.size === 0) {
-        this.actionBridgeEntriesByPath.delete(normalizedPath);
+        this.iframeBridgeEntriesByPath.delete(normalizedPath);
       }
     };
   }
@@ -707,37 +725,78 @@ export class WidgetService {
   /** Records action names registered inside one mounted iframe via window.stw.registerAction. */
   public setRegisteredActions(params: {
     projectPath: string;
-    sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'];
+    sendApplyAction: WidgetIframeBridgeHandle['sendApplyAction'];
     actions: string[];
   }): void {
+    this.syncRegisteredNames({
+      projectPath: params.projectPath,
+      capability: 'actions',
+      sender: params.sendApplyAction,
+      names: params.actions,
+    });
+  }
+
+  /** Records query names registered inside one mounted iframe via window.stw.registerQuery. */
+  public setRegisteredQueries(params: {
+    projectPath: string;
+    sendDispatchQuery: WidgetIframeBridgeHandle['sendDispatchQuery'];
+    queries: string[];
+  }): void {
+    this.syncRegisteredNames({
+      projectPath: params.projectPath,
+      capability: 'queries',
+      sender: params.sendDispatchQuery,
+      names: params.queries,
+    });
+  }
+
+  private syncRegisteredNames(params: {
+    projectPath: string;
+    capability: WidgetBridgeCapability;
+    sender:
+      | WidgetIframeBridgeHandle['sendApplyAction']
+      | WidgetIframeBridgeHandle['sendDispatchQuery'];
+    names: string[];
+  }): void {
     const normalizedPath = normalizePath(params.projectPath);
-    const entries = this.actionBridgeEntriesByPath.get(normalizedPath);
+    const entries = this.iframeBridgeEntriesByPath.get(normalizedPath);
     if (!entries) {
       return;
     }
 
     for (const entry of entries) {
-      if (entry.sendApplyAction !== params.sendApplyAction) {
+      const matchesSender =
+        params.capability === 'actions'
+          ? entry.sendApplyAction === params.sender
+          : entry.sendDispatchQuery === params.sender;
+      if (!matchesSender) {
         continue;
       }
 
-      entry.registeredActions = [...params.actions];
-      void this.warnUnregisteredCatalogActions(normalizedPath, entry.registeredActions);
+      if (params.capability === 'actions') {
+        entry.registeredActions = [...params.names];
+        void this.warnUnregisteredCatalogActions(normalizedPath, entry.registeredActions);
+      } else {
+        entry.registeredQueries = [...params.names];
+      }
       return;
     }
   }
 
-  private resolveActionBridgeEntry(params: {
+  private resolveBridgeEntry(params: {
     projectPath: string;
-    action: string;
-  }): WidgetActionBridgeEntry | null {
-    const entries = this.actionBridgeEntriesByPath.get(normalizePath(params.projectPath));
+    capability: WidgetBridgeCapability;
+    name: string;
+  }): WidgetIframeBridgeEntry | null {
+    const entries = this.iframeBridgeEntriesByPath.get(normalizePath(params.projectPath));
     if (!entries || entries.size === 0) {
       return null;
     }
 
     for (const entry of entries) {
-      if (entry.registeredActions.length === 0 || entry.registeredActions.includes(params.action)) {
+      const registered =
+        params.capability === 'actions' ? entry.registeredActions : entry.registeredQueries;
+      if (registered.length === 0 || registered.includes(params.name)) {
         return entry;
       }
     }
@@ -745,80 +804,53 @@ export class WidgetService {
     return null;
   }
 
-  /** Resolves a pending applyAction request from a WidgetMessageType.ActionResult message. */
-  public resolveActionResult(params: {
-    requestId: string;
-    ok: boolean;
-    error?: string;
-    state?: unknown;
-  }): void {
-    const pending = this.pendingActionRequests.get(params.requestId);
+  /** Resolves a pending iframe bridge response (action or query). */
+  public resolveBridgeMessage(
+    kind: 'action' | 'query',
+    params: {
+      requestId: string;
+      ok: boolean;
+      error?: string;
+      state?: unknown;
+      data?: unknown;
+    }
+  ): void {
+    if (kind === 'action') {
+      this.finishPendingRequest(this.pendingActionRequests, params.requestId, {
+        ok: params.ok,
+        error: params.error,
+        state: params.state,
+      });
+      return;
+    }
+
+    if (kind === 'query') {
+      this.finishPendingRequest(this.pendingQueryRequests, params.requestId, {
+        ok: params.ok,
+        error: params.error,
+        data: params.data,
+      });
+      return;
+    }
+  }
+
+  private finishPendingRequest<TResult>(
+    pendingMap: Map<string, PendingBridgeRequest<TResult>>,
+    requestId: string,
+    result: TResult
+  ): void {
+    const pending = pendingMap.get(requestId);
     if (!pending) {
       return;
     }
 
     window.clearTimeout(pending.timer);
-    this.pendingActionRequests.delete(params.requestId);
-    pending.resolve({
-      ok: params.ok,
-      error: params.error,
-      state: params.state,
-    });
+    pendingMap.delete(requestId);
+    pending.resolve(result);
   }
 
-  /** Resolves a pending state-presentation request from the iframe. */
-  public resolveStatePresentationResult(params: {
-    requestId: string;
-    ok: boolean;
-    presentation?: string;
-    error?: string;
-  }): void {
-    const pending = this.pendingStatePresentationRequests.get(params.requestId);
-    if (!pending) {
-      return;
-    }
-
-    window.clearTimeout(pending.timer);
-    this.pendingStatePresentationRequests.delete(params.requestId);
-    pending.resolve({
-      ok: params.ok,
-      presentation: params.presentation,
-      error: params.error,
-    });
-  }
-
-  /** Asks the mounted iframe for a text rendering of current widget data. */
-  public async getStatePresentation(params: {
-    projectPath: string;
-  }): Promise<WidgetStatePresentationResult> {
-    const normalizedPath = normalizePath(params.projectPath);
-    const bridge = this.resolveAnyActionBridgeEntry(normalizedPath);
-    if (!bridge) {
-      return { ok: false, error: 'widget_not_mounted' };
-    }
-
-    const requestId = `stw-present-${uniqueID()}`;
-
-    return new Promise<WidgetStatePresentationResult>((resolve, reject) => {
-      const timer = window.setTimeout(() => {
-        this.pendingStatePresentationRequests.delete(requestId);
-        logger.log('[STW widget_action] getStatePresentation: timeout', {
-          projectPath: normalizedPath,
-          requestId,
-        });
-        reject(new Error('state_presentation_timeout'));
-      }, WIDGET_ACTION_APPLY_TIMEOUT_MS);
-
-      this.pendingStatePresentationRequests.set(requestId, { resolve, reject, timer });
-      bridge.sendRequestStatePresentation({ requestId });
-    }).catch(error => {
-      const message = error instanceof Error ? error.message : String(error);
-      return { ok: false, error: message };
-    });
-  }
-
-  private resolveAnyActionBridgeEntry(projectPath: string): WidgetActionBridgeEntry | null {
-    const entries = this.actionBridgeEntriesByPath.get(normalizePath(projectPath));
+  private resolveAnyBridgeEntry(projectPath: string): WidgetIframeBridgeEntry | null {
+    const entries = this.iframeBridgeEntriesByPath.get(normalizePath(projectPath));
     if (!entries || entries.size === 0) {
       return null;
     }
@@ -845,21 +877,23 @@ export class WidgetService {
       return { ok: false, error: 'actions_catalog_missing' };
     }
 
-    const validation = this.validateActionParams({
-      catalog: def.actions,
-      action: params.action,
-      actionParams: params.actionParams,
+    const validation = this.validateCatalogParams({
+      catalog: def.actions.actions,
+      name: params.action,
+      nameLabel: 'action',
+      values: params.actionParams,
     });
     if (!validation.valid) {
       return { ok: false, error: validation.errors.join('; ') };
     }
 
-    const bridge = this.resolveActionBridgeEntry({
+    const bridge = this.resolveBridgeEntry({
       projectPath: normalizedPath,
-      action: params.action,
+      capability: 'actions',
+      name: params.action,
     });
     if (!bridge) {
-      const entries = this.actionBridgeEntriesByPath.get(normalizedPath);
+      const entries = this.iframeBridgeEntriesByPath.get(normalizedPath);
       if (!entries || entries.size === 0) {
         return { ok: false, error: 'widget_not_mounted' };
       }
@@ -885,6 +919,77 @@ export class WidgetService {
       bridge.sendApplyAction({
         action: params.action,
         params: params.actionParams,
+        requestId,
+      });
+    }).catch(error => {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message };
+    });
+  }
+
+  /**
+   * Dispatches a registered read-only widget query into the mounted iframe.
+   * Validates against Widget.md before dispatch; does not persist state.
+   */
+  public async dispatchQuery(params: {
+    projectPath: string;
+    query: string;
+    queryParams: Record<string, unknown>;
+  }): Promise<WidgetQueryResult> {
+    const normalizedPath = normalizePath(params.projectPath);
+
+    if (params.query === DEFAULT_WIDGET_QUERY_NAME) {
+      const state = await this.stateService.readState(normalizedPath);
+      return { ok: true, data: state?.data ?? null };
+    }
+
+    const def = await this.definitionService.getWidgetDefinition(normalizedPath);
+    if (!def.queries) {
+      return { ok: false, error: 'queries_catalog_missing' };
+    }
+
+    const validation = this.validateCatalogParams({
+      catalog: def.queries.queries,
+      name: params.query,
+      nameLabel: 'query',
+      values: params.queryParams,
+    });
+    if (!validation.valid) {
+      return { ok: false, error: validation.errors.join('; ') };
+    }
+
+    const bridge = this.resolveBridgeEntry({
+      projectPath: normalizedPath,
+      capability: 'queries',
+      name: params.query,
+    });
+    if (!bridge) {
+      const entries = this.iframeBridgeEntriesByPath.get(normalizedPath);
+      if (!entries || entries.size === 0) {
+        return { ok: false, error: 'widget_not_mounted' };
+      }
+      return { ok: false, error: `query_not_registered:${params.query}` };
+    }
+
+    const requestId = `stw-query-${uniqueID()}`;
+
+    return new Promise<WidgetQueryResult>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        this.pendingQueryRequests.delete(requestId);
+        logger.log('[STW widget_query] dispatchQuery: timeout (no QueryResult from iframe)', {
+          projectPath: normalizedPath,
+          query: params.query,
+          requestId,
+          timeoutMs: WIDGET_ACTION_APPLY_TIMEOUT_MS,
+        });
+        reject(new Error('widget_query_timeout'));
+      }, WIDGET_ACTION_APPLY_TIMEOUT_MS);
+
+      this.pendingQueryRequests.set(requestId, { resolve, reject, timer });
+
+      bridge.sendDispatchQuery({
+        query: params.query,
+        params: params.queryParams,
         requestId,
       });
     }).catch(error => {

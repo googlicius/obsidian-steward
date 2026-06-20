@@ -333,10 +333,22 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Apply one allowed widget action during a widget session turn. Used by model actors in turn-based interactive widgets.',
     guidelines: [
       'Call exactly once with one allowed action, then stop.',
-      'Do not use any other tool. Keep the optional comment to one short sentence.',
-      'Turn prompts include JSON state and a text view when available (both default on).',
-      'Optional with_json (default true) and with_presentation (default true) control what appears on your next turn; at least one must stay true.',
-      'Set with_json: false or with_presentation: false when that view was unhelpful.',
+      `Call $${ToolName.WIDGET_QUERY} zero or more times before ${ToolName.WIDGET_ACTION} to gather information.`,
+      'Keep the optional comment to one short sentence.',
+    ],
+    category: 'content-generation',
+  },
+
+  [ToolName.WIDGET_QUERY]: {
+    name: ToolName.WIDGET_QUERY,
+    description:
+      'Run a read-only widget query during a model actor turn. Does not modify game state or advance the turn.',
+    guidelines: [
+      `Call zero or more times to gather information before committing a move via ${ToolName.WIDGET_ACTION}.`,
+      'Omit query to use the default get_state (public JSON state).',
+      'Only call queries listed in the Available queries section of your turn prompt.',
+      'Does not modify game state or advance the turn roster.',
+      `After you have enough information, call ${ToolName.WIDGET_ACTION} exactly once to take your turn.`,
     ],
     category: 'content-generation',
   },

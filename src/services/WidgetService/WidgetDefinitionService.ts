@@ -10,6 +10,7 @@ import {
   widgetActorsSchema,
   widgetAgentSchema,
   widgetManifestSchema,
+  widgetQueriesSchema,
   type WidgetAgent,
   type WidgetDefinition,
 } from './types';
@@ -17,6 +18,7 @@ import {
 const EMPTY_WIDGET_DEFINITION: WidgetDefinition = {
   manifest: null,
   actions: null,
+  queries: null,
   actors: null,
   agents: {},
 };
@@ -26,6 +28,7 @@ const { i18next } = getBundledInternal('i18n');
 interface CollectedDefinitionBlocks {
   manifestBlocks: ParsedYamlFenceBlock[];
   actionsBlocks: ParsedYamlFenceBlock[];
+  queriesBlocks: ParsedYamlFenceBlock[];
   actorsBlocks: ParsedYamlFenceBlock[];
   agentBlocks: ParsedYamlFenceBlock[];
   parseErrors: string[];
@@ -189,6 +192,7 @@ export class WidgetDefinitionService {
     const collected: CollectedDefinitionBlocks = {
       manifestBlocks: [],
       actionsBlocks: [],
+      queriesBlocks: [],
       actorsBlocks: [],
       agentBlocks: [],
       parseErrors: [],
@@ -218,6 +222,7 @@ export class WidgetDefinitionService {
     const definition: WidgetDefinition = {
       manifest: null,
       actions: null,
+      queries: null,
       actors: null,
       agents: {},
     };
@@ -239,6 +244,15 @@ export class WidgetDefinitionService {
         logger.warn('Invalid widget actions YAML:', params.file.path, parsed.error.flatten());
       } else {
         definition.actions = parsed.data;
+      }
+    }
+
+    if (params.collected.queriesBlocks.length > 0) {
+      const parsed = widgetQueriesSchema.safeParse(params.collected.queriesBlocks[0].data);
+      if (!parsed.success) {
+        logger.warn('Invalid widget queries YAML:', params.file.path, parsed.error.flatten());
+      } else {
+        definition.queries = parsed.data;
       }
     }
 
@@ -282,6 +296,11 @@ export class WidgetDefinitionService {
       return;
     }
 
+    if (nameRaw === 'queries') {
+      collected.queriesBlocks.push(block);
+      return;
+    }
+
     if (nameRaw === 'actors') {
       collected.actorsBlocks.push(block);
       return;
@@ -300,6 +319,7 @@ export class WidgetDefinitionService {
 
     const manifestResults = this.parseManifestBlocks(params.collected.manifestBlocks, errors);
     const actionsResults = this.parseActionsBlocks(params.collected.actionsBlocks, errors);
+    const queriesResults = this.parseQueriesBlocks(params.collected.queriesBlocks, errors);
     const actorsResult = this.parseActorsBlock(params.collected.actorsBlocks, errors);
     const agentResults = this.parseAgentBlocks(params.collected.agentBlocks, errors);
 
@@ -313,11 +333,16 @@ export class WidgetDefinitionService {
       errors.push('actions: only one actions block is allowed');
     }
 
+    if (queriesResults.length > 1) {
+      errors.push('queries: only one queries block is allowed');
+    }
+
     if (actorsResult.duplicate) {
       errors.push('actors: only one actors block is allowed');
     }
 
     const actions = actionsResults.length === 1 ? actionsResults[0] : null;
+    const queries = queriesResults.length === 1 ? queriesResults[0] : null;
     const actors = actorsResult.actors;
 
     if (agentResults.agents.length > 0) {
@@ -333,6 +358,7 @@ export class WidgetDefinitionService {
       errors,
       actors,
       actions,
+      queries,
       agents: agentResults.agents,
     });
 
@@ -416,6 +442,24 @@ export class WidgetDefinitionService {
     return results;
   }
 
+  private parseQueriesBlocks(
+    blocks: ParsedYamlFenceBlock[],
+    errors: string[]
+  ): Array<z.infer<typeof widgetQueriesSchema>> {
+    const results: Array<z.infer<typeof widgetQueriesSchema>> = [];
+
+    for (let i = 0; i < blocks.length; i++) {
+      const parsed = widgetQueriesSchema.safeParse(blocks[i].data);
+      if (!parsed.success) {
+        errors.push(...this.formatSchemaErrors('queries', parsed.error));
+        continue;
+      }
+      results.push(parsed.data);
+    }
+
+    return results;
+  }
+
   private parseActorsBlock(
     blocks: ParsedYamlFenceBlock[],
     errors: string[]
@@ -465,6 +509,7 @@ export class WidgetDefinitionService {
     errors: string[];
     actors: z.infer<typeof widgetActorsSchema> | null;
     actions: z.infer<typeof widgetActionsSchema> | null;
+    queries: z.infer<typeof widgetQueriesSchema> | null;
     agents: WidgetAgent[];
   }): void {
     if (params.agents.length === 0) {
@@ -542,6 +587,33 @@ export class WidgetDefinitionService {
         if (!catalogActions.includes(actionName)) {
           params.errors.push(
             `agent "${agent.id}": action "${actionName}" is not defined in actions catalog`
+          );
+        }
+      }
+    }
+
+    if (!params.queries) {
+      for (let i = 0; i < params.agents.length; i++) {
+        const agentQueries = params.agents[i].queries;
+        if (!agentQueries || agentQueries.length === 0) {
+          continue;
+        }
+        params.errors.push(
+          `agent "${params.agents[i].id}": queries block is required when agent lists queries`
+        );
+      }
+      return;
+    }
+
+    const catalogQueries = Object.keys(params.queries.queries);
+    for (let i = 0; i < params.agents.length; i++) {
+      const agent = params.agents[i];
+      const agentQueries = agent.queries ?? [];
+      for (let j = 0; j < agentQueries.length; j++) {
+        const queryName = agentQueries[j];
+        if (!catalogQueries.includes(queryName)) {
+          params.errors.push(
+            `agent "${agent.id}": query "${queryName}" is not defined in queries catalog`
           );
         }
       }

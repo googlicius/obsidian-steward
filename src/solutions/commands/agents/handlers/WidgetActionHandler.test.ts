@@ -5,40 +5,14 @@ import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
 
 describe('widgetActionSchema', () => {
-  it('accepts omitted with_json and with_presentation as enabled defaults', () => {
+  it('accepts action with optional params and comment', () => {
     const result = widgetActionSchema.safeParse({
       action: 'playCell',
       params: { index: 0 },
+      comment: 'Blocking',
     });
 
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.with_json).toBeUndefined();
-      expect(result.data.with_presentation).toBeUndefined();
-    }
-  });
-
-  it('rejects when both views are disabled', () => {
-    const result = widgetActionSchema.safeParse({
-      action: 'playCell',
-      with_json: false,
-      with_presentation: false,
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it('allows disabling only json for the next turn', () => {
-    const result = widgetActionSchema.safeParse({
-      action: 'playCell',
-      with_json: false,
-    });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.with_json).toBe(false);
-      expect(result.data.with_presentation).toBeUndefined();
-    }
   });
 });
 
@@ -54,8 +28,7 @@ describe('WidgetActionHandler turn gate', () => {
   function createHandlerHarness(currentActor: string) {
     const applyAction = jest.fn().mockResolvedValue({ ok: true });
     const recordModelMoveAndAdvance = jest.fn().mockResolvedValue(undefined);
-    const appendMoveComment = jest.fn().mockResolvedValue(undefined);
-    const updateTurnContextPrefs = jest.fn().mockResolvedValue(undefined);
+    const updateConversationNote = jest.fn().mockResolvedValue(undefined);
     const serializeInvocation = jest.fn().mockResolvedValue(undefined);
 
     const getConversationProperty = jest
@@ -88,8 +61,6 @@ describe('WidgetActionHandler turn gate', () => {
           },
           sessionService: {
             recordModelMoveAndAdvance,
-            appendMoveComment,
-            updateTurnContextPrefs,
           },
           applyAction,
         },
@@ -99,7 +70,9 @@ describe('WidgetActionHandler turn gate', () => {
     const handler = new WidgetActionHandler(agent);
     const ctx = {
       agentHandlerParams: { title: 'tic-tac-toe__session_live' },
+      lang: 'en',
       serializeInvocation,
+      updateConversationNote,
     } as unknown as HandlerInvocationContext;
 
     const toolCall = {
@@ -109,8 +82,31 @@ describe('WidgetActionHandler turn gate', () => {
       input: { action: 'playCell', params: { index: 0 } },
     } as unknown as ToolCallPart<WidgetActionArgs>;
 
-    return { handler, ctx, toolCall, applyAction, recordModelMoveAndAdvance, serializeInvocation };
+    return { handler, ctx, toolCall, applyAction, recordModelMoveAndAdvance, serializeInvocation, updateConversationNote };
   }
+
+  it('appends a move summary when the model includes a comment', async () => {
+    const { handler, ctx, toolCall, updateConversationNote } = createHandlerHarness('o');
+
+    const commentedCall = {
+      ...toolCall,
+      input: {
+        action: 'playCell',
+        params: { index: 0 },
+        comment: 'Place O near the center to establish control.',
+      },
+    } as unknown as ToolCallPart<WidgetActionArgs>;
+
+    await handler.handle(ctx, { toolCall: commentedCall });
+
+    expect(updateConversationNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'Steward',
+        includeHistory: false,
+        newContent: 'translated_widget.sessionMove',
+      })
+    );
+  });
 
   it('applies and advances when it is the actor turn', async () => {
     const { handler, ctx, toolCall, applyAction, recordModelMoveAndAdvance, serializeInvocation } =

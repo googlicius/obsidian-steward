@@ -64,6 +64,7 @@ const en = {
       artifactRefreshNotify:
         'After editing widget files, click **{{action}}** again to refresh this artifact.',
       sessionMove: '**{{actor}}** played `{{action}}`{{comment}}',
+      sessionQuery: '**{{actor}}** queried `{{query}}`',
       humanMove: 'I moved, your turn',
     },
     community: {

@@ -17,6 +17,7 @@ const definition: WidgetDefinition = {
       },
     },
   },
+  queries: null,
   actors: {
     name: 'actors',
     mode: 'user_and_models',

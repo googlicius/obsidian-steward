@@ -59,6 +59,7 @@ const vi = {
       artifactRefreshNotify:
         'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới artifact này.',
       sessionMove: '**{{actor}}** đã chơi `{{action}}`{{comment}}',
+      sessionQuery: '**{{actor}}** đã truy vấn `{{query}}`',
       humanMove: 'Tôi đã đi, đến lượt bạn',
     },
     community: {

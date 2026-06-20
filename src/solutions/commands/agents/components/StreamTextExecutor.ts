@@ -52,7 +52,10 @@ export class StreamTextExecutor {
     const modelForStream = params.intent.model?.trim() || agent.plugin.settings.llm.chat.model;
     const historyResult = await agent.plugin.conversationRenderer.extractConversationHistory(
       params.title,
-      { maxMessages: params.intent.maxHistoryMessages ?? null }
+      {
+        maxMessages: params.intent.maxHistoryMessages ?? null,
+        fromLastUserMessage: params.intent.historyFromLastUserMessage,
+      }
     );
 
     const llmConfig = await agent.plugin.llmService.getLLMConfig({

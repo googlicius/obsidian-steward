@@ -214,6 +214,55 @@ describe('WidgetDefinitionService', () => {
     expect(definition.agents.o?.id).toBe('o');
   });
 
+  it('rejects agent queries missing from the queries catalog', () => {
+    const content = [
+      '```yaml',
+      'name: manifest',
+      'entry: index.html',
+      'type: html',
+      '```',
+      '',
+      '```yaml',
+      'name: actions',
+      'actions:',
+      '  playCell: {}',
+      '```',
+      '',
+      '```yaml',
+      'name: actors',
+      'mode: user_and_models',
+      'turnOrder:',
+      '  - user',
+      '  - o',
+      'actors:',
+      '  user:',
+      '    kind: human',
+      '  o:',
+      '    kind: model',
+      '```',
+      '',
+      '```yaml',
+      'name: agent',
+      'id: o',
+      'instructions:',
+      '  - Play.',
+      'actions:',
+      '  - playCell',
+      'queries:',
+      '  - getLegalMoves',
+      '```',
+    ].join('\n');
+    const plugin = createValidatorPlugin(content);
+    const { validateContent } = bindPrivateMethods(WidgetDefinitionService.getInstance(plugin));
+    const result = validateContent({ content, file });
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(error =>
+        error.includes('queries block is required when agent lists queries')
+      )
+    ).toBe(true);
+  });
+
   it('readEditedDefinitionStatusFromFrontmatter returns invalid status only', () => {
     const content = buildValidWidgetMd();
     const plugin = createValidatorPlugin(content);

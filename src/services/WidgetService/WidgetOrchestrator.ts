@@ -364,7 +364,6 @@ export class WidgetOrchestrator {
       actorId: actingActorId,
       agent,
       definition: params.definition,
-      publicState: state?.data ?? {},
       lang: params.lang,
     });
 

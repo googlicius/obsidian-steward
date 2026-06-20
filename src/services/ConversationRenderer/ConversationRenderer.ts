@@ -1487,6 +1487,7 @@ export class ConversationRenderer {
     conversationTitle: string,
     options?: {
       maxMessages?: number | null;
+      fromLastUserMessage?: number;
       includeCompactedMessage?: boolean;
     }
   ): Promise<{ messages: ModelMessage[]; hasCompactionContext: boolean }> {
@@ -1511,10 +1512,12 @@ export class ConversationRenderer {
     conversationTitle: string,
     options?: {
       maxMessages?: number | null;
+      fromLastUserMessage?: number;
       includeCompactedMessage?: boolean;
     }
   ): Promise<ConversationMessage[]> {
-    const { maxMessages = null, includeCompactedMessage = true } = options || {};
+    const { maxMessages = null, fromLastUserMessage, includeCompactedMessage = true } =
+      options || {};
 
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
     const messagesForHistory = allMessages.filter(message => message.history !== false);
@@ -1562,9 +1565,35 @@ export class ConversationRenderer {
     } else {
       filteredMessages = messagesForHistory.slice(topicStartIndex);
     }
+
+    if (fromLastUserMessage !== undefined && fromLastUserMessage > 0) {
+      return this.sliceFromUserMessageBoundary(filteredMessages, fromLastUserMessage);
+    }
+
     return maxMessages === null
       ? filteredMessages
       : this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
+  }
+
+  /**
+   * Returns messages from the Nth user message counting backward from the end
+   * (1 = last user message) through the end of the list.
+   */
+  private sliceFromUserMessageBoundary(
+    messages: ConversationMessage[],
+    userMessageCountFromEnd: number
+  ): ConversationMessage[] {
+    let userCountFromEnd = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userCountFromEnd += 1;
+        if (userCountFromEnd === userMessageCountFromEnd) {
+          return messages.slice(i);
+        }
+      }
+    }
+
+    return messages;
   }
 
   /**

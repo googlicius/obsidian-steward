@@ -34,6 +34,7 @@ export enum ToolName {
   IMAGE = 'image',
   SHOW_WIDGET = 'show_widget',
   WIDGET_ACTION = 'widget_action',
+  WIDGET_QUERY = 'widget_query',
   TODO_WRITE = 'todo_write',
   SPAWN_SUBAGENT = 'spawn_subagent',
   SWITCH_AGENT_CAPACITY = 'switch_agent_capacity',

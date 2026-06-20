@@ -591,38 +591,38 @@ export class NoteContentService {
    * Gets the images from the input text
    * @returns An array of [image path, image part]
    */
-  public async getImagesFromInput(input: string): Promise<[string, ImagePart][]> {
-    const imagePaths = this.extractImageLinks(input);
-    const images: [string, ImagePart][] = [];
+  // public async getImagesFromInput(input: string): Promise<[string, ImagePart][]> {
+  //   const imagePaths = this.extractImageLinks(input);
+  //   const images: [string, ImagePart][] = [];
 
-    for (const imagePath of imagePaths) {
-      try {
-        const file = await this.plugin.mediaTools.findFileByNameOrPath(imagePath);
+  //   for (const imagePath of imagePaths) {
+  //     try {
+  //       const file = await this.plugin.mediaTools.findFileByNameOrPath(imagePath);
 
-        if (file) {
-          const imageData = await this.plugin.app.vault.readBinary(file);
-          const mimeType = this.getMimeTypeFromExtension(file.extension);
+  //       if (file) {
+  //         const imageData = await this.plugin.app.vault.readBinary(file);
+  //         const mimeType = this.getMimeTypeFromExtension(file.extension);
 
-          // Resize the image to reduce size using Canvas API
-          const resizedImage = await resizeImageWithCanvas(imageData, 800, 0.8);
-          images.push([
-            imagePath,
-            {
-              type: 'image',
-              image: resizedImage.imageData,
-              mediaType: mimeType,
-            },
-          ]);
-        } else {
-          logger.warn(`File note found for image ${imagePath}`);
-        }
-      } catch (error) {
-        logger.error(`Error processing image ${imagePath}:`, error);
-      }
-    }
+  //         // Resize the image to reduce size using Canvas API
+  //         const resizedImage = await resizeImageWithCanvas(imageData, 800, 0.8);
+  //         images.push([
+  //           imagePath,
+  //           {
+  //             type: 'image',
+  //             image: resizedImage.imageData,
+  //             mediaType: mimeType,
+  //           },
+  //         ]);
+  //       } else {
+  //         logger.warn(`File note found for image ${imagePath}`);
+  //       }
+  //     } catch (error) {
+  //       logger.error(`Error processing image ${imagePath}:`, error);
+  //     }
+  //   }
 
-    return images;
-  }
+  //   return images;
+  // }
 
   /**
    * Gets the MIME type from a file extension

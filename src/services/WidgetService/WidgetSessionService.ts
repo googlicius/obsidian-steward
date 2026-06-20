@@ -9,11 +9,12 @@ import { DEFAULT_AGENT_CONFIGS } from 'src/solutions/commands/agents/defaultAgen
 import type { Agent } from 'src/solutions/commands/Agent';
 import type { AgentHandlerParams } from 'src/solutions/commands/types';
 import { DEFAULT_INTENT_TYPE } from 'src/solutions/commands/agents/intentHelpers';
-import type {
-  WidgetAgent,
-  WidgetDefinition,
-  WidgetSessionData,
-  WidgetTurnContextPrefs,
+import {
+  DEFAULT_WIDGET_QUERY_NAME,
+  resolveAgentAllowedQueries,
+  type WidgetAgent,
+  type WidgetDefinition,
+  type WidgetSessionData,
 } from './types';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
 import { WidgetStateService } from './WidgetStateService';
@@ -22,8 +23,7 @@ const { getTranslation } = getBundledInternal('i18n');
 
 export const WIDGET_PLAYGROUND_FILE = 'Playground.md';
 
-/** Trailing conversation messages replayed on each widget actor turn. */
-export const WIDGET_TURN_HISTORY_LIMIT = 4;
+/** Widget actor turns replay from the first user message so prior query/reasoning stays in context. */
 
 export interface WidgetActorTurnResult {
   ok: boolean;
@@ -208,35 +208,6 @@ export class WidgetSessionService {
     return `\n![[${embedPath}]]\n`;
   }
 
-  public async appendMoveComment(params: {
-    conversationTitle: string;
-    actorId: string;
-    action: string;
-    comment?: string;
-    lang?: string | null;
-  }): Promise<void> {
-    const lang =
-      params.lang ??
-      (await this.plugin.conversationRenderer.getConversationProperty<string>(
-        params.conversationTitle,
-        'lang'
-      ));
-    const t = getTranslation(lang);
-    const commentSuffix = params.comment ? ` — ${params.comment}` : '';
-    const message = t('widget.sessionMove', {
-      actor: params.actorId,
-      action: params.action,
-      comment: commentSuffix,
-    });
-
-    await this.plugin.conversationRenderer.updateConversationNote({
-      path: params.conversationTitle,
-      newContent: message,
-      role: 'Steward',
-      includeHistory: false,
-    });
-  }
-
   public async appendHumanMoveMessage(params: {
     conversationTitle: string;
     lang?: string | null;
@@ -264,7 +235,6 @@ export class WidgetSessionService {
     actorId: string;
     agent: WidgetAgent;
     definition: WidgetDefinition;
-    publicState: unknown;
     lang?: string | null;
   }): Promise<WidgetActorTurnResult> {
     const widgetActorConfig = DEFAULT_AGENT_CONFIGS.find(config => config.id === 'widget_actor');
@@ -293,13 +263,10 @@ export class WidgetSessionService {
       projectPath: params.projectPath,
     });
 
-    const turnQuery = await this.buildTurnContext({
-      projectPath: params.projectPath,
-      publicState: params.publicState,
+    const turnQuery = this.buildTurnContext({
       agent: params.agent,
       definition: params.definition,
       moveLog: params.session.moveLog ?? [],
-      turnContextPrefs: params.session.turnContextPrefs,
     });
 
     const handlerParams: AgentHandlerParams = {
@@ -311,7 +278,7 @@ export class WidgetSessionService {
         systemPrompts,
         model: params.agent.model,
         no_confirm: true,
-        maxHistoryMessages: WIDGET_TURN_HISTORY_LIMIT,
+        historyFromLastUserMessage: 2,
       },
       lang: params.lang,
       handlerId: uniqueID(),
@@ -376,59 +343,21 @@ export class WidgetSessionService {
     });
   }
 
-  public async updateTurnContextPrefs(params: {
-    projectPath: string;
-    prefs: WidgetTurnContextPrefs;
-  }): Promise<void> {
-    const session = await this.stateService.readSession(params.projectPath);
-    if (!session) {
-      return;
-    }
-
-    await this.stateService.writeSession({
-      projectPath: params.projectPath,
-      session: {
-        ...session,
-        turnContextPrefs: params.prefs,
-      },
-    });
-  }
-
-  private async buildTurnContext(params: {
-    projectPath: string;
-    publicState: unknown;
+  private buildTurnContext(params: {
     agent: WidgetAgent;
     definition: WidgetDefinition;
     moveLog: WidgetSessionData['moveLog'];
-    turnContextPrefs?: WidgetSessionData['turnContextPrefs'];
-  }): Promise<string> {
-    const includeJson = params.turnContextPrefs?.includeJson !== false;
-    const includePresentation = params.turnContextPrefs?.includePresentation !== false;
-    let presentation: string | undefined;
-    let presentationError: string | undefined;
+  }): string {
+    const lines: string[] = [];
 
-    if (includePresentation) {
-      const result = await this.plugin.widgetService.getStatePresentation({
-        projectPath: params.projectPath,
-      });
-      if (result.ok && result.presentation) {
-        presentation = result.presentation;
-      } else {
-        presentationError = result.error;
-      }
+    const allowedQueries = resolveAgentAllowedQueries(params.agent);
+    const queryCatalog = params.definition.queries?.queries ?? {};
+    lines.push('## Available queries');
+    for (let i = 0; i < allowedQueries.length; i++) {
+      const queryName = allowedQueries[i];
+      const description = this.describeAllowedQuery(queryName, queryCatalog);
+      lines.push(`- \`${queryName}\`${description ? ` — ${description}` : ''}`);
     }
-
-    const lines = this.buildTurnContextStateSection({
-      publicState: params.publicState,
-      prefs: { includeJson, includePresentation },
-      presentation,
-      presentationError,
-    });
-
-    lines.push(
-      '',
-      'On `widget_action`, set `with_json: false` or `with_presentation: false` to omit that section on your **next** turn (defaults: both true; at least one must stay enabled).'
-    );
 
     lines.push('', '## Allowed actions');
     const catalog = params.definition.actions?.actions ?? {};
@@ -450,8 +379,21 @@ export class WidgetSessionService {
       }
     }
 
-    lines.push('', 'Take exactly one allowed action via widget_action.');
+    lines.push(
+      '',
+      `Use widget_query to gather the data you need (defaults to \`${DEFAULT_WIDGET_QUERY_NAME}\`), then take exactly one allowed action via widget_action.`
+    );
     return lines.join('\n');
+  }
+
+  private describeAllowedQuery(
+    queryName: string,
+    catalog: NonNullable<WidgetDefinition['queries']>['queries']
+  ): string | undefined {
+    if (queryName === DEFAULT_WIDGET_QUERY_NAME) {
+      return catalog[queryName]?.description ?? 'Current public game state (JSON).';
+    }
+    return catalog[queryName]?.description;
   }
 
   private async resolveActorSystemPrompts(params: {
@@ -486,8 +428,8 @@ export class WidgetSessionService {
 
   private resolveActorTools(agent: WidgetAgent | undefined): ToolName[] {
     const sharedTools = agent?.tools ?? [];
-    const result: ToolName[] = [ToolName.WIDGET_ACTION];
-    const seen = new Set<ToolName>([ToolName.WIDGET_ACTION]);
+    const result: ToolName[] = [ToolName.WIDGET_ACTION, ToolName.WIDGET_QUERY];
+    const seen = new Set<ToolName>([ToolName.WIDGET_ACTION, ToolName.WIDGET_QUERY]);
 
     for (let i = 0; i < sharedTools.length; i++) {
       const tool = sharedTools[i];
@@ -499,56 +441,6 @@ export class WidgetSessionService {
     }
 
     return ToolRegistry.expandWithCompanionTools(result);
-  }
-
-  private formatPresentationUnavailableNote(error?: string): string {
-    if (error === 'state_presentation_not_registered') {
-      return '_Text view unavailable: widget has no `formatStateForModel` handler registered._';
-    }
-
-    if (error === 'state_presentation_invalid') {
-      return '_Text view unavailable: `formatStateForModel` returned empty or non-text output._';
-    }
-
-    if (error === 'widget_not_mounted') {
-      return '_Text view unavailable: widget is not mounted._';
-    }
-
-    if (error === 'state_presentation_timeout') {
-      return '_Text view unavailable: presentation timed out._';
-    }
-
-    if (error) {
-      return `_Text view unavailable: ${error}_`;
-    }
-
-    return '_Text view unavailable._';
-  }
-
-  private buildTurnContextStateSection(params: {
-    publicState: unknown;
-    prefs: WidgetTurnContextPrefs;
-    presentation?: string;
-    presentationError?: string;
-  }): string[] {
-    const lines: string[] = ['## Current game state'];
-
-    if (params.prefs.includeJson) {
-      lines.push('```json', JSON.stringify(params.publicState, null, 2), '```');
-    }
-
-    if (params.prefs.includePresentation) {
-      if (params.presentation) {
-        if (params.prefs.includeJson) {
-          lines.push('');
-        }
-        lines.push('```text', params.presentation, '```');
-      } else {
-        lines.push('', this.formatPresentationUnavailableNote(params.presentationError));
-      }
-    }
-
-    return lines;
   }
 
   private async readInteractiveGate(

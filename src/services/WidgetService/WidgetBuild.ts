@@ -51,7 +51,7 @@ export function buildWidgetStateHead(params: {
   window.${WIDGET_STATE_GLOBAL} = ${serialized};
   var saveTimer;
   var actionHandlers = {};
-  var statePresentationHandler = null;
+  var queryHandlers = {};
   var assetRegistry = ${serializedAssets};
   var assetUrlCache = {};
   var pendingAssetRequests = {};
@@ -82,11 +82,25 @@ export function buildWidgetStateHead(params: {
     }, '*');
   }
 
+  function notifyRegisteredQueries() {
+    parent.postMessage({
+      type: '${WidgetMessageType.QueriesRegistered}',
+      queries: Object.keys(queryHandlers)
+    }, '*');
+  }
+
   function normalizeActionResult(result) {
     if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'ok')) {
       return result;
     }
     return { ok: true, state: result };
+  }
+
+  function normalizeQueryResult(result) {
+    if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'ok')) {
+      return result;
+    }
+    return { ok: true, data: result };
   }
 
   function resolveRegistryPath(assetId) {
@@ -255,11 +269,9 @@ export function buildWidgetStateHead(params: {
       actionHandlers[name] = fn;
       notifyRegisteredActions();
     },
-    registerStatePresentation: function (fn) {
-      if (typeof fn !== 'function') {
-        return;
-      }
-      statePresentationHandler = fn;
+    registerQuery: function (name, fn) {
+      queryHandlers[name] = fn;
+      notifyRegisteredQueries();
     },
     dispatchAction: function (name, params) {
       var handler = actionHandlers[name];
@@ -270,6 +282,17 @@ export function buildWidgetStateHead(params: {
         return normalizeActionResult(handler(params || {}));
       } catch (err) {
         return { ok: false, error: err && err.message ? err.message : 'action_failed' };
+      }
+    },
+    dispatchQuery: function (name, params) {
+      var handler = queryHandlers[name];
+      if (!handler) {
+        return { ok: false, error: 'unknown_query' };
+      }
+      try {
+        return normalizeQueryResult(handler(params || {}));
+      } catch (err) {
+        return { ok: false, error: err && err.message ? err.message : 'query_failed' };
       }
     },
     getRegisteredActions: function () {
@@ -321,49 +344,31 @@ export function buildWidgetStateHead(params: {
       return;
     }
 
+    if (e.data.type === '${WidgetMessageType.DispatchQuery}') {
+      stwLog('[STW widget_query] iframe received DispatchQuery', {
+        requestId: e.data.requestId,
+        query: e.data.query,
+        params: e.data.params
+      });
+
+      var queryResult = window.stw.dispatchQuery(e.data.query, e.data.params);
+      stwLog('[STW widget_query] iframe dispatchQuery finished', {
+        requestId: e.data.requestId,
+        query: e.data.query,
+        ok: !!(queryResult && queryResult.ok),
+        error: queryResult && queryResult.error ? queryResult.error : undefined
+      });
+      parent.postMessage({
+        type: '${WidgetMessageType.QueryResult}',
+        requestId: e.data.requestId,
+        ok: !!queryResult.ok,
+        error: queryResult.error,
+        data: queryResult.data
+      }, '*');
+      return;
+    }
+
     if (e.data.type !== '${WidgetMessageType.ApplyAction}') {
-      if (e.data.type === '${WidgetMessageType.RequestStatePresentation}') {
-        stwLog('[STW widget_action] iframe received RequestStatePresentation', {
-          requestId: e.data.requestId,
-          hasHandler: !!statePresentationHandler
-        });
-        if (!statePresentationHandler) {
-          parent.postMessage({
-            type: '${WidgetMessageType.StatePresentationResult}',
-            requestId: e.data.requestId,
-            ok: false,
-            error: 'state_presentation_not_registered'
-          }, '*');
-          return;
-        }
-
-        try {
-          var presentation = statePresentationHandler(window.stw.getState());
-          if (typeof presentation !== 'string' || !presentation.trim()) {
-            parent.postMessage({
-              type: '${WidgetMessageType.StatePresentationResult}',
-              requestId: e.data.requestId,
-              ok: false,
-              error: 'state_presentation_invalid'
-            }, '*');
-            return;
-          }
-
-          parent.postMessage({
-            type: '${WidgetMessageType.StatePresentationResult}',
-            requestId: e.data.requestId,
-            ok: true,
-            presentation: presentation
-          }, '*');
-        } catch (err) {
-          parent.postMessage({
-            type: '${WidgetMessageType.StatePresentationResult}',
-            requestId: e.data.requestId,
-            ok: false,
-            error: err && err.message ? err.message : 'state_presentation_failed'
-          }, '*');
-        }
-      }
       return;
     }
 

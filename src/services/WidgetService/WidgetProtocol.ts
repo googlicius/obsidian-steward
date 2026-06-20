@@ -8,12 +8,14 @@ export enum WidgetMessageType {
   ApplyAction = 'widget-apply-action',
   /** iframe reports the result of a dispatched action */
   ActionResult = 'widget-action-result',
-  /** parent requests a text rendering of current widget data for model turns */
-  RequestStatePresentation = 'widget-request-state-presentation',
-  /** iframe returns text rendering of widget data (or error) */
-  StatePresentationResult = 'widget-state-presentation-result',
+  /** parent dispatches a registered read-only query into the iframe */
+  DispatchQuery = 'widget-dispatch-query',
+  /** iframe reports the result of a dispatched query */
+  QueryResult = 'widget-query-result',
   /** iframe reports action names registered via window.stw.registerAction */
   ActionsRegistered = 'widget-actions-registered',
+  /** iframe reports query names registered via window.stw.registerQuery */
+  QueriesRegistered = 'widget-queries-registered',
   /** iframe requests starting a new widget game session */
   StartSession = 'widget-start-session',
   /** iframe requests binary data for a manifest-listed asset */

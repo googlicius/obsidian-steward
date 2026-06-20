@@ -64,6 +64,7 @@ export class Handlers {
   private _image: handlers.Image;
   private _showWidget: handlers.ShowWidget;
   private _widgetActionHandler: handlers.WidgetActionHandler;
+  private _widgetQueryHandler: handlers.WidgetQueryHandler;
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
   private _spawnSubagent: handlers.SpawnSubagent;
@@ -214,6 +215,13 @@ export class Handlers {
     return this._widgetActionHandler;
   }
 
+  public get widgetQueryHandler(): handlers.WidgetQueryHandler {
+    if (!this._widgetQueryHandler) {
+      this._widgetQueryHandler = new handlers.WidgetQueryHandler(this.getAgent());
+    }
+    return this._widgetQueryHandler;
+  }
+
   public get todoList(): handlers.TodoList {
     if (!this._todoList) this._todoList = new handlers.TodoList(this.getAgent());
     return this._todoList;
@@ -305,6 +313,7 @@ export class Handlers {
       [ToolName.IMAGE]: () => this.image,
       [ToolName.SHOW_WIDGET]: () => this.showWidget,
       [ToolName.WIDGET_ACTION]: () => this.widgetActionHandler,
+      [ToolName.WIDGET_QUERY]: () => this.widgetQueryHandler,
       [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,

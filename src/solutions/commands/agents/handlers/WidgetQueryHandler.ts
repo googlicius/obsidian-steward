@@ -1,4 +1,5 @@
 import { z } from 'zod/v3';
+import { JSONValue } from 'ai';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -6,30 +7,33 @@ import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../toolNames';
+import {
+  DEFAULT_WIDGET_QUERY_NAME,
+  resolveAgentAllowedQueries,
+} from 'src/services/WidgetService/types';
 
 const { getTranslation } = getBundledInternal('i18n');
 
-export const widgetActionSchema = z.object({
-  action: z.string().min(1),
+export const widgetQuerySchema = z.object({
+  query: z.string().min(1).optional().default(DEFAULT_WIDGET_QUERY_NAME),
   params: z.record(z.unknown()).optional(),
-  comment: z.string().optional(),
 });
 
-export type WidgetActionArgs = z.infer<typeof widgetActionSchema>;
+export type WidgetQueryArgs = z.infer<typeof widgetQuerySchema>;
 
-export class WidgetActionHandler {
+export class WidgetQueryHandler {
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static async getWidgetActionTool() {
+  public static async getWidgetQueryTool() {
     const { tool } = await getBundledLib('ai');
     return tool({
-      inputSchema: widgetActionSchema,
+      inputSchema: widgetQuerySchema,
     });
   }
 
   public async handle(
     ctx: HandlerInvocationContext,
-    options: { toolCall: ToolCallPart<WidgetActionArgs> }
+    options: { toolCall: ToolCallPart<WidgetQueryArgs> }
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
@@ -45,7 +49,7 @@ export class WidgetActionHandler {
 
     if (!projectPath || !actorId) {
       await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
+        command: ToolName.WIDGET_QUERY,
         toolCall,
         result: {
           type: 'error-text',
@@ -60,7 +64,7 @@ export class WidgetActionHandler {
     const agentBlock = definition.agents[actorId];
     if (!agentBlock) {
       await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
+        command: ToolName.WIDGET_QUERY,
         toolCall,
         result: {
           type: 'error-text',
@@ -70,85 +74,54 @@ export class WidgetActionHandler {
       return { status: IntentResultStatus.SUCCESS };
     }
 
-    if (!agentBlock.actions.includes(toolCall.input.action)) {
+    const queryName = toolCall.input.query ?? DEFAULT_WIDGET_QUERY_NAME;
+    const allowedQueries = resolveAgentAllowedQueries(agentBlock);
+    if (!allowedQueries.includes(queryName)) {
       await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
+        command: ToolName.WIDGET_QUERY,
         toolCall,
         result: {
           type: 'error-text',
-          value: `action_not_allowed:${toolCall.input.action}`,
+          value: `query_not_allowed:${queryName}`,
         },
       });
       return { status: IntentResultStatus.SUCCESS };
     }
 
-    const session = await this.agent.plugin.widgetService.stateService.readSession(projectPath);
-    if (!session || session.actor !== actorId) {
-      await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: 'not_your_turn',
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
-
-    const result = await this.agent.plugin.widgetService.applyAction({
+    const result = await this.agent.plugin.widgetService.dispatchQuery({
       projectPath,
-      action: toolCall.input.action,
-      actionParams: toolCall.input.params ?? {},
+      query: queryName,
+      queryParams: toolCall.input.params ?? {},
     });
 
     if (result.ok) {
-      await this.agent.plugin.widgetService.sessionService.recordModelMoveAndAdvance({
-        projectPath,
-        actorId,
-        action: toolCall.input.action,
-        comment: toolCall.input.comment?.trim() || undefined,
-        turnOrder: definition.actors?.turnOrder ?? [],
-      });
-    }
-
-    if (result.ok && toolCall.input.comment?.trim()) {
       const t = getTranslation(ctx.lang);
-      const commentSuffix = ` — ${toolCall.input.comment.trim()}`;
       await ctx.updateConversationNote({
-        newContent: t('widget.sessionMove', {
+        newContent: t('widget.sessionQuery', {
           actor: actorId,
-          action: toolCall.input.action,
-          comment: commentSuffix,
+          query: queryName,
         }),
         role: 'Steward',
         includeHistory: false,
       });
-    }
 
-    if (result.ok) {
       await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
+        command: ToolName.WIDGET_QUERY,
         toolCall,
         result: {
           type: 'json',
-          value: {
-            ok: true,
-            message: 'Move accepted. Your turn is complete — do not take any further action.',
-          },
+          value: JSON.parse(JSON.stringify(result.data ?? null)) as JSONValue,
         },
       });
       return { status: IntentResultStatus.SUCCESS };
     }
 
     await ctx.serializeInvocation({
-      command: ToolName.WIDGET_ACTION,
+      command: ToolName.WIDGET_QUERY,
       toolCall,
       result: {
-        type: 'error-json',
-        value: {
-          ok: false,
-          error: result.error ?? 'widget_action_failed',
-        },
+        type: 'error-text',
+        value: result.error ?? 'widget_query_failed',
       },
     });
     return { status: IntentResultStatus.SUCCESS };

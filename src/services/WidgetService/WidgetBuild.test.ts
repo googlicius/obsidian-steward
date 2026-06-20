@@ -80,14 +80,16 @@ describe('buildWidgetStateHead', () => {
     const head = buildWidgetStateHead({ state: null });
 
     expect(head).toContain('registerAction');
-    expect(head).toContain('registerStatePresentation');
+    expect(head).toContain('registerQuery');
     expect(head).toContain('dispatchAction');
+    expect(head).toContain('dispatchQuery');
     expect(head).toContain('getRegisteredActions');
     expect(head).toContain(WidgetMessageType.ApplyAction);
     expect(head).toContain(WidgetMessageType.ActionResult);
-    expect(head).toContain(WidgetMessageType.RequestStatePresentation);
-    expect(head).toContain(WidgetMessageType.StatePresentationResult);
+    expect(head).toContain(WidgetMessageType.DispatchQuery);
+    expect(head).toContain(WidgetMessageType.QueryResult);
     expect(head).toContain(WidgetMessageType.ActionsRegistered);
+    expect(head).toContain(WidgetMessageType.QueriesRegistered);
     expect(head).toContain(WidgetMessageType.Log);
   });
 });

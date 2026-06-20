@@ -60,6 +60,7 @@ const ja = {
       artifactRefreshNotify:
         'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのアーティファクトを更新してください。',
       sessionMove: '**{{actor}}** が `{{action}}` を実行しました{{comment}}',
+      sessionQuery: '**{{actor}}** が `{{query}}` を照会しました',
       humanMove: '私が手を打ちました。あなたの番です',
     },
     community: {

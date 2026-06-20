@@ -754,6 +754,116 @@ describe('ConversationRenderer', () => {
       expect(joined).toContain('Final answer after compaction.');
     });
 
+    it('fromLastUserMessage keeps from the Nth user message counting backward through the end', async () => {
+      const mockContent = [
+        '<!--STW ID:u1,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ old turn prompt',
+        '',
+        '<!--STW ID:a1,ROLE:steward-->',
+        'old assistant reply',
+        '',
+        '<!--STW ID:u2,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ middle turn prompt',
+        '',
+        '<!--STW ID:a2,ROLE:steward-->',
+        'middle assistant reply',
+        '',
+        '<!--STW ID:u3,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ ## Current game state',
+        '',
+        '<!--STW ID:a3,ROLE:steward-->',
+        'query result 1',
+        '',
+        '<!--STW ID:a4,ROLE:steward-->',
+        'query result 2',
+        '',
+        '<!--STW ID:a5,ROLE:steward-->',
+        'query result 3',
+        '',
+        '<!--STW ID:a6,ROLE:steward-->',
+        'query result 4',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const extractMessages = conversationRenderer['extractConversationMessagesForHistory'].bind(
+        conversationRenderer
+      );
+
+      const trimmedHistory = await extractMessages('test-conversation', {
+        maxMessages: 4,
+      });
+      const fullTurnHistory = await extractMessages('test-conversation', {
+        fromLastUserMessage: 2,
+      });
+
+      const includesTurnPrompt = (messages: ConversationMessage[]) =>
+        messages.some(message => (message.content ?? '').includes('Current game state'));
+
+      expect(includesTurnPrompt(trimmedHistory)).toBe(false);
+      expect(includesTurnPrompt(fullTurnHistory)).toBe(true);
+      expect(fullTurnHistory.some((message: ConversationMessage) =>
+        (message.content ?? '').includes('old turn prompt')
+      )).toBe(false);
+    });
+
+    it('fromLastUserMessage number keeps from the Nth user message counting backward through the end', async () => {
+      const mockContent = [
+        '<!--STW ID:u1,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ old turn prompt',
+        '',
+        '<!--STW ID:a1,ROLE:steward-->',
+        'old assistant reply',
+        '',
+        '<!--STW ID:u2,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ ## Current game state',
+        '',
+        '<!--STW ID:a2,ROLE:steward-->',
+        'query result 1',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const extractMessages = conversationRenderer['extractConversationMessagesForHistory'].bind(
+        conversationRenderer
+      );
+
+      const fromLastUser = await extractMessages('test-conversation', {
+        fromLastUserMessage: 1,
+      });
+      const fromSecondToLastUser = await extractMessages('test-conversation', {
+        fromLastUserMessage: 2,
+      });
+
+      expect(
+        fromLastUser.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('old turn prompt')
+        )
+      ).toBe(false);
+      expect(
+        fromLastUser.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('Current game state')
+        )
+      ).toBe(true);
+      expect(
+        fromSecondToLastUser.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('old turn prompt')
+        )
+      ).toBe(true);
+      expect(
+        fromSecondToLastUser.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('Current game state')
+        )
+      ).toBe(true);
+    });
+
     it('should resolve the tool-invocation output as a message reference', async () => {});
   });
 

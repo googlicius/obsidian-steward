@@ -608,7 +608,7 @@ describe('WidgetService', () => {
 
   describe('getWidgetDefinition actions and applyAction', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
-    const noopPresentationRequest = () => {};
+    const noopDispatchQuery = () => {};
 
     const actionsWidgetMd = [
       '```yaml',
@@ -696,17 +696,17 @@ describe('WidgetService', () => {
           sendApplyAction,
           actions: ['playCell'],
         });
-        service.resolveActionResult({
+        service.resolveBridgeMessage('action', {
           requestId: payload.requestId,
           ok: true,
           state: { cells: Array(9).fill(null) },
         });
       };
 
-      const unregister = service.registerActionBridge({
+      const unregister = service.registerWidgetBridge({
         projectPath,
         sendApplyAction,
-        sendRequestStatePresentation: noopPresentationRequest,
+        sendDispatchQuery: noopDispatchQuery,
       });
 
       const result = await service.applyAction({
@@ -728,12 +728,12 @@ describe('WidgetService', () => {
       });
       const service = WidgetService.getInstance(plugin);
 
-      const unregister = service.registerActionBridge({
+      const unregister = service.registerWidgetBridge({
         projectPath,
         sendApplyAction: () => {
           throw new Error('should not dispatch');
         },
-        sendRequestStatePresentation: noopPresentationRequest,
+        sendDispatchQuery: noopDispatchQuery,
       });
 
       const result = await service.applyAction({
@@ -801,23 +801,23 @@ describe('WidgetService', () => {
           sendApplyAction: primarySendApplyAction,
           actions: ['playCell'],
         });
-        service.resolveActionResult({
+        service.resolveBridgeMessage('action', {
           requestId: payload.requestId,
           ok: true,
         });
       };
 
-      const unregisterSecondary = service.registerActionBridge({
+      const unregisterSecondary = service.registerWidgetBridge({
         projectPath,
         sendApplyAction: () => {
           throw new Error('secondary bridge should not receive dispatch');
         },
-        sendRequestStatePresentation: noopPresentationRequest,
+        sendDispatchQuery: noopDispatchQuery,
       });
-      const unregisterPrimary = service.registerActionBridge({
+      const unregisterPrimary = service.registerWidgetBridge({
         projectPath,
         sendApplyAction: primarySendApplyAction,
-        sendRequestStatePresentation: noopPresentationRequest,
+        sendDispatchQuery: noopDispatchQuery,
       });
 
       unregisterSecondary();
@@ -832,37 +832,190 @@ describe('WidgetService', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('returns state presentation from the mounted iframe', async () => {
+  });
+
+  describe('getWidgetDefinition queries and dispatchQuery', () => {
+    const projectPath = 'Steward/Widgets/Chess-abc12';
+    const noopDispatchQuery = () => {};
+
+    const queriesWidgetMd = [
+      '```yaml',
+      'name: manifest',
+      'entry: index.html',
+      'type: html',
+      '```',
+      '',
+      '```yaml',
+      'name: queries',
+      'queries:',
+      '  getLegalMoves:',
+      '    description: Returns legal move indices',
+      '  evaluatePosition:',
+      '    description: Returns a heuristic score',
+      '    params:',
+      '      depth:',
+      '        type: integer',
+      '        minimum: 1',
+      '        maximum: 5',
+      '```',
+    ].join('\n');
+
+    it('reads the queries catalog from Widget.md', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const catalog = (await service.definitionService.getWidgetDefinition(projectPath)).queries;
+
+      expect(catalog?.queries.getLegalMoves?.description).toBe('Returns legal move indices');
+      expect(catalog?.queries.evaluatePosition?.params?.depth?.maximum).toBe(5);
+    });
+
+    it('returns public data for the built-in get_state query without iframe dispatch', async () => {
+      const statePath = `${projectPath}/state.json`;
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+          [statePath]: JSON.stringify({
+            version: 1,
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            data: { board: ['X', null, 'O'] },
+          }),
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.dispatchQuery({
+        projectPath,
+        query: 'get_state',
+        queryParams: {},
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.data).toEqual({ board: ['X', null, 'O'] });
+    });
+
+    it('allows optional query params when required is false', async () => {
+      const optionalQueryWidgetMd = [
+        '```yaml',
+        'name: manifest',
+        'entry: index.html',
+        'type: html',
+        '```',
+        '',
+        '```yaml',
+        'name: queries',
+        'queries:',
+        '  previewMove:',
+        '    params:',
+        '      index:',
+        '        type: integer',
+        '        minimum: 0',
+        '        maximum: 99',
+        '      previewId:',
+        '        type: string',
+        '        required: false',
+        '```',
+      ].join('\n');
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: optionalQueryWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+      let capturedParams: Record<string, unknown> | null = null;
+
+      const unregister = service.registerWidgetBridge({
+        projectPath,
+        sendApplyAction: () => {
+          throw new Error('should not dispatch action');
+        },
+        sendDispatchQuery: payload => {
+          capturedParams = payload.params;
+          service.resolveBridgeMessage('query', {
+            requestId: payload.requestId,
+            ok: true,
+            data: { previewId: 'preview_1' },
+          });
+        },
+      });
+
+      const result = await service.dispatchQuery({
+        projectPath,
+        query: 'previewMove',
+        queryParams: { index: 45 },
+      });
+
+      unregister();
+      expect(result.ok).toBe(true);
+      expect(capturedParams).toEqual({ index: 45 });
+    });
+
+    it('dispatches validated queries through the mounted iframe bridge', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: queriesWidgetMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
       let capturedRequestId = '';
-      const sendRequestStatePresentation = (payload: { requestId: string }) => {
+      const sendDispatchQuery = (payload: {
+        query: string;
+        params: Record<string, unknown>;
+        requestId: string;
+      }) => {
         capturedRequestId = payload.requestId;
-        service.resolveStatePresentationResult({
+        service.setRegisteredQueries({
+          projectPath,
+          sendDispatchQuery,
+          queries: ['getLegalMoves'],
+        });
+        service.resolveBridgeMessage('query', {
           requestId: payload.requestId,
           ok: true,
-          presentation: 'X | O | .\n-+-+-\n. | . | .',
+          data: [0, 4, 8],
         });
       };
 
-      const unregister = service.registerActionBridge({
+      const unregister = service.registerWidgetBridge({
         projectPath,
         sendApplyAction: () => {
           throw new Error('applyAction should not run');
         },
-        sendRequestStatePresentation,
+        sendDispatchQuery,
       });
 
-      const result = await service.getStatePresentation({ projectPath });
+      const result = await service.dispatchQuery({
+        projectPath,
+        query: 'getLegalMoves',
+        queryParams: {},
+      });
 
       unregister();
-      expect(capturedRequestId).toMatch(/^stw-present-/);
+      expect(capturedRequestId).toMatch(/^stw-query-/);
       expect(result.ok).toBe(true);
-      expect(result.presentation).toContain('X | O');
+      expect(result.data).toEqual([0, 4, 8]);
+    });
+
+    it('rejects unknown queries before dispatch', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.dispatchQuery({
+        projectPath,
+        query: 'unknownQuery',
+        queryParams: {},
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('Unknown query');
     });
   });
 
