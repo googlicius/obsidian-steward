@@ -1,6 +1,12 @@
 import { ToolName } from './ToolRegistry';
 import { ToolCallPart } from './tools/types';
 
+/** Optional markdown section merged into the agent core system prompt for this turn. */
+export interface ExtraCorePromptSection {
+  heading: string;
+  body: string;
+}
+
 /**
  * Represents a single intent in a sequence
  */
@@ -10,6 +16,8 @@ export interface Intent {
   systemPrompts?: string[];
   /** When set, replaces the agent core prompt entirely (e.g. widget actor turns). */
   coreSystemPrompt?: string;
+  /** Extra sections appended to the agent core prompt (heading + body). */
+  extraCorePromptSections?: ExtraCorePromptSection[];
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
   /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */

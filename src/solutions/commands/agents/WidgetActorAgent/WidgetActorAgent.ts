@@ -36,9 +36,16 @@ export class WidgetActorAgent extends SuperAgent {
       '- Use only the tools listed below.',
     ].join('\n');
 
-    return new MarkdownBuilder()
+    const builder = new MarkdownBuilder()
       .addSection('# Widget actor', framing)
-      .addSection('## Tool', toolSection || 'No tools available.')
-      .build();
+      .addSection('## Tool', toolSection || 'No tools available.');
+
+    const extraSections = context.extraCorePromptSections ?? [];
+    for (let i = 0; i < extraSections.length; i += 1) {
+      const section = extraSections[i];
+      builder.addSection(section.heading, section.body);
+    }
+
+    return builder.build();
   }
 }

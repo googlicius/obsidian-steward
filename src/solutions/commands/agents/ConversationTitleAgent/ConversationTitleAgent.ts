@@ -142,7 +142,7 @@ export class ConversationTitleAgent {
 
       const result = await generateText({
         model: llmConfig.model,
-        temperature: 0.3,
+        ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
         maxOutputTokens: 50,
         abortSignal: this.plugin.abortService.createAbortController(
           conversationTitle,

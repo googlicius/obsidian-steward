@@ -20,6 +20,8 @@ import type { AnthropicProvider } from '@ai-sdk/anthropic';
 import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
+import { ModelRegistry } from 'src/services/ModelRegistry';
+import type { TemperaturePolicy, TestModelInput } from 'src/types/models';
 
 /** When model id is unknown / unmatched — compaction threshold denominator fallback */
 const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
@@ -217,8 +219,8 @@ export class LLMService {
   /**
    * Send a minimal generation request to verify provider, credentials, and model id.
    */
-  public async testModel(model: string): Promise<void> {
-    const trimmed = model?.trim() ?? '';
+  public async testModel(input: TestModelInput): Promise<void> {
+    const trimmed = input.modelId?.trim() ?? '';
     if (!trimmed) {
       throw new Error('Model is required');
     }
@@ -230,11 +232,27 @@ export class LLMService {
     }
 
     const { generateText } = await getBundledLib('ai');
+    let temperature: number | undefined;
+    if (input.temperaturePolicy === 'omit') {
+      temperature = undefined;
+    } else if (
+      input.temperaturePolicy === 'configurable' &&
+      input.temperature !== undefined
+    ) {
+      temperature = input.temperature;
+    } else if (input.temperature !== undefined) {
+      temperature = input.temperature;
+    } else {
+      temperature = ModelRegistry.getInstance(this.plugin).resolveTemperature(
+        trimmed,
+        this.plugin.settings.llm.temperature
+      );
+    }
     await generateText({
       model: provider(modelId) as LanguageModel,
       prompt: 'Reply with exactly: OK',
       maxOutputTokens: 16,
-      temperature: 0,
+      ...(temperature !== undefined ? { temperature } : {}),
     });
   }
 
@@ -408,14 +426,16 @@ export class LLMService {
 
     const {
       model: defaultModel,
-      temperature,
       maxGenerationTokens,
     } = {
       model: this.plugin.settings.llm.chat.model,
-      temperature: this.plugin.settings.llm.temperature,
       maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
     };
     const model = overrideModel || defaultModel;
+    const temperature = ModelRegistry.getInstance(this.plugin).resolveTemperature(
+      model,
+      this.plugin.settings.llm.temperature
+    );
     const { provider, modelId, systemPrompt, name } = await this.getProviderFromModel(model);
 
     if (['elevenlabs', 'hume'].includes(name)) {
@@ -428,7 +448,7 @@ export class LLMService {
 
     const generateParams = {
       model: languageModel as LanguageModel,
-      temperature,
+      ...(temperature !== undefined ? { temperature } : {}),
       maxOutputTokens: maxGenerationTokens,
       systemPrompt,
       repairToolCall: async (options: {

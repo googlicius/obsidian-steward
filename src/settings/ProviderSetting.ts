@@ -71,7 +71,7 @@ const POPULAR_PROVIDER_PRESETS: Record<
   },
   kimi: {
     compatibility: 'openai',
-    baseUrl: 'https://api.moonshot.cn/v1',
+    baseUrl: 'https://api.moonshot.ai/v1',
     description:
       'Moonshot AI, OpenAI-compatible.\nModels: https://platform.moonshot.cn/docs\nAPI keys: https://platform.moonshot.cn/console/api-keys',
   },

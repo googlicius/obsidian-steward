@@ -12,9 +12,11 @@ import { DEFAULT_INTENT_TYPE } from 'src/solutions/commands/agents/intentHelpers
 import {
   DEFAULT_WIDGET_QUERY_NAME,
   resolveAgentAllowedQueries,
+  widgetStateSaveOptionsSchema,
   type WidgetAgent,
   type WidgetDefinition,
   type WidgetSessionData,
+  type WidgetStateSaveOptions,
 } from './types';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
 import { WidgetStateService } from './WidgetStateService';
@@ -43,6 +45,88 @@ export class WidgetSessionService {
       WidgetSessionService.instance = new WidgetSessionService(plugin);
     }
     return WidgetSessionService.instance;
+  }
+
+  /** Parses host-only `setState` options from the iframe bridge payload. */
+  public static parseWidgetStateSaveOptions(
+    options: unknown
+  ): WidgetStateSaveOptions | undefined {
+    if (!options || typeof options !== 'object') {
+      return undefined;
+    }
+
+    const result = widgetStateSaveOptionsSchema.safeParse(options);
+    if (!result.success) {
+      return undefined;
+    }
+
+    const parsed = result.data;
+    if (!parsed.intent && !parsed.move) {
+      return undefined;
+    }
+
+    return parsed;
+  }
+
+  public appendMoveAndAdvanceSession(params: {
+    session: WidgetSessionData;
+    actorId: string;
+    action: string;
+    moveParams?: Record<string, unknown>;
+    comment?: string;
+    turnOrder: string[];
+  }): WidgetSessionData {
+    if (params.turnOrder.length === 0) {
+      return params.session;
+    }
+
+    const moveLog = [...(params.session.moveLog ?? [])];
+    moveLog.push(
+      this.createMoveLogEntry({
+        actorId: params.actorId,
+        action: params.action,
+        moveParams: params.moveParams,
+        comment: params.comment,
+      })
+    );
+
+    const nextIndex = (params.session.turnIndex + 1) % params.turnOrder.length;
+    return {
+      ...params.session,
+      moveLog,
+      turnIndex: nextIndex,
+      actor: params.turnOrder[nextIndex],
+    };
+  }
+
+  public createMoveLogEntry(params: {
+    actorId: string;
+    action: string;
+    moveParams?: Record<string, unknown>;
+    comment?: string;
+    at?: string;
+  }): NonNullable<WidgetSessionData['moveLog']>[number] {
+    return {
+      actor: params.actorId,
+      action: WidgetSessionService.formatMoveLogAction(params.action, params.moveParams),
+      ...(params.comment ? { comment: params.comment } : {}),
+      at: params.at ?? new Date().toISOString(),
+    };
+  }
+
+  private static formatMoveLogAction(action: string, params?: Record<string, unknown>): string {
+    if (!params || Object.keys(params).length === 0) {
+      return action;
+    }
+
+    const keys = Object.keys(params).sort();
+    const parts: string[] = [];
+    for (let i = 0; i < keys.length; i += 1) {
+      const key = keys[i];
+      parts.push(`${key}=${JSON.stringify(params[key])}`);
+    }
+
+    return `${action}(${parts.join(', ')})`;
   }
 
   private get definitionService(): WidgetDefinitionService {
@@ -264,8 +348,6 @@ export class WidgetSessionService {
     });
 
     const turnQuery = this.buildTurnContext({
-      agent: params.agent,
-      definition: params.definition,
       moveLog: params.session.moveLog ?? [],
     });
 
@@ -276,6 +358,10 @@ export class WidgetSessionService {
         query: turnQuery,
         tools: actorTools,
         systemPrompts,
+        extraCorePromptSections: this.buildActorExtraCorePromptSections({
+          agent: params.agent,
+          definition: params.definition,
+        }),
         model: params.agent.model,
         no_confirm: true,
         historyFromLastUserMessage: 2,
@@ -300,17 +386,18 @@ export class WidgetSessionService {
   }
 
   /**
-   * Records a successful model move and advances the turn roster.
-   * Called by the widget_action handler the moment a move is applied, so the
+   * Records a successful move and advances the turn roster.
+   * Called by the widget_action handler the moment a model move is applied, so the
    * session `actor` becomes the gate: any further widget_action in the same
    * agent loop sees a different `actor` and is rejected as out-of-turn.
    * Keeps `phase: 'thinking'` so the orchestrator owns the awaiting_input flip
    * after the agent loop ends (and onStateSaved keeps ignoring the move's save).
    */
-  public async recordModelMoveAndAdvance(params: {
+  public async recordMoveAndAdvance(params: {
     projectPath: string;
     actorId: string;
     action: string;
+    params?: Record<string, unknown>;
     comment?: string;
     turnOrder: string[];
   }): Promise<void> {
@@ -323,54 +410,66 @@ export class WidgetSessionService {
       return;
     }
 
-    const moveLog = [...(session.moveLog ?? [])];
-    moveLog.push({
-      actor: params.actorId,
+    const nextSession = this.appendMoveAndAdvanceSession({
+      session,
+      actorId: params.actorId,
       action: params.action,
-      ...(params.comment ? { comment: params.comment } : {}),
-      at: new Date().toISOString(),
+      moveParams: params.params,
+      comment: params.comment,
+      turnOrder: params.turnOrder,
     });
 
-    const nextIndex = (session.turnIndex + 1) % params.turnOrder.length;
     await this.stateService.writeSession({
       projectPath: params.projectPath,
-      session: {
-        ...session,
-        moveLog,
-        turnIndex: nextIndex,
-        actor: params.turnOrder[nextIndex],
-      },
+      session: nextSession,
     });
   }
 
-  private buildTurnContext(params: {
+  /** @deprecated Use recordMoveAndAdvance */
+  public async recordModelMoveAndAdvance(params: {
+    projectPath: string;
+    actorId: string;
+    action: string;
+    comment?: string;
+    turnOrder: string[];
+  }): Promise<void> {
+    await this.recordMoveAndAdvance(params);
+  }
+
+  private buildActorExtraCorePromptSections(params: {
     agent: WidgetAgent;
     definition: WidgetDefinition;
-    moveLog: WidgetSessionData['moveLog'];
-  }): string {
-    const lines: string[] = [];
-
+  }): { heading: string; body: string }[] {
     const allowedQueries = resolveAgentAllowedQueries(params.agent);
     const queryCatalog = params.definition.queries?.queries ?? {};
-    lines.push('## Available queries');
+    const queryLines: string[] = [];
     for (let i = 0; i < allowedQueries.length; i++) {
       const queryName = allowedQueries[i];
       const description = this.describeAllowedQuery(queryName, queryCatalog);
-      lines.push(`- \`${queryName}\`${description ? ` — ${description}` : ''}`);
+      queryLines.push(`- \`${queryName}\`${description ? ` — ${description}` : ''}`);
     }
 
-    lines.push('', '## Allowed actions');
+    const actionLines: string[] = [];
     const catalog = params.definition.actions?.actions ?? {};
     for (let i = 0; i < params.agent.actions.length; i++) {
       const actionName = params.agent.actions[i];
       const actionDef = catalog[actionName];
       const description = actionDef?.description ? ` — ${actionDef.description}` : '';
-      lines.push(`- \`${actionName}\`${description}`);
+      actionLines.push(`- \`${actionName}\`${description}`);
     }
+
+    return [
+      { heading: '## Available queries', body: queryLines.join('\n') },
+      { heading: '## Allowed actions', body: actionLines.join('\n') },
+    ];
+  }
+
+  private buildTurnContext(params: { moveLog: WidgetSessionData['moveLog'] }): string {
+    const lines: string[] = [];
 
     const recentMoves = params.moveLog ?? [];
     if (recentMoves.length > 0) {
-      lines.push('', '## Recent moves');
+      lines.push('## Recent moves');
       const tail = recentMoves.slice(Math.max(0, recentMoves.length - 6));
       for (let i = 0; i < tail.length; i++) {
         const move = tail[i];

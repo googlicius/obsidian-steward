@@ -4,6 +4,7 @@ import { StewardPluginSettings } from 'src/types/interfaces';
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from './constants';
 import { migrateSettingsFrom0To1 } from './migrateSettingsFrom0To1';
 import { migrateSettingsFrom1To2 } from './migrateSettingsFrom1To2';
+import { migrateSettingsFrom2To3 } from './migrateSettingsFrom2To3';
 import { MigrationStep, runSequentialMigrations } from './runSequentialMigrations';
 
 export interface SettingsSchemaMigrationContext {
@@ -36,6 +37,9 @@ export const SETTINGS_SCHEMA_MIGRATIONS: Partial<Record<number, InternalSettings
     },
     1: context => {
       migrateSettingsFrom1To2(context.data);
+    },
+    2: context => {
+      migrateSettingsFrom2To3(context.data);
     },
   };
 

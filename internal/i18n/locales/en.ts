@@ -594,7 +594,14 @@ const en = {
       embeddingSimilarityThresholdDesc:
         'Threshold for embedding similarity matching (0.7 - 0.99). Higher values require more similar queries to match.',
       temperature: 'Temperature',
-      temperatureDesc: `Controls the randomness of the model's output. Value is within 0 and 1.\n The lower the value, the more deterministic the responses. Higher value increase creativity responses.`,
+      temperatureDesc:
+        'Default chat temperature when a model has no per-model override. Value is within 0 and 1. Lower values are more deterministic; higher values increase creativity.',
+      useTemperature: 'Use temperature',
+      useTemperatureDesc:
+        'Disable for models that reject the temperature parameter (for example some reasoning models).',
+      modelTemperature: 'Model temperature',
+      modelTemperatureDesc:
+        'Temperature for this model. When disabled, the parameter is omitted from API requests.',
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',

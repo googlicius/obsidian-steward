@@ -35,11 +35,11 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       llm: {
         chat: {
           model: 'ollama:llama3.2:latest',
-          customModels: [],
         },
         temperature: 0.2,
         maxGenerationTokens: 2048,
       },
+      models: [],
       providers: {
         openai: {
           apiKey: '',
@@ -299,6 +299,34 @@ describe('LLMService', () => {
     it('recognizes Gemini and Claude vision models', () => {
       expect(llmService.supportsVision('google:gemini-3.5-flash')).toBe(true);
       expect(llmService.supportsVision('anthropic:claude-sonnet-4-6')).toBe(true);
+    });
+  });
+
+  describe('getLLMConfig temperature', () => {
+    it('includes global temperature for configurable chat models', async () => {
+      mockPlugin.settings.llm.chat.model = 'openai:gpt-4o';
+      const config = await llmService.getLLMConfig({ generateType: 'text' });
+      expect(config.temperature).toBe(0.2);
+    });
+
+    it('omits temperature for reasoning models', async () => {
+      mockPlugin.settings.llm.chat.model = 'openai:o1-preview';
+      const config = await llmService.getLLMConfig({ generateType: 'text' });
+      expect(config.temperature).toBeUndefined();
+    });
+
+    it('uses per-model temperature override from settings.models', async () => {
+      mockPlugin.settings.llm.chat.model = 'openai:gpt-4o';
+      mockPlugin.settings.models = [
+        {
+          id: 'openai:gpt-4o',
+          kinds: ['chat'],
+          temperaturePolicy: 'configurable',
+          temperature: 0.7,
+        },
+      ];
+      const config = await llmService.getLLMConfig({ generateType: 'text' });
+      expect(config.temperature).toBe(0.7);
     });
   });
 });

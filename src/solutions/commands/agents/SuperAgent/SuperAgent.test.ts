@@ -70,6 +70,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     }),
     serializeToolInvocation: jest.fn(),
     removeConfirmationButtons: jest.fn(),
+    showConfirmationButtons: jest.fn(),
     extractConversationHistory: jest
       .fn()
       .mockResolvedValue({ messages: [], hasCompactionContext: false }),
@@ -108,9 +109,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       llm: {
         chat: {
           model: 'mock-model',
-          customModels: [],
         },
       },
+      models: [],
     },
     app: mockApp,
     registerEvent: jest.fn(),
@@ -1241,6 +1242,38 @@ describe('SuperAgent', () => {
           handlerId: expect.any(String),
           includeHistory: false,
         })
+      );
+    });
+
+    it('stores pending confirmation in commandProcessor when safeHandle returns NEEDS_CONFIRMATION', async () => {
+      const title = 'widget-step-limit-conversation';
+      const params: AgentHandlerParams = {
+        title,
+        intent: {
+          type: ' ',
+          query: 'previewMove',
+          model: 'mock-model',
+        } as Intent,
+        activeTools: [ToolName.WIDGET_QUERY],
+      };
+
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+      const pendingResult = {
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        confirmationMessage: 'Continue?',
+        onConfirmation: jest.fn(),
+        onRejection: jest.fn(),
+      } as const;
+
+      jest.spyOn(superAgent, 'handle').mockResolvedValue(pendingResult);
+
+      const result = await superAgent.safeHandle(params);
+
+      expect(result).toBe(pendingResult);
+      expect(commandProcessor.setLastResult).toHaveBeenCalledWith(title, pendingResult);
+      expect(mockPlugin.conversationRenderer.showConfirmationButtons).toHaveBeenCalledWith(
+        title,
+        undefined
       );
     });
 

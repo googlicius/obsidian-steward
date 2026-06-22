@@ -57,7 +57,7 @@ export class CompactionSummaryAgent {
 
       const result = await generateText({
         model: llmConfig.model,
-        temperature: 0.2,
+        ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
         maxOutputTokens: Math.min(600, 150 * items.length),
         abortSignal: this.plugin.abortService.createAbortController(
           params.conversationTitle,

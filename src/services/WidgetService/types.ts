@@ -65,11 +65,24 @@ export interface WidgetQueryResult {
   data?: unknown;
 }
 
+/** Human/model move metadata on setState; host-only — never stored in `data`. */
+export const widgetStateSaveMoveSchema = z.object({
+  action: z.string().min(1),
+  params: z.record(z.unknown()).optional(),
+  comment: z.string().optional(),
+});
+
+export type WidgetStateSaveMove = z.infer<typeof widgetStateSaveMoveSchema>;
+
 /** Optional second argument to `window.stw.setState(data, options)`. Host-only; never stored in `data`. */
-export interface WidgetStateSaveOptions {
+export const widgetStateSaveOptionsSchema = z.object({
   /** Clears `session` after save. Use for new game / play again / restart. Does not trigger a model turn. */
-  intent?: 'reset';
-}
+  intent: z.literal('reset').optional(),
+  /** Records the human move in session moveLog when the current actor is human. */
+  move: widgetStateSaveMoveSchema.optional(),
+});
+
+export type WidgetStateSaveOptions = z.infer<typeof widgetStateSaveOptionsSchema>;
 
 export const widgetManifestSchema = z.object({
   name: z.literal('manifest'),

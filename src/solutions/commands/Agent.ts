@@ -1,4 +1,10 @@
-import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from './types';
+import {
+  AgentHandlerParams,
+  AgentResult,
+  ExtraCorePromptSection,
+  Intent,
+  IntentResultStatus,
+} from './types';
 import type { ObsidianAPITools } from 'src/tools/obsidianAPITools';
 import type { App } from 'obsidian';
 import type StewardPlugin from '../../main';
@@ -28,6 +34,8 @@ export interface AgentCorePromptContext {
   readonly runCommandAvailable: boolean;
   /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
   readonly availableTools: ToolName[];
+  /** Optional sections merged into the core prompt for this turn. */
+  readonly extraCorePromptSections?: ExtraCorePromptSection[];
 }
 
 export abstract class Agent {
@@ -109,8 +117,15 @@ export abstract class Agent {
       // Call the original handle method
       const result = await this.handle(params, ...args);
 
-      if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
-        await this.renderer.showConfirmationButtons(params.title, result.buttonLabels);
+      if (
+        result.status === IntentResultStatus.NEEDS_CONFIRMATION ||
+        result.status === IntentResultStatus.NEEDS_USER_INPUT
+      ) {
+        this.commandProcessor.setLastResult(params.title, result);
+
+        if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
+          await this.renderer.showConfirmationButtons(params.title, result.buttonLabels);
+        }
       }
 
       return result;

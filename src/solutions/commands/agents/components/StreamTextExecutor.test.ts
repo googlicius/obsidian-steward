@@ -68,9 +68,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       llm: {
         chat: {
           model: 'mock-model',
-          customModels: [],
         },
       },
+      models: [],
     },
     app: mockApp,
     registerEvent: jest.fn(),

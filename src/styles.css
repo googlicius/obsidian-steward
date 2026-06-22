@@ -720,11 +720,7 @@ a.stw-no-underline {
 
 @keyframes stw-provider-highlight-fade {
   from {
-    background-color: color-mix(
-      in srgb,
-      var(--interactive-accent) 22%,
-      var(--background-primary)
-    );
+    background-color: color-mix(in srgb, var(--interactive-accent) 22%, var(--background-primary));
   }
 
   to {

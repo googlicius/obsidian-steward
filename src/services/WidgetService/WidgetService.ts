@@ -84,8 +84,14 @@ export class WidgetService {
   public readonly jsValidator: WidgetJsValidator;
   private readonly mountedByPath = new Map<string, Set<MountedWidgetEntry>>();
   private readonly iframeBridgeEntriesByPath = new Map<string, Set<WidgetIframeBridgeEntry>>();
-  private readonly pendingActionRequests = new Map<string, PendingBridgeRequest<WidgetActionResult>>();
-  private readonly pendingQueryRequests = new Map<string, PendingBridgeRequest<WidgetQueryResult>>();
+  private readonly pendingActionRequests = new Map<
+    string,
+    PendingBridgeRequest<WidgetActionResult>
+  >();
+  private readonly pendingQueryRequests = new Map<
+    string,
+    PendingBridgeRequest<WidgetQueryResult>
+  >();
   private modifyListenerRegistered = false;
   private readonly _definitionService: WidgetDefinitionService;
   private readonly _stateService: WidgetStateService;
@@ -586,7 +592,10 @@ export class WidgetService {
   }
 
   private validateCatalogParams(params: {
-    catalog: Record<string, { params?: Record<string, WidgetActionParamSpec | WidgetQueryParamSpec> }>;
+    catalog: Record<
+      string,
+      { params?: Record<string, WidgetActionParamSpec | WidgetQueryParamSpec> }
+    >;
     name: string;
     nameLabel: 'action' | 'query';
     values: Record<string, unknown>;

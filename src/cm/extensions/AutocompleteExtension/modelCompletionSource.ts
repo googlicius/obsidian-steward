@@ -1,26 +1,9 @@
 import { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
 import { SELECTED_MODEL_PREFIX_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
-import { LLM_MODELS } from 'src/services/LLMService';
+import { ModelRegistry } from 'src/services/ModelRegistry';
 import type StewardPlugin from 'src/main';
 import { Events, type ModelChangedPayload } from 'src/types/events';
-
-function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
-  const customModels: string[] = plugin.settings.llm.chat.customModels || [];
-  const builtInIds = new Set(LLM_MODELS.map(model => model.id));
-  const models = LLM_MODELS.map(model => ({ id: model.id, name: model.name }));
-
-  for (const modelId of customModels) {
-    if (builtInIds.has(modelId)) continue;
-
-    models.push({
-      id: modelId,
-      name: plugin.llmService.getModelDisplayName(modelId),
-    });
-  }
-
-  return models;
-}
 
 export function createModelCompletionSource(plugin: StewardPlugin) {
   /**
@@ -70,7 +53,7 @@ export function createModelCompletionSource(plugin: StewardPlugin) {
     if (lastMatchIndex > 0 && lineContent[lastMatchIndex - 1] !== ' ') return null;
     if (afterMatch.includes(' ')) return null;
 
-    const allModels = getAllModels(plugin);
+    const allModels = ModelRegistry.getInstance(plugin).getModelsForKind('chat');
     const currentModel = plugin.settings.llm.chat.model;
 
     const options: Completion[] = allModels.map(model => {

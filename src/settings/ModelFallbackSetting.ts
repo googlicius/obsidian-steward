@@ -2,7 +2,7 @@ import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { get } from 'src/utils/lodash-like';
-import { LLM_MODELS } from 'src/services/LLMService';
+import { ModelRegistry } from 'src/services/ModelRegistry';
 import type StewardPlugin from 'src/main';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -17,18 +17,7 @@ export class ModelFallbackSetting {
   }
 
   private getAllAvailableModels() {
-    const customModels = get(this.plugin.settings, 'llm.chat.customModels') || [];
-
-    return [
-      ...LLM_MODELS.map(model => ({
-        id: model.id,
-        name: model.name || model.id,
-      })),
-      ...customModels.map(model => ({
-        id: model,
-        name: this.plugin.llmService.getModelDisplayName(model),
-      })),
-    ];
+    return ModelRegistry.getInstance(this.plugin).getModelsForKind('chat');
   }
 
   /**

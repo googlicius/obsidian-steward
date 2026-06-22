@@ -1,5 +1,6 @@
 import { MarkdownPostProcessor, normalizePath, Notice } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { WidgetSessionService } from 'src/services/WidgetService/WidgetSessionService';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import {
   getWidgetFenceLanguage,
@@ -29,7 +30,7 @@ function getWidgetType(code: HTMLElement): WidgetType | null {
 
 interface MountIframeOptions {
   extraHead?: string;
-  onStateSave?: (payload: { state: unknown; options?: { intent?: string } }) => void;
+  onStateSave?: (payload: { state: unknown; options?: unknown }) => void;
   onStartSession?: () => void;
   onActionResult?: (data: {
     requestId: string;
@@ -303,7 +304,7 @@ async function mountWidgetProject(
           projectPath,
           widgetId: parsed.widgetId,
           incomingData: payload.state,
-          saveOptions: payload.options?.intent === 'reset' ? { intent: 'reset' } : undefined,
+          saveOptions: WidgetSessionService.parseWidgetStateSaveOptions(payload.options),
           lang: parsed.lang,
         });
       },

@@ -1332,6 +1332,32 @@ export class ConversationRenderer {
   }
 
   /**
+   * Splits a reasoning steward block into stw-thinking content and trailing visible text.
+   * Some models stream reasoning then user-visible text in the same note block.
+   */
+  private splitReasoningMessageContent(messageContent: string): {
+    reasoningText: string;
+    visibleText: string;
+  } {
+    const stwThinkingRegex =
+      /````stw-thinking\s*([\s\S]*?)\s*````|```stw-thinking\s*([\s\S]*?)\s*```/m;
+    const match = stwThinkingRegex.exec(messageContent);
+
+    if (!match) {
+      return { reasoningText: messageContent.trim(), visibleText: '' };
+    }
+
+    const reasoningText = (match[1] || match[2] || '').trim();
+    let visibleText =
+      messageContent.slice(0, match.index) +
+      messageContent.slice(match.index + match[0].length);
+    visibleText = visibleText.replace(/>\[!info\][^\n]*stw-toggle-block[^\n]*\n?/m, '');
+    visibleText = visibleText.trim();
+
+    return { reasoningText, visibleText };
+  }
+
+  /**
    * Extracts all messages from a conversation
    * @param conversationTitle The title of the conversation
    * @returns Array of all conversation messages
@@ -1433,33 +1459,17 @@ export class ConversationRenderer {
         // Remove loading indicators
         messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
 
-        // Remove stw-thinking block when type is reasoning
-        if (metadata.TYPE === 'reasoning') {
-          // Extract content inside stw-thinking code block (supports both 3 and 4 backticks for compatibility)
-          const stwThinkingRegex =
-            /````stw-thinking\s*([\s\S]*?)\s*````|```stw-thinking\s*([\s\S]*?)\s*```/m;
-          const match = stwThinkingRegex.exec(messageContent);
-          if (match) {
-            messageContent = (match[1] || match[2] || '').trim();
-          }
-        }
-
         // Convert role from 'steward' to 'assistant'
         const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
 
         // Determine if this message should be included in history
         const includeInHistory = metadata.HISTORY !== 'false';
 
-        messages.push({
-          id: metadata.ID,
+        const sharedMessageFields = {
           role: role as ConversationRole,
-          content: messageContent.trim(),
           intent: metadata.COMMAND || metadata.AGENT,
           lang: metadata.LANG,
           history: includeInHistory,
-          ...(metadata.TYPE && {
-            type: metadata.TYPE,
-          }),
           ...(metadata.ARTIFACT_TYPE && {
             artifactType: metadata.ARTIFACT_TYPE,
           }),
@@ -1469,6 +1479,35 @@ export class ConversationRenderer {
           ...(metadata.STEP !== undefined && {
             step: parseInt(metadata.STEP, 10),
           }),
+        };
+
+        if (metadata.TYPE === 'reasoning') {
+          const { reasoningText, visibleText } = this.splitReasoningMessageContent(messageContent);
+
+          messages.push({
+            id: metadata.ID,
+            content: reasoningText,
+            type: metadata.TYPE,
+            ...sharedMessageFields,
+          });
+
+          if (visibleText.length > 0) {
+            messages.push({
+              id: `${metadata.ID}-text`,
+              content: visibleText,
+              ...sharedMessageFields,
+            });
+          }
+          continue;
+        }
+
+        messages.push({
+          id: metadata.ID,
+          content: messageContent.trim(),
+          ...(metadata.TYPE && {
+            type: metadata.TYPE,
+          }),
+          ...sharedMessageFields,
         });
       }
 
@@ -1516,8 +1555,11 @@ export class ConversationRenderer {
       includeCompactedMessage?: boolean;
     }
   ): Promise<ConversationMessage[]> {
-    const { maxMessages = null, fromLastUserMessage, includeCompactedMessage = true } =
-      options || {};
+    const {
+      maxMessages = null,
+      fromLastUserMessage,
+      includeCompactedMessage = true,
+    } = options || {};
 
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
     const messagesForHistory = allMessages.filter(message => message.history !== false);

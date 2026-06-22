@@ -404,6 +404,118 @@ describe('ConversationRenderer', () => {
       expect(history).toMatchSnapshot();
     });
 
+    it('should preserve visible text from reasoning blocks when reasoning is omitted from history', async () => {
+      const mockContent = [
+        '<!--STW ID:user1,ROLE:user,COMMAND:widget_actor-->',
+        '>[!stw-user-message]',
+        '>/ e4',
+        '',
+        '<!--STW ID:reason1,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler1,STEP:1-->',
+        '````stw-thinking',
+        'I played 55. Move accepted.',
+        '````',
+        '>[!info] <a class="stw-toggle-block">Thinking process</a>',
+        '',
+        'I placed O at index 55. Your turn.',
+        '',
+        '<!--STW ID:tool1,ROLE:assistant,COMMAND:widget_action,TYPE:tool-invocation,HANDLER_ID:handler1,STEP:1-->',
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            type: 'tool-result',
+            toolName: 'widget_action',
+            toolCallId: 'widget_action_7',
+            input: { action: 'move', params: { index: 55 } },
+            output: { type: 'json', value: { ok: true } },
+          },
+        ]),
+        '```',
+        '',
+        '<!--STW ID:user2,ROLE:user,COMMAND:widget_actor-->',
+        '```stw-hidden-from-user',
+        'e5',
+        '```',
+        '',
+        '<!--STW ID:reason2,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:1-->',
+        '````stw-thinking',
+        'Thinking about e5...',
+        '````',
+        '',
+        '<!--STW ID:user3,ROLE:user,COMMAND:widget_actor-->',
+        '```stw-hidden-from-user',
+        'e6',
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      const turnOneAssistant = history.messages.find(
+        message =>
+          message.role === 'assistant' &&
+          Array.isArray(message.content) &&
+          message.content.some(
+            part => part.type === 'text' && part.text === 'I placed O at index 55. Your turn.'
+          )
+      );
+      expect(turnOneAssistant).toBeDefined();
+      expect(
+        turnOneAssistant &&
+          Array.isArray(turnOneAssistant.content) &&
+          turnOneAssistant.content.some(part => part.type === 'reasoning')
+      ).toBe(false);
+    });
+
+    it('should include both reasoning and visible text for the last turn', async () => {
+      const mockContent = [
+        '<!--STW ID:user1,ROLE:user,COMMAND:super-->',
+        '>/ e4',
+        '',
+        '<!--STW ID:reason1,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler1,STEP:1-->',
+        '````stw-thinking',
+        'I played 55. Move accepted.',
+        '````',
+        '>[!info] <a class="stw-toggle-block">Thinking process</a>',
+        '',
+        'I placed O at index 55. Your turn.',
+        '',
+        '<!--STW ID:user2,ROLE:user,COMMAND:super-->',
+        '```stw-hidden-from-user',
+        'e5',
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      let lastAssistant: (typeof history.messages)[number] | undefined;
+      for (let i = history.messages.length - 1; i >= 0; i--) {
+        if (history.messages[i].role === 'assistant') {
+          lastAssistant = history.messages[i];
+          break;
+        }
+      }
+      expect(lastAssistant).toBeDefined();
+      expect(lastAssistant?.content).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'reasoning',
+            text: 'I played 55. Move accepted.',
+          }),
+          expect.objectContaining({
+            type: 'text',
+            text: 'I placed O at index 55. Your turn.',
+          }),
+        ])
+      );
+    });
+
     it('should group reasoning content in the same assistant message as the tool invocation', async () => {
       // Mock conversation content with reasoning and tool invocation sharing same handlerId/step
       const mockContent = [
@@ -790,9 +902,8 @@ describe('ConversationRenderer', () => {
       const mockPlugin = createMockPlugin(mockContent);
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
-      const extractMessages = conversationRenderer['extractConversationMessagesForHistory'].bind(
-        conversationRenderer
-      );
+      const extractMessages =
+        conversationRenderer['extractConversationMessagesForHistory'].bind(conversationRenderer);
 
       const trimmedHistory = await extractMessages('test-conversation', {
         maxMessages: 4,
@@ -806,9 +917,11 @@ describe('ConversationRenderer', () => {
 
       expect(includesTurnPrompt(trimmedHistory)).toBe(false);
       expect(includesTurnPrompt(fullTurnHistory)).toBe(true);
-      expect(fullTurnHistory.some((message: ConversationMessage) =>
-        (message.content ?? '').includes('old turn prompt')
-      )).toBe(false);
+      expect(
+        fullTurnHistory.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('old turn prompt')
+        )
+      ).toBe(false);
     });
 
     it('fromLastUserMessage number keeps from the Nth user message counting backward through the end', async () => {
@@ -831,9 +944,8 @@ describe('ConversationRenderer', () => {
       const mockPlugin = createMockPlugin(mockContent);
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
-      const extractMessages = conversationRenderer['extractConversationMessagesForHistory'].bind(
-        conversationRenderer
-      );
+      const extractMessages =
+        conversationRenderer['extractConversationMessagesForHistory'].bind(conversationRenderer);
 
       const fromLastUser = await extractMessages('test-conversation', {
         fromLastUserMessage: 1,

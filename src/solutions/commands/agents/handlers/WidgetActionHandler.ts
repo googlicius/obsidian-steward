@@ -102,18 +102,20 @@ export class WidgetActionHandler {
     });
 
     if (result.ok) {
-      await this.agent.plugin.widgetService.sessionService.recordModelMoveAndAdvance({
+      await this.agent.plugin.widgetService.sessionService.recordMoveAndAdvance({
         projectPath,
         actorId,
         action: toolCall.input.action,
+        params: toolCall.input.params ?? undefined,
         comment: toolCall.input.comment?.trim() || undefined,
         turnOrder: definition.actors?.turnOrder ?? [],
       });
     }
 
-    if (result.ok && toolCall.input.comment?.trim()) {
+    if (result.ok) {
       const t = getTranslation(ctx.lang);
-      const commentSuffix = ` — ${toolCall.input.comment.trim()}`;
+      const trimmedComment = toolCall.input.comment?.trim();
+      const commentSuffix = trimmedComment ? ` — ${trimmedComment}` : '';
       await ctx.updateConversationNote({
         newContent: t('widget.sessionMove', {
           actor: actorId,

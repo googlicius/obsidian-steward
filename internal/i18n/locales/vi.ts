@@ -531,7 +531,14 @@ const vi = {
       embeddingSimilarityThresholdDesc:
         'Ngưỡng cho việc so khớp tương đồng embedding (0.7 - 0.99). Giá trị cao hơn yêu cầu các truy vấn tương tự hơn để khớp.',
       temperature: 'Temperature',
-      temperatureDesc: 'Điều khiển tính ngẫu nhiên trong đầu ra (0.0 đến 1.0)',
+      temperatureDesc:
+        'Nhiệt độ chat mặc định khi mô hình không có ghi đè riêng. Giá trị từ 0 đến 1. Giá trị thấp cho phản hồi ổn định hơn; giá trị cao tăng tính sáng tạo.',
+      useTemperature: 'Dùng temperature',
+      useTemperatureDesc:
+        'Tắt cho các mô hình không hỗ trợ tham số temperature (ví dụ một số mô hình reasoning).',
+      modelTemperature: 'Temperature của mô hình',
+      modelTemperatureDesc:
+        'Temperature cho mô hình này. Khi tắt, tham số sẽ không được gửi trong yêu cầu API.',
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',
       maxGenerationTokensDesc:
         'Số lượng token tối đa để tạo trong phản hồi (giá trị cao hơn có thể tăng chi phí API)',

@@ -27,7 +27,7 @@ describe('WidgetActionHandler turn gate', () => {
 
   function createHandlerHarness(currentActor: string) {
     const applyAction = jest.fn().mockResolvedValue({ ok: true });
-    const recordModelMoveAndAdvance = jest.fn().mockResolvedValue(undefined);
+    const recordMoveAndAdvance = jest.fn().mockResolvedValue(undefined);
     const updateConversationNote = jest.fn().mockResolvedValue(undefined);
     const serializeInvocation = jest.fn().mockResolvedValue(undefined);
 
@@ -60,7 +60,7 @@ describe('WidgetActionHandler turn gate', () => {
             }),
           },
           sessionService: {
-            recordModelMoveAndAdvance,
+            recordMoveAndAdvance,
           },
           applyAction,
         },
@@ -82,7 +82,15 @@ describe('WidgetActionHandler turn gate', () => {
       input: { action: 'playCell', params: { index: 0 } },
     } as unknown as ToolCallPart<WidgetActionArgs>;
 
-    return { handler, ctx, toolCall, applyAction, recordModelMoveAndAdvance, serializeInvocation, updateConversationNote };
+    return {
+      handler,
+      ctx,
+      toolCall,
+      applyAction,
+      recordMoveAndAdvance,
+      serializeInvocation,
+      updateConversationNote,
+    };
   }
 
   it('appends a move summary when the model includes a comment', async () => {
@@ -108,15 +116,34 @@ describe('WidgetActionHandler turn gate', () => {
     );
   });
 
+  it('appends a move summary when the model omits a comment', async () => {
+    const { handler, ctx, toolCall, updateConversationNote } = createHandlerHarness('o');
+
+    await handler.handle(ctx, { toolCall });
+
+    expect(updateConversationNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'Steward',
+        includeHistory: false,
+        newContent: 'translated_widget.sessionMove',
+      })
+    );
+  });
+
   it('applies and advances when it is the actor turn', async () => {
-    const { handler, ctx, toolCall, applyAction, recordModelMoveAndAdvance, serializeInvocation } =
+    const { handler, ctx, toolCall, applyAction, recordMoveAndAdvance, serializeInvocation } =
       createHandlerHarness('o');
 
     await handler.handle(ctx, { toolCall });
 
     expect(applyAction).toHaveBeenCalledTimes(1);
-    expect(recordModelMoveAndAdvance).toHaveBeenCalledWith(
-      expect.objectContaining({ actorId: 'o', action: 'playCell', turnOrder: ['user', 'o'] })
+    expect(recordMoveAndAdvance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'o',
+        action: 'playCell',
+        params: { index: 0 },
+        turnOrder: ['user', 'o'],
+      })
     );
     const okResult = serializeInvocation.mock.calls[0][0].result;
     expect(okResult.type).toBe('json');
@@ -126,13 +153,13 @@ describe('WidgetActionHandler turn gate', () => {
   });
 
   it('rejects an out-of-turn move without applying when the roster already advanced', async () => {
-    const { handler, ctx, toolCall, applyAction, recordModelMoveAndAdvance, serializeInvocation } =
+    const { handler, ctx, toolCall, applyAction, recordMoveAndAdvance, serializeInvocation } =
       createHandlerHarness('user');
 
     await handler.handle(ctx, { toolCall });
 
     expect(applyAction).not.toHaveBeenCalled();
-    expect(recordModelMoveAndAdvance).not.toHaveBeenCalled();
+    expect(recordMoveAndAdvance).not.toHaveBeenCalled();
     expect(serializeInvocation).toHaveBeenCalledWith(
       expect.objectContaining({ result: { type: 'error-text', value: 'not_your_turn' } })
     );

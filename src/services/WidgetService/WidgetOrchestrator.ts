@@ -1,11 +1,6 @@
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import type {
-  WidgetActors,
-  WidgetDefinition,
-  WidgetSessionData,
-  WidgetStateSaveOptions,
-} from './types';
+import type { WidgetActors, WidgetDefinition, WidgetSessionData, WidgetStateSaveOptions } from './types';
 import { WidgetSessionService } from './WidgetSessionService';
 import { WidgetStateService } from './WidgetStateService';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
@@ -194,8 +189,15 @@ export class WidgetOrchestrator {
     }
 
     if (actorEntry.kind === 'human') {
-      workingSession = this.advanceTurn({
+      const humanMove = params.saveOptions?.move?.action
+        ? params.saveOptions.move
+        : { action: 'unknown' };
+      workingSession = this.sessionService.appendMoveAndAdvanceSession({
         session: workingSession,
+        actorId: session.actor,
+        action: humanMove.action,
+        moveParams: humanMove.params,
+        comment: humanMove.comment,
         turnOrder: definition.actors.turnOrder,
       });
       await this.stateService.writeSession({
@@ -219,6 +221,7 @@ export class WidgetOrchestrator {
         session: workingSession,
         actingActorId: session.actor,
         turnOrder: definition.actors.turnOrder,
+        saveOptions: params.saveOptions,
       });
       await this.stateService.writeSession({
         projectPath: params.projectPath,
@@ -278,6 +281,18 @@ export class WidgetOrchestrator {
       turnOrder: actors.turnOrder,
     });
 
+    const humanMove = params.saveOptions?.move?.action
+      ? params.saveOptions.move
+      : { action: 'unknown' };
+    const moveLog = [
+      this.sessionService.createMoveLogEntry({
+        actorId: firstActorId,
+        action: humanMove.action,
+        moveParams: humanMove.params,
+        comment: humanMove.comment,
+      }),
+    ];
+
     const nextEntry = actors.actors[advanced.actor];
     if (!nextEntry || nextEntry.kind !== 'model') {
       return;
@@ -293,7 +308,7 @@ export class WidgetOrchestrator {
       bootstrapSession: {
         actor: advanced.actor,
         turnIndex: advanced.turnIndex,
-        moveLog: [],
+        moveLog,
         lastDataSnapshot: params.incomingData,
         precedingHumanMove: true,
       },
@@ -423,13 +438,20 @@ export class WidgetOrchestrator {
     session: WidgetSessionData;
     actingActorId: string;
     turnOrder: string[];
+    saveOptions?: WidgetStateSaveOptions;
   }): WidgetSessionData {
+    const externalMove = params.saveOptions?.move?.action
+      ? params.saveOptions.move
+      : { action: 'unknown' };
     const moveLog = [...(params.session.moveLog ?? [])];
-    moveLog.push({
-      actor: params.actingActorId,
-      action: 'unknown',
-      at: new Date().toISOString(),
-    });
+    moveLog.push(
+      this.sessionService.createMoveLogEntry({
+        actorId: params.actingActorId,
+        action: externalMove.action,
+        moveParams: externalMove.params,
+        comment: externalMove.comment,
+      })
+    );
 
     return this.advanceTurn({
       session: {

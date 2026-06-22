@@ -192,7 +192,7 @@ export class GenerateTextExecutor {
 
     const result = await generateText({
       model: llmConfig.model,
-      temperature: llmConfig.temperature,
+      ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
       maxOutputTokens: llmConfig.maxOutputTokens,
       abortSignal: agent.plugin.abortService.createAbortController(params.title),
       system: agent.buildCorePrompt(),

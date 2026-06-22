@@ -1,4 +1,5 @@
 import { WidgetOrchestrator } from './WidgetOrchestrator';
+import { WidgetSessionService } from './WidgetSessionService';
 import type { WidgetDefinition, WidgetSessionData } from './types';
 
 const projectPath = 'Steward/Widgets/tic-tac-toe';
@@ -41,6 +42,10 @@ function resetOrchestratorSingleton(): void {
   (WidgetOrchestrator as unknown as { instance: WidgetOrchestrator | null }).instance = null;
 }
 
+function resetSessionServiceSingleton(): void {
+  (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+}
+
 function createOrchestratorHarness(options: {
   initialSession: WidgetSessionData | null;
   initialData?: unknown;
@@ -49,6 +54,9 @@ function createOrchestratorHarness(options: {
     ? { ...options.initialSession }
     : null;
   let data: unknown = options.initialData ?? { board: Array(9).fill(null), current: 'X' };
+
+  resetSessionServiceSingleton();
+  const sessionMoveService = WidgetSessionService.getInstance({} as never);
 
   const clearSession = jest.fn().mockImplementation(async () => {
     session = null;
@@ -125,6 +133,9 @@ function createOrchestratorHarness(options: {
         runActorTurn,
         createSessionForModelTurn,
         appendHumanMoveMessage: jest.fn(),
+        appendMoveAndAdvanceSession:
+          sessionMoveService.appendMoveAndAdvanceSession.bind(sessionMoveService),
+        createMoveLogEntry: sessionMoveService.createMoveLogEntry.bind(sessionMoveService),
       },
       stateService: {
         writeState,
@@ -153,6 +164,7 @@ function createOrchestratorHarness(options: {
 describe('WidgetOrchestrator', () => {
   beforeEach(() => {
     resetOrchestratorSingleton();
+    resetSessionServiceSingleton();
   });
 
   it('does not create session on mount for human-first widgets', async () => {
@@ -180,12 +192,21 @@ describe('WidgetOrchestrator', () => {
         board: ['X', null, null, null, null, null, null, null, null],
         current: 'O',
       },
+      saveOptions: {
+        move: { action: 'playCell', params: { index: 0 } },
+      },
     });
 
     expect(createSessionForModelTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: 'o',
         turnIndex: 1,
+        moveLog: [
+          expect.objectContaining({
+            actor: 'user',
+            action: 'playCell(index=0)',
+          }),
+        ],
       })
     );
     expect(runActorTurn).toHaveBeenCalled();
@@ -387,6 +408,9 @@ describe('WidgetOrchestrator', () => {
         board: ['X', null, null, null, null, null, null, null, null],
         current: 'O',
       },
+      saveOptions: {
+        move: { action: 'playCell', params: { index: 0 } },
+      },
     });
 
     expect(writeSession).toHaveBeenCalledWith(
@@ -395,6 +419,12 @@ describe('WidgetOrchestrator', () => {
         session: expect.objectContaining({
           actor: 'o',
           turnIndex: 1,
+          moveLog: [
+            expect.objectContaining({
+              actor: 'user',
+              action: 'playCell(index=0)',
+            }),
+          ],
         }),
       })
     );
@@ -428,6 +458,9 @@ describe('WidgetOrchestrator', () => {
         board: ['X', 'O', null, null, null, null, null, null, null],
         current: 'X',
       },
+      saveOptions: {
+        move: { action: 'playCell', params: { index: 1 } },
+      },
     });
 
     expect(runActorTurn).not.toHaveBeenCalled();
@@ -436,7 +469,7 @@ describe('WidgetOrchestrator', () => {
     expect(session?.turnIndex).toBe(0);
     expect(session?.moveLog).toHaveLength(2);
     expect(session?.moveLog?.[1]).toEqual(
-      expect.objectContaining({ actor: 'o', action: 'unknown' })
+      expect.objectContaining({ actor: 'o', action: 'playCell(index=1)' })
     );
   });
 

@@ -1,4 +1,5 @@
 import { StewardPluginSettings } from './types/interfaces';
+import type { PresetModelDefinition } from './types/models';
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from './settings/migrations/constants';
 
 /**
@@ -151,6 +152,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   debug: false, // Debug logging disabled by default
   autoScroll: true, // Auto-scroll enabled by default
   chatViewDock: 'right',
+  models: [],
   audio: {
     model: 'openai', // Default model
     voices: {
@@ -161,7 +163,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   llm: {
     chat: {
       model: 'ollama:gemma4:31b',
-      customModels: [],
     },
     modelContextLengths: {},
     temperature: 0.2,
@@ -169,7 +170,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     maxGenerationTokens: 8000, // Default max tokens for generation
     image: {
       model: 'openai:dall-e-3',
-      customModels: [],
       size: '1024x1024',
     },
     providerConfigs: {},
@@ -180,7 +180,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
         elevenlabs: 'pNInz6obpgDQGcFmaJgB', // Default ElevenLabs voice
         hume: 'ee96fb5f-ec1a-4f41-a9ba-6d119e64c8fd',
       },
-      customModels: [], // User-defined custom speech models
     },
     modelFallback: {
       enabled: true,
@@ -190,19 +189,16 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       compactionSummary: {
         enabled: true,
         model: '',
-        customModels: [],
       },
       conversationTitle: {
         enabled: true,
         model: '',
-        customModels: [],
       },
     },
   },
   embedding: {
     enabled: false, // Embedding functionality disabled by default
     model: 'openai:text-embedding-ada-002',
-    customModels: [],
     similarityThreshold: 0.85, // Default similarity threshold for embedding matching
   },
   search: {
@@ -234,22 +230,37 @@ export type ProviderNeedApiKey =
   | 'hume';
 
 // Speech model options
-export interface SpeechModelOption {
-  id: string; // Format: "provider:modelId" (e.g., "openai:tts-1")
-  name?: string;
-}
-
-export const SPEECH_MODELS: SpeechModelOption[] = [
-  // OpenAI Speech Models
-  { id: 'openai:tts-1', name: 'OpenAI TTS-1' },
-  { id: 'openai:tts-1-hd', name: 'OpenAI TTS-1 HD' },
-
-  // ElevenLabs Speech Models
-  { id: 'elevenlabs:eleven_turbo_v2', name: 'ElevenLabs Turbo v2' },
-  { id: 'elevenlabs:eleven_multilingual_v2', name: 'ElevenLabs Multilingual v2' },
-
-  // Hume Speech Models
-  { id: 'hume:no_model_id', name: 'Hume Speech' }, // Hume provider doesn't need a modelId
+export const SPEECH_MODELS: PresetModelDefinition[] = [
+  {
+    id: 'openai:tts-1',
+    name: 'OpenAI TTS-1',
+    kinds: ['speech'],
+    temperaturePolicy: 'omit',
+  },
+  {
+    id: 'openai:tts-1-hd',
+    name: 'OpenAI TTS-1 HD',
+    kinds: ['speech'],
+    temperaturePolicy: 'omit',
+  },
+  {
+    id: 'elevenlabs:eleven_turbo_v2',
+    name: 'ElevenLabs Turbo v2',
+    kinds: ['speech'],
+    temperaturePolicy: 'omit',
+  },
+  {
+    id: 'elevenlabs:eleven_multilingual_v2',
+    name: 'ElevenLabs Multilingual v2',
+    kinds: ['speech'],
+    temperaturePolicy: 'omit',
+  },
+  {
+    id: 'hume:no_model_id',
+    name: 'Hume Speech',
+    kinds: ['speech'],
+    temperaturePolicy: 'omit',
+  },
 ];
 
 // Default voice IDs for each provider
@@ -259,28 +270,35 @@ export const DEFAULT_VOICES: Record<string, string> = {
 };
 
 // Embedding model options
-export interface EmbeddingModelOption {
-  id: string;
-  name: string;
-}
-
-export const EMBEDDING_MODELS: EmbeddingModelOption[] = [
+export const EMBEDDING_MODELS: PresetModelDefinition[] = [
   {
     id: 'openai:text-embedding-ada-002',
     name: 'text-embedding-ada-002 (OpenAI)',
+    kinds: ['embedding'],
+    temperaturePolicy: 'omit',
   },
-  { id: 'google:gemini-embedding-001', name: 'gemini-embedding-001 (Google)' },
+  {
+    id: 'google:gemini-embedding-001',
+    name: 'gemini-embedding-001 (Google)',
+    kinds: ['embedding'],
+    temperaturePolicy: 'omit',
+  },
 ];
 
 // Image model options
-export interface ImageModelOption {
-  id: string;
-  name: string;
-}
-
-export const IMAGE_MODELS: ImageModelOption[] = [
-  { id: 'openai:dall-e-3', name: 'DALL-E 3' },
-  { id: 'openai:dall-e-2', name: 'DALL-E 2' },
+export const IMAGE_MODELS: PresetModelDefinition[] = [
+  {
+    id: 'openai:dall-e-3',
+    name: 'DALL-E 3',
+    kinds: ['image'],
+    temperaturePolicy: 'omit',
+  },
+  {
+    id: 'openai:dall-e-2',
+    name: 'DALL-E 2',
+    kinds: ['image'],
+    temperaturePolicy: 'omit',
+  },
 ];
 
 export const SEARCH_DB_NAME_PREFIX = 'steward_search_';

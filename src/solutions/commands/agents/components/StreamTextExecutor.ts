@@ -178,6 +178,7 @@ export class StreamTextExecutor {
         includeSkillCatalog,
         includeSubAgentCatalog,
         runCommandAvailable,
+        extraCorePromptSections: params.intent.extraCorePromptSections,
       });
 
     type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];
@@ -186,7 +187,7 @@ export class StreamTextExecutor {
 
     const streamTextResult = streamText({
       model: llmConfig.model,
-      temperature: llmConfig.temperature,
+      ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
       maxOutputTokens: llmConfig.maxOutputTokens,
       abortSignal,
       system: coreSystemPrompt,

@@ -1,3 +1,7 @@
+import type { StewardModelDefinition } from './models';
+
+export type { ModelKind, TemperaturePolicy, StewardModelDefinition } from './models';
+
 export interface StewardPluginSettings {
   settingsSchemaVersion: number; // Version for sequential settings schema migrations
   mySetting: string;
@@ -47,6 +51,8 @@ export interface StewardPluginSettings {
   autoScroll: boolean; // Toggle auto-scroll feature in chat
   /** Where the Steward chat pane should open: main editor area or right sidebar */
   chatViewDock: 'main' | 'right';
+  /** User-defined model registry; bundled presets live in code */
+  models: StewardModelDefinition[];
   // Undefined for backward compatibility
   audio:
     | {
@@ -58,7 +64,8 @@ export interface StewardPluginSettings {
     model?: string; // Deprecated: use chat.model instead
     chat: {
       model: string; // The chat model (e.g., ollama:gemma4:31b-cloud, openai:gpt-4o)
-      customModels: string[]; // User-defined custom chat models
+      /** @deprecated Migrated to settings.models */
+      customModels?: string[];
     };
     /** Full model key `provider:modelId` → context tokens (optional overrides) */
     modelContextLengths?: Record<string, number>;
@@ -69,11 +76,13 @@ export interface StewardPluginSettings {
     // Deprecated: use embedding instead
     embedding?: {
       model: string;
-      customModels: string[];
+      /** @deprecated Migrated to settings.models */
+      customModels?: string[];
     };
     image: {
       model: string; // The image model (e.g., "openai:dall-e-3", "openai:dall-e-2")
-      customModels: string[]; // User-defined custom image models
+      /** @deprecated Migrated to settings.models */
+      customModels?: string[];
       size: string; // Image size (e.g., "1024x1024", "1792x1024")
     };
     /**
@@ -89,7 +98,8 @@ export interface StewardPluginSettings {
         elevenlabs: string; // ElevenLabs voice ID
         hume: string; // Hume voice ID
       };
-      customModels: string[]; // User-defined custom speech models
+      /** @deprecated Migrated to settings.models */
+      customModels?: string[];
     };
     modelFallback: {
       enabled: boolean; // Enable/disable automatic model fallback
@@ -99,19 +109,22 @@ export interface StewardPluginSettings {
       compactionSummary: {
         enabled: boolean; // Enable/disable CompactionSummaryAgent
         model: string; // Model override, empty string = use chat model
-        customModels: string[]; // User-defined custom models for CompactionSummaryAgent
+        /** @deprecated Migrated to settings.models */
+        customModels?: string[];
       };
       conversationTitle: {
         enabled: boolean; // Enable/disable ConversationTitleAgent
         model: string; // Model override, empty string = use chat model
-        customModels: string[]; // User-defined custom models for ConversationTitleAgent
+        /** @deprecated Migrated to settings.models */
+        customModels?: string[];
       };
     };
   };
   embedding: {
     enabled: boolean; // Enable/disable embedding functionality
     model: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
-    customModels: string[]; // User-defined custom embedding models
+    /** @deprecated Migrated to settings.models */
+    customModels?: string[];
     similarityThreshold: number; // Similarity threshold for embedding matching (0.7 - 0.99)
   };
   search: {

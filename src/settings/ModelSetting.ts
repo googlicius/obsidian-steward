@@ -2,7 +2,8 @@ import { getLanguage, setIcon, Setting, setTooltip, Notice } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { capitalizeString } from 'src/utils/capitalizeString';
-import { get } from 'src/utils/lodash-like';
+import { ModelRegistry, inferTemperaturePolicyFromModelId } from 'src/services/ModelRegistry';
+import type { ModelKind, StewardModelDefinition, TestModelInput } from 'src/types/models';
 
 const { getTranslation } = getBundledInternal('i18n');
 const lang = getLanguage();
@@ -18,46 +19,45 @@ export class ModelSetting {
     setting: Setting,
     options: {
       validationPattern?: RegExp;
-      presetModels: Array<{ id: string; name?: string }>;
-      customModelsField: string;
+      modelKind: ModelKind;
       currentModelField: string;
       placeholder: string;
+      showTemperatureControls?: boolean;
       onSelectChange: (modelId: string) => Promise<void>;
-      onAddModel: (modelId: string) => Promise<void>;
+      onAddModel: (definition: StewardModelDefinition) => Promise<void>;
       onDeleteModel: (modelId: string) => Promise<void>;
-      onTestModel?: (modelId: string) => Promise<void>;
+      onTestModel?: (input: TestModelInput) => Promise<void>;
       includeEmptyOption?: boolean;
       emptyOptionLabel?: string;
       emptyOptionValue?: string;
     }
   ): void {
     const { validationPattern = /^[a-zA-Z0-9_.-]+:[^\s]+$/ } = options;
+    const modelRegistry = ModelRegistry.getInstance(this.plugin);
     let currentInputWrapper: HTMLElement | null = null;
 
-    // Validation function for custom model format
     const validateModelFormat = (model: string): boolean => {
       return validationPattern.test(model);
     };
 
-    // Function to get custom models from settings
-    const getCustomModels = (): string[] => {
-      return get(this.plugin.settings, options.customModelsField) as string[];
-    };
-
-    // Function to get current model from settings
     const getCurrentModel = (): string => {
-      return get(this.plugin.settings, options.currentModelField) as string;
+      const parts = options.currentModelField.split('.');
+      let value: unknown = this.plugin.settings;
+      for (let i = 0; i < parts.length; i++) {
+        if (value === null || value === undefined || typeof value !== 'object') {
+          return '';
+        }
+        value = (value as Record<string, unknown>)[parts[i]];
+      }
+      return typeof value === 'string' ? value : '';
     };
 
-    // Function to create dropdown
     const createDropdown = () => {
-      // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
         cls: 'stw-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 
-      // Create select element directly
       const select = wrapper.createEl('select', {
         cls: 'dropdown',
       });
@@ -68,19 +68,8 @@ export class ModelSetting {
         emptyOption.value = options.emptyOptionValue || '';
       }
 
-      // Combine preset models and custom models
-      const allModels = [
-        ...options.presetModels.map(model => ({
-          id: model.id,
-          name: model.name || model.id,
-        })),
-        ...getCustomModels().map(model => ({
-          id: model,
-          name: this.plugin.llmService.getModelDisplayName(model),
-        })),
-      ];
+      const allModels = modelRegistry.getModelsForKind(options.modelKind);
 
-      // Group models by provider
       const modelsByProvider = allModels.reduce<Record<string, typeof allModels>>((acc, model) => {
         const { provider } = this.plugin.llmService.parseModel(model.id);
         if (!acc[provider]) {
@@ -90,13 +79,10 @@ export class ModelSetting {
         return acc;
       }, {});
 
-      // Add models grouped by provider
       for (const [provider, models] of Object.entries(modelsByProvider)) {
-        // Create optgroup for each provider
         const optgroup = select.createEl('optgroup');
         optgroup.setAttribute('label', capitalizeString(provider));
 
-        // Add models under this provider
         for (const model of models) {
           const option = optgroup.createEl('option');
           option.textContent = model.name;
@@ -104,7 +90,6 @@ export class ModelSetting {
         }
       }
 
-      // Initialize with current value or default
       const currentModel = getCurrentModel();
       select.value = currentModel;
 
@@ -113,7 +98,6 @@ export class ModelSetting {
         void options.onSelectChange(target.value);
       });
 
-      // Add "Add new model" link
       const addNewModelLink = wrapper.createEl('a', {
         text: `${t('settings.addNewModel')}`,
         href: '#',
@@ -125,9 +109,8 @@ export class ModelSetting {
         recreateInput('add');
       });
 
-      // Add delete link below the select box (only if there are custom models)
-      const customModels = getCustomModels();
-      if (customModels.length > 0) {
+      const userModels = modelRegistry.getUserModels(options.modelKind);
+      if (userModels.length > 0) {
         const deleteLink = wrapper.createEl('a', {
           text: t('settings.deleteCustomModels'),
           href: '#',
@@ -141,15 +124,12 @@ export class ModelSetting {
       }
     };
 
-    // Function to create text input
     const createTextInput = () => {
-      // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
         cls: 'stw-setting-wrapper stw-model-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 
-      // Add "Back" link
       const backLink = wrapper.createEl('a', {
         text: t('settings.back'),
         href: '#',
@@ -161,7 +141,6 @@ export class ModelSetting {
         recreateInput('dropdown');
       });
 
-      // Create text input directly
       const textInput = wrapper.createEl('input', {
         type: 'text',
         placeholder: options.placeholder,
@@ -169,12 +148,10 @@ export class ModelSetting {
       });
       textInput.focus();
 
-      // Add change handler for validation
       textInput.addEventListener('input', e => {
         const target = e.target as HTMLInputElement;
         const value = target.value;
 
-        // Only validate format, don't save yet
         if (value && !validateModelFormat(value)) {
           target.addClass('stw-is-invalid');
           return;
@@ -182,15 +159,53 @@ export class ModelSetting {
         target.removeClass('stw-is-invalid');
       });
 
-      // Add Test button next to the text input
+      let useTemperature = options.showTemperatureControls !== false;
+      let modelTemperature = this.plugin.settings.llm.temperature;
+
+      if (options.showTemperatureControls !== false) {
+        const temperatureRow = wrapper.createEl('div', {
+          cls: 'stw-model-temperature-row',
+        });
+
+        const temperatureToggleSetting = new Setting(temperatureRow)
+          .setName(t('settings.useTemperature'))
+          .setDesc(t('settings.useTemperatureDesc'))
+          .addToggle(toggle => {
+            toggle.setValue(useTemperature).onChange(value => {
+              useTemperature = value;
+              temperatureSliderSetting.settingEl.style.display = value ? '' : 'none';
+            });
+          });
+
+        const temperatureSliderSetting = new Setting(temperatureRow)
+          .setName(t('settings.modelTemperature'))
+          .setDesc(t('settings.modelTemperatureDesc'))
+          .addSlider(slider => {
+            slider
+              .setLimits(0, 1, 0.1)
+              .setValue(modelTemperature)
+              .setDynamicTooltip()
+              .onChange(value => {
+                modelTemperature = value;
+              });
+          });
+
+        temperatureSliderSetting.settingEl.style.display = useTemperature ? '' : 'none';
+        temperatureToggleSetting.settingEl.addClass('stw-model-temperature-toggle');
+        temperatureSliderSetting.settingEl.addClass('stw-model-temperature-slider');
+      }
+
+      const actionsRow = wrapper.createEl('div', {
+        cls: 'stw-model-setting-actions flex gap-2',
+      });
+
       const testButton = options.onTestModel
-        ? wrapper.createEl('button', {
+        ? actionsRow.createEl('button', {
             text: t('settings.testModel'),
           })
         : null;
 
-      // Add Add button next to the text input
-      const addButton = wrapper.createEl('button', {
+      const addButton = actionsRow.createEl('button', {
         text: t('settings.add'),
       });
 
@@ -221,7 +236,16 @@ export class ModelSetting {
             new Notice(t('settings.testModelRunning'));
 
             try {
-              await onTestModel(inputValue);
+              const showTemperature = options.showTemperatureControls !== false;
+              const temperaturePolicy =
+                showTemperature && useTemperature ? 'configurable' : 'omit';
+              await onTestModel({
+                modelId: inputValue,
+                temperaturePolicy,
+                ...(temperaturePolicy === 'configurable'
+                  ? { temperature: modelTemperature }
+                  : {}),
+              });
               new Notice(t('settings.testModelSuccess'));
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
@@ -233,7 +257,6 @@ export class ModelSetting {
         });
       }
 
-      // Add button click handler
       addButton.addEventListener('click', () => {
         void (async () => {
           const inputValue = textInput.value.trim();
@@ -249,21 +272,32 @@ export class ModelSetting {
 
           textInput.removeClass('stw-is-invalid');
 
-          await options.onAddModel(inputValue);
+          const showTemperature = options.showTemperatureControls !== false;
+          const temperaturePolicy = showTemperature && useTemperature ? 'configurable' : 'omit';
+          const definition: StewardModelDefinition = {
+            id: inputValue,
+            kinds: [options.modelKind],
+            temperaturePolicy,
+          };
+
+          if (temperaturePolicy === 'configurable') {
+            definition.temperature = modelTemperature;
+          } else if (options.modelKind === 'chat' && !showTemperature) {
+            definition.temperaturePolicy = inferTemperaturePolicyFromModelId(inputValue);
+          }
+
+          await options.onAddModel(definition);
           recreateInput('dropdown');
         })();
       });
     };
 
-    // Function to create delete interface
     const createDeleteInterface = () => {
-      // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
         cls: 'stw-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 
-      // Add "Back" link
       const backLink = wrapper.createEl('a', {
         text: t('settings.back'),
         href: '#',
@@ -275,9 +309,9 @@ export class ModelSetting {
         recreateInput('dropdown');
       });
 
-      const customModels = getCustomModels();
+      const userModels = modelRegistry.getUserModels(options.modelKind);
 
-      if (customModels.length === 0) {
+      if (userModels.length === 0) {
         wrapper.createEl('div', {
           text: t('settings.customModels') + ': ' + t('settings.noCustomModels'),
           cls: 'stw-no-models',
@@ -285,17 +319,16 @@ export class ModelSetting {
         return null;
       }
 
-      // Create models list
       const modelsList = wrapper.createEl('div', {
         cls: 'stw-custom-models-list',
       });
 
-      for (const modelId of customModels) {
+      for (const model of userModels) {
         const modelItem = modelsList.createEl('div', {
           cls: 'stw-custom-model-item',
         });
 
-        modelItem.createEl('span', { text: modelId });
+        modelItem.createEl('span', { text: model.id });
 
         const deleteButton = modelItem.createEl('button');
         setIcon(deleteButton, 'trash');
@@ -304,22 +337,19 @@ export class ModelSetting {
 
         deleteButton.addEventListener('click', () => {
           void (async () => {
-            await options.onDeleteModel(modelId);
+            await options.onDeleteModel(model.id);
             recreateInput('delete');
           })();
         });
       }
     };
 
-    // Function to remove current input and create new one
     const recreateInput = (mode: 'delete' | 'add' | 'dropdown') => {
-      // Remove current wrapper if it exists
       if (currentInputWrapper) {
         currentInputWrapper.remove();
         currentInputWrapper = null;
       }
 
-      // Create new input based on current mode
       if (mode === 'delete') {
         createDeleteInterface();
       } else if (mode === 'add') {
@@ -329,7 +359,6 @@ export class ModelSetting {
       }
     };
 
-    // Initialize with dropdown mode
     recreateInput('dropdown');
   }
 }

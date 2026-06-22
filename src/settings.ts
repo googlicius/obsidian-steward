@@ -2,7 +2,8 @@ import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian'
 import { getBundledLib } from './utils/bundledLibs';
 import { logger } from './utils/logger';
 import { EMBEDDING_MODELS, SPEECH_MODELS, IMAGE_MODELS, DEFAULT_VOICES } from './constants';
-import { LLM_MODELS } from './services/LLMService';
+import { ModelRegistry } from './services/ModelRegistry';
+import type { StewardModelDefinition } from './types/models';
 import { getBundledInternal } from './utils/bundledInternals';
 import type StewardPlugin from './main';
 import { StewardPluginSettings } from './types/interfaces';
@@ -107,6 +108,39 @@ class StewardSettingTab extends PluginSettingTab {
   }
 
   display(): void {
+    const modelRegistry = ModelRegistry.getInstance(this.plugin);
+
+    const upsertUserModel = async (definition: StewardModelDefinition): Promise<void> => {
+      if (!ModelRegistry.isPresetModel(definition.id)) {
+        modelRegistry.upsertUserModel(definition);
+      }
+      await this.plugin.saveSettings();
+    };
+
+    const removeUserModelKind = async (input: {
+      modelId: string;
+      kind: StewardModelDefinition['kinds'][number];
+      currentModelField: string;
+      fallbackModelId: string;
+    }): Promise<void> => {
+      modelRegistry.removeUserModelKind(input.modelId, input.kind);
+
+      const parts = input.currentModelField.split('.');
+      let target: Record<string, unknown> = this.plugin.settings as unknown as Record<
+        string,
+        unknown
+      >;
+      for (let i = 0; i < parts.length - 1; i++) {
+        target = target[parts[i]] as Record<string, unknown>;
+      }
+      const fieldKey = parts[parts.length - 1];
+      if (target[fieldKey] === input.modelId) {
+        target[fieldKey] = input.fallbackModelId;
+      }
+
+      await this.plugin.saveSettings();
+    };
+
     const { containerEl } = this;
 
     containerEl.empty();
@@ -241,41 +275,28 @@ class StewardSettingTab extends PluginSettingTab {
         .setName(t('settings.chatModel'))
         .setDesc(t('settings.chatModelDesc')),
       {
+        modelKind: 'chat',
         currentModelField: 'llm.chat.model',
-        customModelsField: 'llm.chat.customModels',
         placeholder: 'provider:model, e.g., openai:gpt-5',
-        presetModels: LLM_MODELS,
+        showTemperatureControls: true,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
           await this.plugin.saveSettings();
         },
-        onAddModel: async (modelId: string) => {
-          this.plugin.settings.llm.chat.model = modelId;
-
-          // Add to custom models if not already present and not a preset model
-          const isPresetModel = LLM_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.llm.chat.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.llm.chat.customModels = customModels;
-          }
-
-          await this.plugin.saveSettings();
+        onAddModel: async (definition: StewardModelDefinition) => {
+          this.plugin.settings.llm.chat.model = definition.id;
+          await upsertUserModel(definition);
         },
         onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.llm.chat.customModels =
-            this.plugin.settings.llm.chat.customModels.filter(id => id !== modelId);
-
-          // If this was the selected model, switch to default
-          if (this.plugin.settings.llm.chat.model === modelId) {
-            this.plugin.settings.llm.chat.model = LLM_MODELS[0].id;
-          }
-
-          await this.plugin.saveSettings();
+          await removeUserModelKind({
+            modelId,
+            kind: 'chat',
+            currentModelField: 'llm.chat.model',
+            fallbackModelId: modelRegistry.getFirstPresetId('chat'),
+          });
         },
-        onTestModel: async (modelId: string) => {
-          await this.plugin.llmService.testModel(modelId);
+        onTestModel: async input => {
+          await this.plugin.llmService.testModel(input);
         },
       }
     );
@@ -367,42 +388,29 @@ class StewardSettingTab extends PluginSettingTab {
         .setName(t('settings.conversationTitleAgentModel'))
         .setDesc(t('settings.conversationTitleAgentModelDesc')),
       {
+        modelKind: 'chat',
         currentModelField: 'llm.agents.conversationTitle.model',
-        customModelsField: 'llm.agents.conversationTitle.customModels',
         placeholder: 'provider:model, e.g., openai:gpt-5',
-        presetModels: LLM_MODELS,
+        showTemperatureControls: true,
         includeEmptyOption: true,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.agents.conversationTitle.model = modelId;
           await this.plugin.saveSettings();
         },
-        onAddModel: async (modelId: string) => {
-          this.plugin.settings.llm.agents.conversationTitle.model = modelId;
-
-          const isPresetModel = LLM_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.llm.agents.conversationTitle.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.llm.agents.conversationTitle.customModels = customModels;
-          }
-
-          await this.plugin.saveSettings();
+        onAddModel: async (definition: StewardModelDefinition) => {
+          this.plugin.settings.llm.agents.conversationTitle.model = definition.id;
+          await upsertUserModel(definition);
         },
         onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.llm.agents.conversationTitle.customModels =
-            this.plugin.settings.llm.agents.conversationTitle.customModels.filter(
-              id => id !== modelId
-            );
-
-          if (this.plugin.settings.llm.agents.conversationTitle.model === modelId) {
-            this.plugin.settings.llm.agents.conversationTitle.model = '';
-          }
-
-          await this.plugin.saveSettings();
+          await removeUserModelKind({
+            modelId,
+            kind: 'chat',
+            currentModelField: 'llm.agents.conversationTitle.model',
+            fallbackModelId: '',
+          });
         },
-        onTestModel: async (modelId: string) => {
-          await this.plugin.llmService.testModel(modelId);
+        onTestModel: async input => {
+          await this.plugin.llmService.testModel(input);
         },
       }
     );
@@ -430,42 +438,29 @@ class StewardSettingTab extends PluginSettingTab {
         .setName(t('settings.compactionSummaryAgentModel'))
         .setDesc(t('settings.compactionSummaryAgentModelDesc')),
       {
+        modelKind: 'chat',
         currentModelField: 'llm.agents.compactionSummary.model',
-        customModelsField: 'llm.agents.compactionSummary.customModels',
         placeholder: 'provider:model, e.g., openai:gpt-5',
-        presetModels: LLM_MODELS,
+        showTemperatureControls: true,
         includeEmptyOption: true,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.agents.compactionSummary.model = modelId;
           await this.plugin.saveSettings();
         },
-        onAddModel: async (modelId: string) => {
-          this.plugin.settings.llm.agents.compactionSummary.model = modelId;
-
-          const isPresetModel = LLM_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.llm.agents.compactionSummary.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.llm.agents.compactionSummary.customModels = customModels;
-          }
-
-          await this.plugin.saveSettings();
+        onAddModel: async (definition: StewardModelDefinition) => {
+          this.plugin.settings.llm.agents.compactionSummary.model = definition.id;
+          await upsertUserModel(definition);
         },
         onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.llm.agents.compactionSummary.customModels =
-            this.plugin.settings.llm.agents.compactionSummary.customModels.filter(
-              id => id !== modelId
-            );
-
-          if (this.plugin.settings.llm.agents.compactionSummary.model === modelId) {
-            this.plugin.settings.llm.agents.compactionSummary.model = '';
-          }
-
-          await this.plugin.saveSettings();
+          await removeUserModelKind({
+            modelId,
+            kind: 'chat',
+            currentModelField: 'llm.agents.compactionSummary.model',
+            fallbackModelId: '',
+          });
         },
-        onTestModel: async (modelId: string) => {
-          await this.plugin.llmService.testModel(modelId);
+        onTestModel: async input => {
+          await this.plugin.llmService.testModel(input);
         },
       }
     );
@@ -494,14 +489,13 @@ class StewardSettingTab extends PluginSettingTab {
         .setName(t('settings.embeddingModel'))
         .setDesc(t('settings.embeddingModelDesc')),
       {
+        modelKind: 'embedding',
         currentModelField: 'embedding.model',
-        customModelsField: 'embedding.customModels',
         placeholder: 'provider:model, e.g., openai:text-embedding-ada-002',
-        presetModels: EMBEDDING_MODELS,
+        showTemperatureControls: false,
         onSelectChange: async (modelId: string) => {
           const oldModelId = this.plugin.settings.embedding.model;
 
-          // Clear cached embeddings if the model is changing
           if (oldModelId !== modelId) {
             await this.clearCachedEmbeddings({
               ...this.plugin.settings.embedding,
@@ -513,48 +507,35 @@ class StewardSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
           this.updateVoiceInput();
         },
-        onAddModel: async (modelId: string) => {
+        onAddModel: async (definition: StewardModelDefinition) => {
           const oldModelId = this.plugin.settings.embedding.model;
 
-          // Clear cached embeddings if the model is changing
-          if (oldModelId !== modelId) {
+          if (oldModelId !== definition.id) {
             await this.clearCachedEmbeddings({
               ...this.plugin.settings.embedding,
               model: oldModelId,
             });
           }
 
-          this.plugin.settings.embedding.model = modelId;
-
-          // Add to custom models if not already present and not a preset model
-          const isPresetModel = EMBEDDING_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.embedding.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.embedding.customModels = customModels;
-          }
-
-          await this.plugin.saveSettings();
+          this.plugin.settings.embedding.model = definition.id;
+          await upsertUserModel(definition);
         },
         onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.embedding.customModels =
-            this.plugin.settings.embedding.customModels.filter(id => id !== modelId);
-
-          // If this was the selected model, switch to default
           if (this.plugin.settings.embedding.model === modelId) {
             const newModelId = EMBEDDING_MODELS[0].id;
-
-            // Clear cached embeddings for the old model
             await this.clearCachedEmbeddings({
               ...this.plugin.settings.embedding,
               model: modelId,
             });
-
             this.plugin.settings.embedding.model = newModelId;
           }
 
-          await this.plugin.saveSettings();
+          await removeUserModelKind({
+            modelId,
+            kind: 'embedding',
+            currentModelField: 'embedding.model',
+            fallbackModelId: EMBEDDING_MODELS[0].id,
+          });
         },
       }
     );
@@ -585,37 +566,27 @@ class StewardSettingTab extends PluginSettingTab {
         .setName(t('settings.speechModel'))
         .setDesc(t('settings.speechModelDesc')),
       {
+        modelKind: 'speech',
         currentModelField: 'llm.speech.model',
-        customModelsField: 'llm.speech.customModels',
         placeholder: 'provider:model, e.g., openai:tts-1',
-        presetModels: SPEECH_MODELS,
+        showTemperatureControls: false,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.speech.model = modelId;
           await this.plugin.saveSettings();
           this.updateVoiceInput();
         },
-        onAddModel: async (modelId: string) => {
-          this.plugin.settings.llm.speech.model = modelId;
-          // Add to custom models if not already present and not a preset model
-          const isPresetModel = SPEECH_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.llm.speech.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.llm.speech.customModels = customModels;
-          }
-          await this.plugin.saveSettings();
+        onAddModel: async (definition: StewardModelDefinition) => {
+          this.plugin.settings.llm.speech.model = definition.id;
+          await upsertUserModel(definition);
+          this.updateVoiceInput();
         },
         onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.llm.speech.customModels =
-            this.plugin.settings.llm.speech.customModels.filter(id => id !== modelId);
-
-          // If this was the selected model, switch to default
-          if (this.plugin.settings.llm.speech.model === modelId) {
-            this.plugin.settings.llm.speech.model = 'openai:tts-1';
-          }
-
-          await this.plugin.saveSettings();
+          await removeUserModelKind({
+            modelId,
+            kind: 'speech',
+            currentModelField: 'llm.speech.model',
+            fallbackModelId: SPEECH_MODELS[0].id,
+          });
           this.updateVoiceInput();
         },
       }
@@ -653,38 +624,25 @@ class StewardSettingTab extends PluginSettingTab {
         .setName(t('settings.imageModel'))
         .setDesc(t('settings.imageModelDesc')),
       {
+        modelKind: 'image',
         currentModelField: 'llm.image.model',
-        customModelsField: 'llm.image.customModels',
         placeholder: 'provider:model, e.g., openai:dall-e-3',
-        presetModels: IMAGE_MODELS,
+        showTemperatureControls: false,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.image.model = modelId;
           await this.plugin.saveSettings();
         },
-        onAddModel: async (modelId: string) => {
-          this.plugin.settings.llm.image.model = modelId;
-
-          // Add to custom models if not already present and not a preset model
-          const isPresetModel = IMAGE_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.llm.image.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.llm.image.customModels = customModels;
-          }
-
-          await this.plugin.saveSettings();
+        onAddModel: async (definition: StewardModelDefinition) => {
+          this.plugin.settings.llm.image.model = definition.id;
+          await upsertUserModel(definition);
         },
         onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.llm.image.customModels =
-            this.plugin.settings.llm.image.customModels.filter(id => id !== modelId);
-
-          // If this was the selected model, switch to default
-          if (this.plugin.settings.llm.image.model === modelId) {
-            this.plugin.settings.llm.image.model = IMAGE_MODELS[0].id;
-          }
-
-          await this.plugin.saveSettings();
+          await removeUserModelKind({
+            modelId,
+            kind: 'image',
+            currentModelField: 'llm.image.model',
+            fallbackModelId: IMAGE_MODELS[0].id,
+          });
         },
       }
     );
