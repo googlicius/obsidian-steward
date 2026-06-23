@@ -6,6 +6,8 @@ export const widgetActionsSchema = z.object({
   actions: z.record(
     z.object({
       description: z.string().optional(),
+      /** When false, the actor may take another action before the roster advances. Defaults to true. */
+      endTurn: z.boolean().optional(),
       params: z
         .record(
           z.object({
@@ -57,6 +59,8 @@ export interface WidgetActionResult {
   ok: boolean;
   error?: string;
   state?: unknown;
+  /** Overrides catalog endTurn when present. */
+  endTurn?: boolean;
 }
 
 export interface WidgetQueryResult {
@@ -70,6 +74,8 @@ export const widgetStateSaveMoveSchema = z.object({
   action: z.string().min(1),
   params: z.record(z.unknown()).optional(),
   comment: z.string().optional(),
+  /** When false, human/model iframe save does not advance the roster. Defaults from catalog. */
+  endTurn: z.boolean().optional(),
 });
 
 export type WidgetStateSaveMove = z.infer<typeof widgetStateSaveMoveSchema>;

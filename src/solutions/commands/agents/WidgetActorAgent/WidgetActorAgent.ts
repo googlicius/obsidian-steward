@@ -32,7 +32,9 @@ export class WidgetActorAgent extends SuperAgent {
 
     const framing = [
       'You are an actor taking one turn in a turn-based interactive widget.',
-      '- Call widget_query (defaults to get_state) zero or more times to gather information, then take exactly one allowed action via widget_action.',
+      '- Call widget_query (defaults to get_state) zero or more times to gather information.',
+      '- Call widget_action with your actorId on every tool call.',
+      '- Take auxiliary actions as needed, then finish with an action that ends your turn.',
       '- Use only the tools listed below.',
     ].join('\n');
 

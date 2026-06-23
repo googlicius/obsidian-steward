@@ -79,9 +79,11 @@ describe('WidgetSessionService turn context helpers', () => {
   });
 
   describe('buildTurnContext', () => {
-    it('omits queries and actions and includes turn instruction', () => {
-      const text = buildTurnContext({ moveLog: [] });
+    it('includes actorId instruction and turn guidance', () => {
+      const text = buildTurnContext({ actorId: 'o', moveLog: [] });
 
+      expect(text).toContain('You are actor `o`');
+      expect(text).toContain('actorId: "o"');
       expect(text).not.toContain('## Available queries');
       expect(text).not.toContain('## Allowed actions');
       expect(text).toContain('defaults to `get_state`');
@@ -89,6 +91,7 @@ describe('WidgetSessionService turn context helpers', () => {
 
     it('includes recent moves with formatted params', () => {
       const text = buildTurnContext({
+        actorId: 'o',
         moveLog: [
           { actor: 'user', action: 'playCell(index=185)', at: '2026-01-01T00:00:00.000Z' },
           { actor: 'o', action: 'playCell(index=206)', at: '2026-01-01T00:00:01.000Z' },
@@ -143,6 +146,48 @@ describe('WidgetSessionService session move helpers', () => {
 
     it('formats params in stable key order', () => {
       expect(formatMoveLogAction('playCell', { index: 185 })).toBe('playCell(index=185)');
+    });
+  });
+
+  describe('appendMoveAndMaybeAdvanceSession', () => {
+    it('appends move without advancing when endTurn is false', () => {
+      const next = service.appendMoveAndMaybeAdvanceSession({
+        session: {
+          conversationTitle: 'test__session',
+          actor: 'o',
+          turnIndex: 1,
+          phase: 'thinking',
+          moveLog: [],
+        },
+        actorId: 'o',
+        action: 'undo',
+        turnOrder: ['user', 'o'],
+        endTurn: false,
+      });
+
+      expect(next.actor).toBe('o');
+      expect(next.turnIndex).toBe(1);
+      expect(next.moveLog).toHaveLength(1);
+    });
+
+    it('advances roster when endTurn is true', () => {
+      const next = service.appendMoveAndMaybeAdvanceSession({
+        session: {
+          conversationTitle: 'test__session',
+          actor: 'o',
+          turnIndex: 1,
+          phase: 'thinking',
+          moveLog: [],
+        },
+        actorId: 'o',
+        action: 'playCell',
+        moveParams: { index: 0 },
+        turnOrder: ['user', 'o'],
+        endTurn: true,
+      });
+
+      expect(next.actor).toBe('user');
+      expect(next.turnIndex).toBe(0);
     });
   });
 

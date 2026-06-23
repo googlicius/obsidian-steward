@@ -822,6 +822,7 @@ export class WidgetService {
       error?: string;
       state?: unknown;
       data?: unknown;
+      endTurn?: boolean;
     }
   ): void {
     if (kind === 'action') {
@@ -829,6 +830,7 @@ export class WidgetService {
         ok: params.ok,
         error: params.error,
         state: params.state,
+        endTurn: params.endTurn,
       });
       return;
     }

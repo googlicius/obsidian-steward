@@ -48,7 +48,7 @@ This skill adds **turn-based** APIs:
 | Goal                          | How                                                              | Triggers model?                    | Clears `session`? |
 | ----------------------------- | ---------------------------------------------------------------- | ---------------------------------- | ----------------- |
 | **Reset game ("Play again")** | Fresh initial `data` + **`setState(data, { intent: 'reset' })`** | **No**                             | **Yes**           |
-| **Normal move**               | **`setState(data)`** only (no options)                           | **Yes** when next actor is `model` | **No**            |
+| **Normal move**               | **`setState(data, { move: { action, params, endTurn? } })`** — `endTurn` defaults from catalog | **Yes** when next actor is `model` | **No**            |
 | **Reset session only**        | **Edit `{projectPath}/state.json`** — remove the `session` key   | **No**                             | **Yes**           |
 
 - **Play again / New game** → **`setState(freshData, { intent: 'reset' })`** — do not use `registerAction` for reset.
@@ -147,7 +147,7 @@ Model turn flow:
 
 1. Turn prompt includes JSON state, text view (when registered), allowed actions, and allowed queries.
 2. Model may call **`widget_query`** zero or more times to gather information.
-3. Model calls **`widget_action` exactly once** to commit a move; turn ends.
+3. Model calls **`widget_action`** one or more times. Actions with **`endTurn: true`** (default) finish the roster turn; **`endTurn: false`** (e.g. undo, draw) allow another action before passing.
 
 ### State for model turns
 
@@ -258,6 +258,7 @@ Catalog of read-only queries the host may dispatch during model turns. Keys must
 | Field         | Type         | Required | Description                                                    |
 | ------------- | ------------ | -------- | -------------------------------------------------------------- |
 | `description` | string       | No       | Human-readable summary for docs and prompts.                   |
+| `endTurn`     | boolean      | No       | When `false`, the actor may take another action before the roster advances. Defaults to `true`. |
 | `params`      | object (map) | No       | Param name → param spec (same shape as action params).         |
 
 Only **one** `queries` block is allowed. Optional unless an `agent` block lists `queries`.
@@ -322,7 +323,7 @@ Below your YAML fences, add **one** markdown heading that bundles rules, example
 ## Actor instructions
 
 ### Rules
-- Take exactly one allowed action per turn.
+- Take auxiliary actions (`endTurn: false`) as needed, then finish with an action that ends your turn (`endTurn: true`, the default).
 - Prefer blocking moves over random plays.
 
 ### Examples
@@ -362,6 +363,7 @@ name: actions
 actions:
   playCell:
     description: Place mark for current player
+    endTurn: true
     params:
       index:
         type: integer

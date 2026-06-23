@@ -10,6 +10,7 @@ import { ToolName } from '../../toolNames';
 const { getTranslation } = getBundledInternal('i18n');
 
 export const widgetActionSchema = z.object({
+  actorId: z.string().min(1),
   action: z.string().min(1),
   params: z.record(z.unknown()).optional(),
   comment: z.string().optional(),
@@ -33,14 +34,11 @@ export class WidgetActionHandler {
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
+    const actorId = toolCall.input.actorId.trim();
 
     const projectPath = await this.agent.renderer.getConversationProperty<string>(
       title,
       'widget_project_path'
-    );
-    const actorId = await this.agent.renderer.getConversationProperty<string>(
-      title,
-      'widget_actor_id'
     );
 
     if (!projectPath || !actorId) {
@@ -57,6 +55,20 @@ export class WidgetActionHandler {
 
     const definition =
       await this.agent.plugin.widgetService.definitionService.getWidgetDefinition(projectPath);
+
+    const actorEntry = definition.actors?.actors[actorId];
+    if (!actorEntry) {
+      await ctx.serializeInvocation({
+        command: ToolName.WIDGET_ACTION,
+        toolCall,
+        result: {
+          type: 'error-text',
+          value: `unknown_widget_actor:${actorId}`,
+        },
+      });
+      return { status: IntentResultStatus.SUCCESS };
+    }
+
     const agentBlock = definition.agents[actorId];
     if (!agentBlock) {
       await ctx.serializeInvocation({
@@ -102,17 +114,22 @@ export class WidgetActionHandler {
     });
 
     if (result.ok) {
-      await this.agent.plugin.widgetService.sessionService.recordMoveAndAdvance({
+      const endTurn = this.agent.plugin.widgetService.orchestrator.resolveActionEndTurn({
+        definition,
+        actionName: toolCall.input.action,
+        result,
+      });
+
+      await this.agent.plugin.widgetService.sessionService.recordMoveAndMaybeAdvance({
         projectPath,
         actorId,
         action: toolCall.input.action,
         params: toolCall.input.params ?? undefined,
         comment: toolCall.input.comment?.trim() || undefined,
         turnOrder: definition.actors?.turnOrder ?? [],
+        endTurn,
       });
-    }
 
-    if (result.ok) {
       const t = getTranslation(ctx.lang);
       const trimmedComment = toolCall.input.comment?.trim();
       const commentSuffix = trimmedComment ? ` — ${trimmedComment}` : '';
@@ -125,9 +142,11 @@ export class WidgetActionHandler {
         role: 'Steward',
         includeHistory: false,
       });
-    }
 
-    if (result.ok) {
+      const message = endTurn
+        ? 'Move accepted. Your turn is complete — do not take any further action.'
+        : 'Action accepted. You may take another action before ending your turn.';
+
       await ctx.serializeInvocation({
         command: ToolName.WIDGET_ACTION,
         toolCall,
@@ -135,7 +154,8 @@ export class WidgetActionHandler {
           type: 'json',
           value: {
             ok: true,
-            message: 'Move accepted. Your turn is complete — do not take any further action.',
+            endTurn,
+            message,
           },
         },
       });

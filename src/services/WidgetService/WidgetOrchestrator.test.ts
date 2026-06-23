@@ -135,6 +135,8 @@ function createOrchestratorHarness(options: {
         appendHumanMoveMessage: jest.fn(),
         appendMoveAndAdvanceSession:
           sessionMoveService.appendMoveAndAdvanceSession.bind(sessionMoveService),
+        appendMoveAndMaybeAdvanceSession:
+          sessionMoveService.appendMoveAndMaybeAdvanceSession.bind(sessionMoveService),
         createMoveLogEntry: sessionMoveService.createMoveLogEntry.bind(sessionMoveService),
       },
       stateService: {
@@ -514,5 +516,71 @@ describe('WidgetOrchestrator', () => {
 
     expect(runActorTurn).toHaveBeenCalled();
     expect(getSession()?.actor).toBe('user');
+  });
+});
+
+const endTurnDefinition: WidgetDefinition = {
+  manifest: null,
+  actions: {
+    name: 'actions',
+    actions: {
+      playCell: { description: 'Play', endTurn: true },
+      undo: { description: 'Undo', endTurn: false },
+    },
+  },
+  queries: null,
+  actors: null,
+  agents: {},
+};
+
+function bindPrivateOrchestratorMethods(orchestrator: WidgetOrchestrator) {
+  return {
+    resolveCatalogActionEndTurn: orchestrator['resolveCatalogActionEndTurn'].bind(
+      orchestrator
+    ) as WidgetOrchestrator['resolveCatalogActionEndTurn'],
+    resolveEffectiveEndTurn: orchestrator['resolveEffectiveEndTurn'].bind(
+      orchestrator
+    ) as WidgetOrchestrator['resolveEffectiveEndTurn'],
+  };
+}
+
+describe('WidgetOrchestrator resolveActionEndTurn', () => {
+  let orchestrator: WidgetOrchestrator;
+  let resolveCatalogActionEndTurn: WidgetOrchestrator['resolveCatalogActionEndTurn'];
+  let resolveEffectiveEndTurn: WidgetOrchestrator['resolveEffectiveEndTurn'];
+
+  beforeEach(() => {
+    resetOrchestratorSingleton();
+    orchestrator = WidgetOrchestrator.getInstance({} as never);
+    const bound = bindPrivateOrchestratorMethods(orchestrator);
+    resolveCatalogActionEndTurn = bound.resolveCatalogActionEndTurn;
+    resolveEffectiveEndTurn = bound.resolveEffectiveEndTurn;
+  });
+
+  it('defaults catalog endTurn to true when omitted', () => {
+    expect(resolveCatalogActionEndTurn(endTurnDefinition, 'playCell')).toBe(true);
+  });
+
+  it('returns false when catalog marks endTurn false', () => {
+    expect(resolveCatalogActionEndTurn(endTurnDefinition, 'undo')).toBe(false);
+  });
+
+  it('prefers result override over catalog', () => {
+    expect(
+      resolveEffectiveEndTurn({
+        catalogEndTurn: true,
+        resultEndTurn: false,
+      })
+    ).toBe(false);
+  });
+
+  it('combines catalog and iframe result via resolveActionEndTurn', () => {
+    expect(
+      orchestrator.resolveActionEndTurn({
+        definition: endTurnDefinition,
+        actionName: 'undo',
+        result: { endTurn: true },
+      })
+    ).toBe(true);
   });
 });

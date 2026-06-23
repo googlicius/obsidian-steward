@@ -192,6 +192,9 @@ export class StreamTextExecutor {
       abortSignal,
       system: coreSystemPrompt,
       messages,
+      headers: {
+        //
+      },
       tools: registry.getToolsObject() as NonNullable<AiStreamTextParams['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
       onError: ({ error }) => {

@@ -3,6 +3,17 @@ import type { WidgetQueryArgs } from './WidgetQueryHandler';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
+import type { WidgetSessionData } from 'src/services/WidgetService/types';
+
+function createSession(actor: string): WidgetSessionData {
+  return {
+    conversationTitle: 'chess__session_live',
+    actor,
+    turnIndex: 1,
+    phase: 'thinking',
+    moveLog: [],
+  };
+}
 
 describe('widgetQuerySchema', () => {
   it('accepts query name and optional params', () => {
@@ -26,25 +37,12 @@ describe('widgetQuerySchema', () => {
 
 describe('WidgetQueryHandler', () => {
   const projectPath = 'Steward/Widgets/chess';
-  const actorId = 'black';
 
-  const definition = {
-    actors: { turnOrder: ['white', 'black'] },
-    agents: {
-      black: {
-        actions: ['movePiece'],
-        queries: ['getLegalMoves', 'evaluatePosition'],
-      },
-    },
-    queries: {
-      queries: {
-        getLegalMoves: { description: 'Legal moves' },
-        evaluatePosition: { description: 'Score' },
-      },
-    },
-  };
-
-  function createHandlerHarness(currentActor: string) {
+  function createHandlerHarness(
+    session: WidgetSessionData | null,
+    options: { projectPath?: string | null } = {}
+  ) {
+    const resolvedProjectPath = options.projectPath === undefined ? projectPath : options.projectPath;
     const dispatchQuery = jest.fn().mockResolvedValue({ ok: true, data: [1, 2, 3] });
     const serializeInvocation = jest.fn().mockResolvedValue(undefined);
     const updateConversationNote = jest.fn().mockResolvedValue(undefined);
@@ -53,10 +51,7 @@ describe('WidgetQueryHandler', () => {
       .fn()
       .mockImplementation(async (_title: string, key: string) => {
         if (key === 'widget_project_path') {
-          return projectPath;
-        }
-        if (key === 'widget_actor_id') {
-          return actorId;
+          return resolvedProjectPath;
         }
         return undefined;
       });
@@ -65,17 +60,8 @@ describe('WidgetQueryHandler', () => {
       renderer: { getConversationProperty },
       plugin: {
         widgetService: {
-          definitionService: {
-            getWidgetDefinition: jest.fn().mockResolvedValue(definition),
-          },
           stateService: {
-            readSession: jest.fn().mockResolvedValue({
-              conversationTitle: 'chess__session_live',
-              actor: currentActor,
-              turnIndex: 1,
-              phase: 'thinking',
-              moveLog: [],
-            }),
+            readSession: jest.fn().mockResolvedValue(session ? { ...session } : null),
           },
           dispatchQuery,
         },
@@ -100,9 +86,9 @@ describe('WidgetQueryHandler', () => {
     return { handler, ctx, toolCall, dispatchQuery, serializeInvocation, updateConversationNote };
   }
 
-  it('dispatches when it is the actor turn', async () => {
+  it('dispatches for the current session actor', async () => {
     const { handler, ctx, toolCall, dispatchQuery, serializeInvocation, updateConversationNote } =
-      createHandlerHarness('black');
+      createHandlerHarness(createSession('black'));
 
     await handler.handle(ctx, { toolCall });
 
@@ -123,9 +109,25 @@ describe('WidgetQueryHandler', () => {
     expect(okResult.value).toEqual([1, 2, 3]);
   });
 
-  it('dispatches even when it is not the actor turn', async () => {
-    const { handler, ctx, toolCall, dispatchQuery, serializeInvocation, updateConversationNote } =
-      createHandlerHarness('white');
+  it('rejects when widget project path is missing', async () => {
+    const { handler, ctx, toolCall, dispatchQuery, serializeInvocation } = createHandlerHarness(
+      createSession('black'),
+      { projectPath: null }
+    );
+
+    await handler.handle(ctx, { toolCall });
+
+    expect(dispatchQuery).not.toHaveBeenCalled();
+    expect(serializeInvocation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: { type: 'error-text', value: 'widget_session_context_missing' },
+      })
+    );
+  });
+
+  it('dispatches when session actor is human without an agent block', async () => {
+    const { handler, ctx, toolCall, dispatchQuery, serializeInvocation } =
+      createHandlerHarness(createSession('white'));
 
     await handler.handle(ctx, { toolCall });
 
@@ -134,38 +136,28 @@ describe('WidgetQueryHandler', () => {
       query: 'getLegalMoves',
       queryParams: {},
     });
-    expect(updateConversationNote).toHaveBeenCalledWith(
-      expect.objectContaining({
-        role: 'Steward',
-        includeHistory: false,
-        newContent: 'translated_widget.sessionQuery',
-      })
-    );
     expect(serializeInvocation.mock.calls[0][0].result.type).toBe('json');
   });
 
-  it('rejects queries not allowed for the actor', async () => {
-    const { handler, ctx, toolCall, dispatchQuery, serializeInvocation } =
-      createHandlerHarness('black');
+  it('dispatches queries not listed on the current actor agent', async () => {
+    const { handler, ctx, toolCall, dispatchQuery } = createHandlerHarness(createSession('black'));
 
-    const disallowedCall = {
+    const customCall = {
       ...toolCall,
       input: { query: 'unknownQuery' },
     } as unknown as ToolCallPart<WidgetQueryArgs>;
 
-    await handler.handle(ctx, { toolCall: disallowedCall });
+    await handler.handle(ctx, { toolCall: customCall });
 
-    expect(dispatchQuery).not.toHaveBeenCalled();
-    expect(serializeInvocation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        result: { type: 'error-text', value: 'query_not_allowed:unknownQuery' },
-      })
-    );
+    expect(dispatchQuery).toHaveBeenCalledWith({
+      projectPath,
+      query: 'unknownQuery',
+      queryParams: {},
+    });
   });
 
-  it('allows get_state without listing it on the agent', async () => {
-    const { handler, ctx, serializeInvocation, dispatchQuery, updateConversationNote } =
-      createHandlerHarness('black');
+  it('dispatches get_state when session is missing', async () => {
+    const { handler, ctx, serializeInvocation, dispatchQuery } = createHandlerHarness(null);
 
     const getStateCall = {
       type: 'tool-call',
@@ -181,11 +173,6 @@ describe('WidgetQueryHandler', () => {
       query: 'get_state',
       queryParams: {},
     });
-    expect(updateConversationNote).toHaveBeenCalledWith(
-      expect.objectContaining({
-        newContent: 'translated_widget.sessionQuery',
-      })
-    );
     expect(serializeInvocation.mock.calls[0][0].result.type).toBe('json');
   });
 });

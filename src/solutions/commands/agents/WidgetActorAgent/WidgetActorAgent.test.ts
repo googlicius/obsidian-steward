@@ -32,7 +32,8 @@ describe('WidgetActorAgent', () => {
 
     expect(prompt).toContain('Widget actor');
     expect(prompt).toContain('widget_action');
-    expect(prompt).toContain('exactly one allowed action');
+    expect(prompt).toContain('actorId');
+    expect(prompt).toContain('ends your turn');
     expect(prompt).not.toContain('Obsidian vault');
   });
 

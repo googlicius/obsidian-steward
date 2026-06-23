@@ -48,9 +48,7 @@ export class WidgetSessionService {
   }
 
   /** Parses host-only `setState` options from the iframe bridge payload. */
-  public static parseWidgetStateSaveOptions(
-    options: unknown
-  ): WidgetStateSaveOptions | undefined {
+  public static parseWidgetStateSaveOptions(options: unknown): WidgetStateSaveOptions | undefined {
     if (!options || typeof options !== 'object') {
       return undefined;
     }
@@ -61,25 +59,20 @@ export class WidgetSessionService {
     }
 
     const parsed = result.data;
-    if (!parsed.intent && !parsed.move) {
+    if (!parsed.intent && !parsed.move && !parsed.source) {
       return undefined;
     }
 
     return parsed;
   }
 
-  public appendMoveAndAdvanceSession(params: {
+  public appendMoveToSession(params: {
     session: WidgetSessionData;
     actorId: string;
     action: string;
     moveParams?: Record<string, unknown>;
     comment?: string;
-    turnOrder: string[];
   }): WidgetSessionData {
-    if (params.turnOrder.length === 0) {
-      return params.session;
-    }
-
     const moveLog = [...(params.session.moveLog ?? [])];
     moveLog.push(
       this.createMoveLogEntry({
@@ -90,13 +83,67 @@ export class WidgetSessionService {
       })
     );
 
-    const nextIndex = (params.session.turnIndex + 1) % params.turnOrder.length;
     return {
       ...params.session,
       moveLog,
+    };
+  }
+
+  public advanceSessionTurn(params: {
+    session: WidgetSessionData;
+    turnOrder: string[];
+  }): WidgetSessionData {
+    if (params.turnOrder.length === 0) {
+      return params.session;
+    }
+
+    const nextIndex = (params.session.turnIndex + 1) % params.turnOrder.length;
+    return {
+      ...params.session,
       turnIndex: nextIndex,
       actor: params.turnOrder[nextIndex],
     };
+  }
+
+  public appendMoveAndMaybeAdvanceSession(params: {
+    session: WidgetSessionData;
+    actorId: string;
+    action: string;
+    moveParams?: Record<string, unknown>;
+    comment?: string;
+    turnOrder: string[];
+    endTurn: boolean;
+  }): WidgetSessionData {
+    const withMove = this.appendMoveToSession({
+      session: params.session,
+      actorId: params.actorId,
+      action: params.action,
+      moveParams: params.moveParams,
+      comment: params.comment,
+    });
+
+    if (!params.endTurn || params.turnOrder.length === 0) {
+      return withMove;
+    }
+
+    return this.advanceSessionTurn({
+      session: withMove,
+      turnOrder: params.turnOrder,
+    });
+  }
+
+  public appendMoveAndAdvanceSession(params: {
+    session: WidgetSessionData;
+    actorId: string;
+    action: string;
+    moveParams?: Record<string, unknown>;
+    comment?: string;
+    turnOrder: string[];
+  }): WidgetSessionData {
+    return this.appendMoveAndMaybeAdvanceSession({
+      ...params,
+      endTurn: true,
+    });
   }
 
   public createMoveLogEntry(params: {
@@ -259,7 +306,6 @@ export class WidgetSessionService {
     await this.plugin.conversationRenderer.updateConversationFrontmatter(params.conversationTitle, [
       { name: 'widget_project_path', value: params.projectPath },
       { name: 'widget_id', value: params.widgetId },
-      { name: 'widget_actor_id', value: params.actorId },
       { name: 'session_type', value: 'widget' },
       { name: 'tools', value: params.tools },
     ]);
@@ -336,10 +382,7 @@ export class WidgetSessionService {
 
     await this.plugin.conversationRenderer.updateConversationFrontmatter(
       params.session.conversationTitle,
-      [
-        { name: 'widget_actor_id', value: params.actorId },
-        { name: 'tools', value: actorTools },
-      ]
+      [{ name: 'tools', value: actorTools }]
     );
 
     const systemPrompts = await this.resolveActorSystemPrompts({
@@ -348,6 +391,7 @@ export class WidgetSessionService {
     });
 
     const turnQuery = this.buildTurnContext({
+      actorId: params.actorId,
       moveLog: params.session.moveLog ?? [],
     });
 
@@ -386,20 +430,18 @@ export class WidgetSessionService {
   }
 
   /**
-   * Records a successful move and advances the turn roster.
-   * Called by the widget_action handler the moment a model move is applied, so the
-   * session `actor` becomes the gate: any further widget_action in the same
-   * agent loop sees a different `actor` and is rejected as out-of-turn.
-   * Keeps `phase: 'thinking'` so the orchestrator owns the awaiting_input flip
-   * after the agent loop ends (and onStateSaved keeps ignoring the move's save).
+   * Records a successful move and optionally advances the turn roster.
+   * Called by the widget_action handler after a model move is applied.
+   * Keeps `phase: 'thinking'` when endTurn is false so the same actor may act again.
    */
-  public async recordMoveAndAdvance(params: {
+  public async recordMoveAndMaybeAdvance(params: {
     projectPath: string;
     actorId: string;
     action: string;
     params?: Record<string, unknown>;
     comment?: string;
     turnOrder: string[];
+    endTurn: boolean;
   }): Promise<void> {
     if (params.turnOrder.length === 0) {
       return;
@@ -410,30 +452,20 @@ export class WidgetSessionService {
       return;
     }
 
-    const nextSession = this.appendMoveAndAdvanceSession({
+    const nextSession = this.appendMoveAndMaybeAdvanceSession({
       session,
       actorId: params.actorId,
       action: params.action,
       moveParams: params.params,
       comment: params.comment,
       turnOrder: params.turnOrder,
+      endTurn: params.endTurn,
     });
 
     await this.stateService.writeSession({
       projectPath: params.projectPath,
       session: nextSession,
     });
-  }
-
-  /** @deprecated Use recordMoveAndAdvance */
-  public async recordModelMoveAndAdvance(params: {
-    projectPath: string;
-    actorId: string;
-    action: string;
-    comment?: string;
-    turnOrder: string[];
-  }): Promise<void> {
-    await this.recordMoveAndAdvance(params);
   }
 
   private buildActorExtraCorePromptSections(params: {
@@ -455,7 +487,9 @@ export class WidgetSessionService {
       const actionName = params.agent.actions[i];
       const actionDef = catalog[actionName];
       const description = actionDef?.description ? ` — ${actionDef.description}` : '';
-      actionLines.push(`- \`${actionName}\`${description}`);
+      const endTurnHint =
+        actionDef?.endTurn === false ? ' — does not end your turn' : ' — ends your turn';
+      actionLines.push(`- \`${actionName}\`${description}${endTurnHint}`);
     }
 
     return [
@@ -464,8 +498,16 @@ export class WidgetSessionService {
     ];
   }
 
-  private buildTurnContext(params: { moveLog: WidgetSessionData['moveLog'] }): string {
+  private buildTurnContext(params: {
+    actorId: string;
+    moveLog: WidgetSessionData['moveLog'];
+  }): string {
     const lines: string[] = [];
+
+    lines.push(`You are actor \`${params.actorId}\`.`);
+    lines.push(
+      `Pass \`actorId: "${params.actorId}"\` on every \`widget_action\` call.`
+    );
 
     const recentMoves = params.moveLog ?? [];
     if (recentMoves.length > 0) {
@@ -480,7 +522,9 @@ export class WidgetSessionService {
 
     lines.push(
       '',
-      `Use widget_query to gather the data you need (defaults to \`${DEFAULT_WIDGET_QUERY_NAME}\`), then take exactly one allowed action via widget_action.`
+      `Use widget_query to gather the data you need (defaults to \`${DEFAULT_WIDGET_QUERY_NAME}\`).`,
+      'Take auxiliary actions as needed, then finish with an action that ends your turn.',
+      'Actions marked "ends your turn" advance the roster; "does not end your turn" let you act again.'
     );
     return lines.join('\n');
   }

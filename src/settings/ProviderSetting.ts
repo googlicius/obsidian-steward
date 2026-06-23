@@ -73,11 +73,11 @@ const POPULAR_PROVIDER_PRESETS: Record<
     compatibility: 'openai',
     baseUrl: 'https://api.moonshot.ai/v1',
     description:
-      'Moonshot AI, OpenAI-compatible.\nModels: https://platform.moonshot.cn/docs\nAPI keys: https://platform.moonshot.cn/console/api-keys',
+      'Moonshot AI, OpenAI-compatible.\nModels: https://platform.moonshot.ai/docs\nAPI keys: https://platform.moonshot.ai/console/api-keys',
   },
   'z.ai': {
     compatibility: 'openai',
-    baseUrl: 'https://api.z.ai/v1',
+    baseUrl: 'https://api.z.ai/api/paas/v4',
     description:
       '01.AI Yi models, OpenAI-compatible.\nModels: https://z.ai/models\nAPI keys: https://z.ai/api-keys',
   },

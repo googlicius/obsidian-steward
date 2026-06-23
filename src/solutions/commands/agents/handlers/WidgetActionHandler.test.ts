@@ -3,10 +3,12 @@ import type { WidgetActionArgs } from './WidgetActionHandler';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
+import { WidgetOrchestrator } from 'src/services/WidgetService/WidgetOrchestrator';
 
 describe('widgetActionSchema', () => {
-  it('accepts action with optional params and comment', () => {
+  it('accepts actorId, action, optional params and comment', () => {
     const result = widgetActionSchema.safeParse({
+      actorId: 'o',
       action: 'playCell',
       params: { index: 0 },
       comment: 'Blocking',
@@ -21,24 +23,37 @@ describe('WidgetActionHandler turn gate', () => {
   const actorId = 'o';
 
   const definition = {
-    actors: { turnOrder: ['user', 'o'] },
-    agents: { o: { actions: ['playCell'] } },
+    actors: {
+      turnOrder: ['user', 'o', 'x'],
+      actors: { user: { kind: 'human' }, o: { kind: 'model' }, x: { kind: 'model' } },
+    },
+    actions: {
+      name: 'actions',
+      actions: {
+        playCell: {},
+        undo: { endTurn: false },
+      },
+    },
+    agents: {
+      o: { actions: ['playCell', 'undo'] },
+      x: { actions: ['playCell', 'undo'] },
+    },
   };
 
   function createHandlerHarness(currentActor: string) {
     const applyAction = jest.fn().mockResolvedValue({ ok: true });
-    const recordMoveAndAdvance = jest.fn().mockResolvedValue(undefined);
+    const recordMoveAndMaybeAdvance = jest.fn().mockResolvedValue(undefined);
     const updateConversationNote = jest.fn().mockResolvedValue(undefined);
     const serializeInvocation = jest.fn().mockResolvedValue(undefined);
+
+    (WidgetOrchestrator as unknown as { instance: WidgetOrchestrator | null }).instance = null;
+    const orchestrator = WidgetOrchestrator.getInstance({} as never);
 
     const getConversationProperty = jest
       .fn()
       .mockImplementation(async (_title: string, key: string) => {
         if (key === 'widget_project_path') {
           return projectPath;
-        }
-        if (key === 'widget_actor_id') {
-          return actorId;
         }
         return undefined;
       });
@@ -60,8 +75,9 @@ describe('WidgetActionHandler turn gate', () => {
             }),
           },
           sessionService: {
-            recordMoveAndAdvance,
+            recordMoveAndMaybeAdvance,
           },
+          orchestrator,
           applyAction,
         },
       },
@@ -79,7 +95,7 @@ describe('WidgetActionHandler turn gate', () => {
       type: 'tool-call',
       toolCallId: 'call-1',
       toolName: 'widget_action',
-      input: { action: 'playCell', params: { index: 0 } },
+      input: { actorId: 'o', action: 'playCell', params: { index: 0 } },
     } as unknown as ToolCallPart<WidgetActionArgs>;
 
     return {
@@ -87,7 +103,7 @@ describe('WidgetActionHandler turn gate', () => {
       ctx,
       toolCall,
       applyAction,
-      recordMoveAndAdvance,
+      recordMoveAndMaybeAdvance,
       serializeInvocation,
       updateConversationNote,
     };
@@ -99,6 +115,7 @@ describe('WidgetActionHandler turn gate', () => {
     const commentedCall = {
       ...toolCall,
       input: {
+        actorId: 'o',
         action: 'playCell',
         params: { index: 0 },
         comment: 'Place O near the center to establish control.',
@@ -130,36 +147,72 @@ describe('WidgetActionHandler turn gate', () => {
     );
   });
 
-  it('applies and advances when it is the actor turn', async () => {
-    const { handler, ctx, toolCall, applyAction, recordMoveAndAdvance, serializeInvocation } =
+  it('applies and advances when it is the actor turn with endTurn action', async () => {
+    const { handler, ctx, toolCall, applyAction, recordMoveAndMaybeAdvance, serializeInvocation } =
       createHandlerHarness('o');
 
     await handler.handle(ctx, { toolCall });
 
     expect(applyAction).toHaveBeenCalledTimes(1);
-    expect(recordMoveAndAdvance).toHaveBeenCalledWith(
+    expect(recordMoveAndMaybeAdvance).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: 'o',
         action: 'playCell',
         params: { index: 0 },
-        turnOrder: ['user', 'o'],
+        turnOrder: ['user', 'o', 'x'],
+        endTurn: true,
       })
     );
     const okResult = serializeInvocation.mock.calls[0][0].result;
     expect(okResult.type).toBe('json');
-    expect(okResult.value).toEqual({ ok: true, message: expect.any(String) });
-    expect(okResult.value).not.toHaveProperty('action');
-    expect(okResult.value).not.toHaveProperty('comment');
+    expect(okResult.value).toEqual(
+      expect.objectContaining({ ok: true, endTurn: true, message: expect.any(String) })
+    );
+  });
+
+  it('records move without advancing for endTurn false actions', async () => {
+    const { handler, ctx, toolCall, recordMoveAndMaybeAdvance } = createHandlerHarness('o');
+
+    const undoCall = {
+      ...toolCall,
+      input: { actorId: 'o', action: 'undo' },
+    } as unknown as ToolCallPart<WidgetActionArgs>;
+
+    await handler.handle(ctx, { toolCall: undoCall });
+
+    expect(recordMoveAndMaybeAdvance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'o',
+        action: 'undo',
+        endTurn: false,
+      })
+    );
+  });
+
+  it('rejects wrong actorId without applying', async () => {
+    const { handler, ctx, toolCall, applyAction, serializeInvocation } = createHandlerHarness('o');
+
+    const wrongActorCall = {
+      ...toolCall,
+      input: { actorId: 'x', action: 'playCell', params: { index: 0 } },
+    } as unknown as ToolCallPart<WidgetActionArgs>;
+
+    await handler.handle(ctx, { toolCall: wrongActorCall });
+
+    expect(applyAction).not.toHaveBeenCalled();
+    expect(serializeInvocation).toHaveBeenCalledWith(
+      expect.objectContaining({ result: { type: 'error-text', value: 'not_your_turn' } })
+    );
   });
 
   it('rejects an out-of-turn move without applying when the roster already advanced', async () => {
-    const { handler, ctx, toolCall, applyAction, recordMoveAndAdvance, serializeInvocation } =
+    const { handler, ctx, toolCall, applyAction, recordMoveAndMaybeAdvance, serializeInvocation } =
       createHandlerHarness('user');
 
     await handler.handle(ctx, { toolCall });
 
     expect(applyAction).not.toHaveBeenCalled();
-    expect(recordMoveAndAdvance).not.toHaveBeenCalled();
+    expect(recordMoveAndMaybeAdvance).not.toHaveBeenCalled();
     expect(serializeInvocation).toHaveBeenCalledWith(
       expect.objectContaining({ result: { type: 'error-text', value: 'not_your_turn' } })
     );

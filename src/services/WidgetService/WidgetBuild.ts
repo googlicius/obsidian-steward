@@ -390,7 +390,8 @@ export function buildWidgetStateHead(params: {
       requestId: e.data.requestId,
       ok: !!result.ok,
       error: result.error,
-      state: result.state
+      state: result.state,
+      endTurn: result.endTurn
     }, '*');
   });
 

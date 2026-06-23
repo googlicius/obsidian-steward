@@ -1,6 +1,6 @@
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import type { WidgetActors, WidgetDefinition, WidgetSessionData, WidgetStateSaveOptions } from './types';
+import type { WidgetActors, WidgetActionResult, WidgetDefinition, WidgetSessionData, WidgetStateSaveMove, WidgetStateSaveOptions } from './types';
 import { WidgetSessionService } from './WidgetSessionService';
 import { WidgetStateService } from './WidgetStateService';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
@@ -192,13 +192,19 @@ export class WidgetOrchestrator {
       const humanMove = params.saveOptions?.move?.action
         ? params.saveOptions.move
         : { action: 'unknown' };
-      workingSession = this.sessionService.appendMoveAndAdvanceSession({
+      const endTurn = this.resolveActionEndTurn({
+        definition,
+        actionName: humanMove.action,
+        saveMove: humanMove,
+      });
+      workingSession = this.sessionService.appendMoveAndMaybeAdvanceSession({
         session: workingSession,
         actorId: session.actor,
         action: humanMove.action,
         moveParams: humanMove.params,
         comment: humanMove.comment,
         turnOrder: definition.actors.turnOrder,
+        endTurn,
       });
       await this.stateService.writeSession({
         projectPath: params.projectPath,
@@ -222,6 +228,7 @@ export class WidgetOrchestrator {
         actingActorId: session.actor,
         turnOrder: definition.actors.turnOrder,
         saveOptions: params.saveOptions,
+        definition,
       });
       await this.stateService.writeSession({
         projectPath: params.projectPath,
@@ -390,10 +397,10 @@ export class WidgetOrchestrator {
       return;
     }
 
-    // The widget_action handler advances the roster the moment a valid move is
-    // applied, so an unchanged turnIndex means no move landed this turn.
-    const moveApplied = currentSession.turnIndex !== turnIndexBeforeTurn;
-    if (!turnResult.ok || !moveApplied) {
+    // The widget_action handler advances the roster when an endTurn action lands.
+    // An unchanged turnIndex means no terminal move completed this model turn.
+    const turnEnded = currentSession.turnIndex !== turnIndexBeforeTurn;
+    if (!turnResult.ok || !turnEnded) {
       await this.stateService.writeSession({
         projectPath: params.projectPath,
         session: { ...currentSession, phase: 'awaiting_input' },
@@ -439,27 +446,28 @@ export class WidgetOrchestrator {
     actingActorId: string;
     turnOrder: string[];
     saveOptions?: WidgetStateSaveOptions;
+    definition: WidgetDefinition;
   }): WidgetSessionData {
     const externalMove = params.saveOptions?.move?.action
       ? params.saveOptions.move
       : { action: 'unknown' };
-    const moveLog = [...(params.session.moveLog ?? [])];
-    moveLog.push(
-      this.sessionService.createMoveLogEntry({
-        actorId: params.actingActorId,
-        action: externalMove.action,
-        moveParams: externalMove.params,
-        comment: externalMove.comment,
-      })
-    );
+    const endTurn = this.resolveActionEndTurn({
+      definition: params.definition,
+      actionName: externalMove.action,
+      saveMove: externalMove,
+    });
 
-    return this.advanceTurn({
+    return this.sessionService.appendMoveAndMaybeAdvanceSession({
       session: {
         ...params.session,
-        moveLog,
         phase: 'awaiting_input',
       },
+      actorId: params.actingActorId,
+      action: externalMove.action,
+      moveParams: externalMove.params,
+      comment: externalMove.comment,
       turnOrder: params.turnOrder,
+      endTurn,
     });
   }
 
@@ -514,5 +522,46 @@ export class WidgetOrchestrator {
     } finally {
       this.locks.delete(projectPath);
     }
+  }
+
+  /** Resolves whether an action ends the actor's roster turn (catalog + optional overrides). */
+  public resolveActionEndTurn(params: {
+    definition: WidgetDefinition | null;
+    actionName: string;
+    result?: Pick<WidgetActionResult, 'endTurn'>;
+    saveMove?: Pick<WidgetStateSaveMove, 'endTurn'>;
+  }): boolean {
+    return this.resolveEffectiveEndTurn({
+      catalogEndTurn: this.resolveCatalogActionEndTurn(params.definition, params.actionName),
+      resultEndTurn: params.result?.endTurn,
+      saveEndTurn: params.saveMove?.endTurn,
+    });
+  }
+
+  /** Catalog default for whether an action ends the actor's roster turn. Defaults to true. */
+  private resolveCatalogActionEndTurn(
+    definition: WidgetDefinition | null,
+    actionName: string
+  ): boolean {
+    const actionDef = definition?.actions?.actions[actionName];
+    if (actionDef && actionDef.endTurn === false) {
+      return false;
+    }
+    return true;
+  }
+
+  /** Iframe result overrides save metadata overrides catalog default. */
+  private resolveEffectiveEndTurn(params: {
+    catalogEndTurn: boolean;
+    resultEndTurn?: boolean;
+    saveEndTurn?: boolean;
+  }): boolean {
+    if (params.resultEndTurn !== undefined) {
+      return params.resultEndTurn;
+    }
+    if (params.saveEndTurn !== undefined) {
+      return params.saveEndTurn;
+    }
+    return params.catalogEndTurn;
   }
 }

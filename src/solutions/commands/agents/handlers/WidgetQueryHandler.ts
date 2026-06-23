@@ -9,7 +9,6 @@ import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../toolNames';
 import {
   DEFAULT_WIDGET_QUERY_NAME,
-  resolveAgentAllowedQueries,
 } from 'src/services/WidgetService/types';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -42,12 +41,8 @@ export class WidgetQueryHandler {
       title,
       'widget_project_path'
     );
-    const actorId = await this.agent.renderer.getConversationProperty<string>(
-      title,
-      'widget_actor_id'
-    );
 
-    if (!projectPath || !actorId) {
+    if (!projectPath) {
       await ctx.serializeInvocation({
         command: ToolName.WIDGET_QUERY,
         toolCall,
@@ -59,34 +54,9 @@ export class WidgetQueryHandler {
       return { status: IntentResultStatus.SUCCESS };
     }
 
-    const definition =
-      await this.agent.plugin.widgetService.definitionService.getWidgetDefinition(projectPath);
-    const agentBlock = definition.agents[actorId];
-    if (!agentBlock) {
-      await ctx.serializeInvocation({
-        command: ToolName.WIDGET_QUERY,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: `unknown_widget_actor:${actorId}`,
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
+    const session = await this.agent.plugin.widgetService.stateService.readSession(projectPath);
 
     const queryName = toolCall.input.query ?? DEFAULT_WIDGET_QUERY_NAME;
-    const allowedQueries = resolveAgentAllowedQueries(agentBlock);
-    if (!allowedQueries.includes(queryName)) {
-      await ctx.serializeInvocation({
-        command: ToolName.WIDGET_QUERY,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: `query_not_allowed:${queryName}`,
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
 
     const result = await this.agent.plugin.widgetService.dispatchQuery({
       projectPath,
@@ -98,7 +68,7 @@ export class WidgetQueryHandler {
       const t = getTranslation(ctx.lang);
       await ctx.updateConversationNote({
         newContent: t('widget.sessionQuery', {
-          actor: actorId,
+          actor: session?.actor ?? 'Steward',
           query: queryName,
         }),
         role: 'Steward',
