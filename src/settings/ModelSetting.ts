@@ -1,9 +1,22 @@
-import { getLanguage, setIcon, Setting, setTooltip, Notice } from 'obsidian';
+import {
+  getLanguage,
+  setIcon,
+  Setting,
+  setTooltip,
+  Notice,
+  type DropdownComponent,
+} from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { ModelRegistry, inferTemperaturePolicyFromModelId } from 'src/services/ModelRegistry';
-import type { ModelKind, StewardModelDefinition, TestModelInput } from 'src/types/models';
+import type {
+  ModelKind,
+  ReasoningLevel,
+  StewardModelDefinition,
+  TestModelInput,
+} from 'src/types/models';
+import type { ReasoningUiMode } from 'src/services/LLMService/reasoningTypes';
 
 const { getTranslation } = getBundledInternal('i18n');
 const lang = getLanguage();
@@ -23,6 +36,7 @@ export class ModelSetting {
       currentModelField: string;
       placeholder: string;
       showTemperatureControls?: boolean;
+      showReasoningControls?: boolean;
       onSelectChange: (modelId: string) => Promise<void>;
       onAddModel: (definition: StewardModelDefinition) => Promise<void>;
       onDeleteModel: (modelId: string) => Promise<void>;
@@ -148,26 +162,11 @@ export class ModelSetting {
       });
       textInput.focus();
 
-      textInput.addEventListener('input', e => {
-        const target = e.target as HTMLInputElement;
-        const value = target.value;
-
-        if (value && !validateModelFormat(value)) {
-          target.addClass('stw-is-invalid');
-          return;
-        }
-        target.removeClass('stw-is-invalid');
-      });
-
       let useTemperature = options.showTemperatureControls !== false;
       let modelTemperature = this.plugin.settings.llm.temperature;
 
       if (options.showTemperatureControls !== false) {
-        const temperatureRow = wrapper.createEl('div', {
-          cls: 'stw-model-temperature-row',
-        });
-
-        const temperatureToggleSetting = new Setting(temperatureRow)
+        const temperatureToggleSetting = new Setting(wrapper)
           .setName(t('settings.useTemperature'))
           .setDesc(t('settings.useTemperatureDesc'))
           .addToggle(toggle => {
@@ -177,7 +176,7 @@ export class ModelSetting {
             });
           });
 
-        const temperatureSliderSetting = new Setting(temperatureRow)
+        const temperatureSliderSetting = new Setting(wrapper)
           .setName(t('settings.modelTemperature'))
           .setDesc(t('settings.modelTemperatureDesc'))
           .addSlider(slider => {
@@ -194,6 +193,90 @@ export class ModelSetting {
         temperatureToggleSetting.settingEl.addClass('stw-model-temperature-toggle');
         temperatureSliderSetting.settingEl.addClass('stw-model-temperature-slider');
       }
+
+      const reasoningService = this.plugin.llmService.reasoningService;
+      let reasoningUiMode: ReasoningUiMode = 'hidden';
+      let reasoningUiValue = 'provider-default';
+      let reasoningSettingEl: HTMLElement | null = null;
+      let reasoningDropdown: DropdownComponent | null = null;
+
+      const setReasoningSettingVisible = (visible: boolean) => {
+        if (!reasoningSettingEl) {
+          return;
+        }
+        if (visible) {
+          reasoningSettingEl.removeClass('stw-model-reasoning-setting--hidden');
+        } else {
+          reasoningSettingEl.addClass('stw-model-reasoning-setting--hidden');
+        }
+      };
+
+      const syncReasoningControl = (modelId: string) => {
+        if (options.showReasoningControls === false || options.modelKind !== 'chat') {
+          setReasoningSettingVisible(false);
+          reasoningUiMode = 'hidden';
+          return;
+        }
+
+        const nextMode = modelId.trim() ? reasoningService.getUiMode(modelId) : 'hidden';
+        reasoningUiMode = nextMode;
+
+        if (!reasoningSettingEl || !reasoningDropdown) {
+          return;
+        }
+
+        if (nextMode === 'hidden') {
+          setReasoningSettingVisible(false);
+          reasoningUiValue = 'none';
+          return;
+        }
+
+        setReasoningSettingVisible(true);
+        reasoningDropdown.selectEl.empty();
+
+        const uiOptions = reasoningService.getUiOptions(nextMode);
+        for (let i = 0; i < uiOptions.length; i++) {
+          const option = uiOptions[i];
+          reasoningDropdown.addOption(option.value, t(option.labelKey));
+        }
+
+        if (!uiOptions.some(option => option.value === reasoningUiValue)) {
+          reasoningUiValue = 'provider-default';
+        }
+        reasoningDropdown.setValue(reasoningUiValue);
+      };
+
+      const getReasoningLevel = (): ReasoningLevel => {
+        return reasoningService.uiValueToReasoningLevel(reasoningUiValue, reasoningUiMode);
+      };
+
+      if (options.showReasoningControls !== false && options.modelKind === 'chat') {
+        const reasoningSetting = new Setting(wrapper)
+          .setName(t('settings.reasoning'))
+          .setDesc(t('settings.reasoningDesc'))
+          .addDropdown(dropdown => {
+            reasoningDropdown = dropdown;
+            dropdown.onChange(value => {
+              reasoningUiValue = value;
+            });
+          });
+
+        reasoningSetting.settingEl.addClass('stw-model-reasoning-setting');
+        reasoningSetting.settingEl.addClass('stw-model-reasoning-setting--hidden');
+        reasoningSettingEl = reasoningSetting.settingEl;
+      }
+
+      textInput.addEventListener('input', e => {
+        const target = e.target as HTMLInputElement;
+        const value = target.value;
+
+        if (value && !validateModelFormat(value)) {
+          target.addClass('stw-is-invalid');
+          return;
+        }
+        target.removeClass('stw-is-invalid');
+        syncReasoningControl(value);
+      });
 
       const actionsRow = wrapper.createEl('div', {
         cls: 'stw-model-setting-actions flex gap-2',
@@ -237,14 +320,12 @@ export class ModelSetting {
 
             try {
               const showTemperature = options.showTemperatureControls !== false;
-              const temperaturePolicy =
-                showTemperature && useTemperature ? 'configurable' : 'omit';
+              const temperaturePolicy = showTemperature && useTemperature ? 'configurable' : 'omit';
               await onTestModel({
                 modelId: inputValue,
                 temperaturePolicy,
-                ...(temperaturePolicy === 'configurable'
-                  ? { temperature: modelTemperature }
-                  : {}),
+                ...(temperaturePolicy === 'configurable' ? { temperature: modelTemperature } : {}),
+                ...(reasoningUiMode !== 'hidden' ? { reasoning: getReasoningLevel() } : {}),
               });
               new Notice(t('settings.testModelSuccess'));
             } catch (error) {
@@ -284,6 +365,10 @@ export class ModelSetting {
             definition.temperature = modelTemperature;
           } else if (options.modelKind === 'chat' && !showTemperature) {
             definition.temperaturePolicy = inferTemperaturePolicyFromModelId(inputValue);
+          }
+
+          if (reasoningUiMode !== 'hidden') {
+            definition.reasoning = getReasoningLevel();
           }
 
           await options.onAddModel(definition);

@@ -79,7 +79,7 @@ const POPULAR_PROVIDER_PRESETS: Record<
     compatibility: 'openai',
     baseUrl: 'https://api.z.ai/api/paas/v4',
     description:
-      '01.AI Yi models, OpenAI-compatible.\nModels: https://z.ai/models\nAPI keys: https://z.ai/api-keys',
+      '01.AI Yi models, OpenAI-compatible.\nModels: https://docs.z.ai/guides/llm\nAPI keys: https://z.ai/manage-apikey/apikey-list',
   },
 };
 

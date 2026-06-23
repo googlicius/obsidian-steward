@@ -136,6 +136,7 @@ export class ConversationTitleAgent {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
         overrideModel: this.plugin.settings.llm.agents.conversationTitle.model,
+        disableReasoning: true,
       });
 
       const { generateText, Output } = await getBundledLib('ai');

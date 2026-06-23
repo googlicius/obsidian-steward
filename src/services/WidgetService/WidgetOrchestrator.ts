@@ -1,9 +1,17 @@
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import type { WidgetActors, WidgetActionResult, WidgetDefinition, WidgetSessionData, WidgetStateSaveMove, WidgetStateSaveOptions } from './types';
+import type {
+  WidgetActors,
+  WidgetActionResult,
+  WidgetDefinition,
+  WidgetSessionData,
+  WidgetStateSaveMove,
+  WidgetStateSaveOptions,
+} from './types';
 import { WidgetSessionService } from './WidgetSessionService';
 import { WidgetStateService } from './WidgetStateService';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
+import { WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH } from './WidgetProtocol';
 
 const MODELS_ONLY_BURST_CAP = 10;
 
@@ -188,10 +196,27 @@ export class WidgetOrchestrator {
       return;
     }
 
+    if (
+      actorEntry.kind === 'human' &&
+      params.saveOptions?.source === WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH
+    ) {
+      await this.stateService.writeSession({
+        projectPath: params.projectPath,
+        session: workingSession,
+      });
+      return;
+    }
+
     if (actorEntry.kind === 'human') {
-      const humanMove = params.saveOptions?.move?.action
-        ? params.saveOptions.move
-        : { action: 'unknown' };
+      if (!params.saveOptions?.move?.action) {
+        await this.stateService.writeSession({
+          projectPath: params.projectPath,
+          session: workingSession,
+        });
+        return;
+      }
+
+      const humanMove = params.saveOptions.move;
       const endTurn = this.resolveActionEndTurn({
         definition,
         actionName: humanMove.action,
@@ -277,6 +302,10 @@ export class WidgetOrchestrator {
       return;
     }
 
+    if (!params.saveOptions?.move?.action) {
+      return;
+    }
+
     const advanced = this.advanceTurn({
       session: {
         conversationTitle: '',
@@ -288,9 +317,7 @@ export class WidgetOrchestrator {
       turnOrder: actors.turnOrder,
     });
 
-    const humanMove = params.saveOptions?.move?.action
-      ? params.saveOptions.move
-      : { action: 'unknown' };
+    const humanMove = params.saveOptions.move;
     const moveLog = [
       this.sessionService.createMoveLogEntry({
         actorId: firstActorId,

@@ -185,6 +185,10 @@ export class StreamTextExecutor {
 
     const { streamText, NoSuchToolError } = await getBundledLib('ai');
 
+    console.log('LLMCONFIG', {
+      llmConfig,
+    });
+
     const streamTextResult = streamText({
       model: llmConfig.model,
       ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
@@ -192,9 +196,9 @@ export class StreamTextExecutor {
       abortSignal,
       system: coreSystemPrompt,
       messages,
-      headers: {
-        //
-      },
+      ...(llmConfig.reasoningCallExtras?.providerOptions
+        ? { providerOptions: llmConfig.reasoningCallExtras.providerOptions }
+        : {}),
       tools: registry.getToolsObject() as NonNullable<AiStreamTextParams['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
       onError: ({ error }) => {

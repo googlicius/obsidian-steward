@@ -279,6 +279,7 @@ class StewardSettingTab extends PluginSettingTab {
         currentModelField: 'llm.chat.model',
         placeholder: 'provider:model, e.g., openai:gpt-5',
         showTemperatureControls: true,
+        showReasoningControls: true,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
           await this.plugin.saveSettings();

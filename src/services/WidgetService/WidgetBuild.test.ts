@@ -1,5 +1,9 @@
 import { buildWidgetSrcdoc, buildWidgetStateHead, WIDGET_SRCDOC_HEAD } from './WidgetBuild';
-import { WidgetMessageType, WIDGET_STATE_GLOBAL } from './WidgetProtocol';
+import {
+  WidgetMessageType,
+  WIDGET_STATE_GLOBAL,
+  WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH,
+} from './WidgetProtocol';
 
 describe('buildWidgetSrcdoc', () => {
   it('wraps an HTML fragment with CSP head and allow-scripts sandbox', () => {
@@ -91,5 +95,12 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain(WidgetMessageType.ActionsRegistered);
     expect(head).toContain(WidgetMessageType.QueriesRegistered);
     expect(head).toContain(WidgetMessageType.Log);
+  });
+
+  it('tags setState saves during dispatchAction with model_dispatch source', () => {
+    const head = buildWidgetStateHead({ state: null });
+
+    expect(head).toContain('modelDispatchDepth');
+    expect(head).toContain(WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH);
   });
 });

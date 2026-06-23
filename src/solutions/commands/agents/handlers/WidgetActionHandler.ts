@@ -10,7 +10,6 @@ import { ToolName } from '../../toolNames';
 const { getTranslation } = getBundledInternal('i18n');
 
 export const widgetActionSchema = z.object({
-  actorId: z.string().min(1),
   action: z.string().min(1),
   params: z.record(z.unknown()).optional(),
   comment: z.string().optional(),
@@ -34,14 +33,13 @@ export class WidgetActionHandler {
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
-    const actorId = toolCall.input.actorId.trim();
 
     const projectPath = await this.agent.renderer.getConversationProperty<string>(
       title,
       'widget_project_path'
     );
 
-    if (!projectPath || !actorId) {
+    if (!projectPath) {
       await ctx.serializeInvocation({
         command: ToolName.WIDGET_ACTION,
         toolCall,
@@ -53,55 +51,32 @@ export class WidgetActionHandler {
       return { status: IntentResultStatus.SUCCESS };
     }
 
-    const definition =
-      await this.agent.plugin.widgetService.definitionService.getWidgetDefinition(projectPath);
-
-    const actorEntry = definition.actors?.actors[actorId];
-    if (!actorEntry) {
-      await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: `unknown_widget_actor:${actorId}`,
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
-
-    const agentBlock = definition.agents[actorId];
-    if (!agentBlock) {
-      await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: `unknown_widget_actor:${actorId}`,
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
-
-    if (!agentBlock.actions.includes(toolCall.input.action)) {
-      await ctx.serializeInvocation({
-        command: ToolName.WIDGET_ACTION,
-        toolCall,
-        result: {
-          type: 'error-text',
-          value: `action_not_allowed:${toolCall.input.action}`,
-        },
-      });
-      return { status: IntentResultStatus.SUCCESS };
-    }
-
     const session = await this.agent.plugin.widgetService.stateService.readSession(projectPath);
-    if (!session || session.actor !== actorId) {
+    if (!session || session.phase !== 'thinking') {
       await ctx.serializeInvocation({
         command: ToolName.WIDGET_ACTION,
         toolCall,
         result: {
           type: 'error-text',
           value: 'not_your_turn',
+        },
+      });
+      return { status: IntentResultStatus.SUCCESS };
+    }
+
+    const actorId = session.actor;
+
+    const definition =
+      await this.agent.plugin.widgetService.definitionService.getWidgetDefinition(projectPath);
+
+    const allowedActions = definition.agents[actorId]?.actions;
+    if (!allowedActions?.includes(toolCall.input.action)) {
+      await ctx.serializeInvocation({
+        command: ToolName.WIDGET_ACTION,
+        toolCall,
+        result: {
+          type: 'error-text',
+          value: `action_not_allowed:${toolCall.input.action}`,
         },
       });
       return { status: IntentResultStatus.SUCCESS };
@@ -159,6 +134,7 @@ export class WidgetActionHandler {
           },
         },
       });
+
       return { status: IntentResultStatus.SUCCESS };
     }
 

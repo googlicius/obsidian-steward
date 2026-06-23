@@ -119,6 +119,7 @@ function createOrchestratorHarness(options: {
       }
     );
 
+  const appendHumanMoveMessage = jest.fn();
   const plugin = {
     app: {
       vault: {
@@ -132,7 +133,7 @@ function createOrchestratorHarness(options: {
       sessionService: {
         runActorTurn,
         createSessionForModelTurn,
-        appendHumanMoveMessage: jest.fn(),
+        appendHumanMoveMessage,
         appendMoveAndAdvanceSession:
           sessionMoveService.appendMoveAndAdvanceSession.bind(sessionMoveService),
         appendMoveAndMaybeAdvanceSession:
@@ -159,6 +160,7 @@ function createOrchestratorHarness(options: {
     clearSession,
     runActorTurn,
     createSessionForModelTurn,
+    appendHumanMoveMessage,
     getSession: () => (session ? { ...session } : null),
   };
 }
@@ -475,6 +477,85 @@ describe('WidgetOrchestrator', () => {
     );
   });
 
+  it('does not treat iframe state sync as a human move when move metadata is absent', async () => {
+    const { orchestrator, runActorTurn, appendHumanMoveMessage, getSession } =
+      createOrchestratorHarness({
+        initialSession: {
+          conversationTitle: 'tic-tac-toe__session_live',
+          actor: 'user',
+          turnIndex: 0,
+          phase: 'awaiting_input',
+          moveLog: [
+            { actor: 'user', action: 'playCell(index=0)', at: '2026-06-17T00:00:00.000Z' },
+            { actor: 'o', action: 'playCell(index=1)', at: '2026-06-17T00:00:01.000Z' },
+          ],
+          lastDataSnapshot: {
+            board: ['X', 'O', null, null, null, null, null, null, null],
+            current: 'X',
+          },
+        },
+        initialData: {
+          board: ['X', 'O', null, null, null, null, null, null, null],
+          current: 'X',
+        },
+      });
+
+    await orchestrator.handleStateSave({
+      projectPath,
+      widgetId,
+      incomingData: {
+        board: ['X', 'O', 'X', null, null, null, null, null, null],
+        current: 'O',
+      },
+    });
+
+    expect(appendHumanMoveMessage).not.toHaveBeenCalled();
+    expect(runActorTurn).not.toHaveBeenCalled();
+    expect(getSession()?.actor).toBe('user');
+    expect(getSession()?.turnIndex).toBe(0);
+  });
+
+  it('does not treat model dispatch setState echo as a human move when source is model_dispatch', async () => {
+    const { orchestrator, runActorTurn, appendHumanMoveMessage, getSession } =
+      createOrchestratorHarness({
+        initialSession: {
+          conversationTitle: 'tic-tac-toe__session_live',
+          actor: 'user',
+          turnIndex: 0,
+          phase: 'awaiting_input',
+          moveLog: [
+            { actor: 'user', action: 'playCell(index=0)', at: '2026-06-17T00:00:00.000Z' },
+            { actor: 'o', action: 'playCell(index=190)', at: '2026-06-17T00:00:01.000Z' },
+          ],
+          lastDataSnapshot: {
+            board: ['X', null, null, null, null, null, null, null, null],
+            current: 'O',
+          },
+        },
+        initialData: {
+          board: ['X', null, null, null, null, null, null, null, null],
+          current: 'O',
+        },
+      });
+
+    await orchestrator.handleStateSave({
+      projectPath,
+      widgetId,
+      incomingData: {
+        board: ['X', 'O', null, null, null, null, null, null, null],
+        current: 'X',
+      },
+      saveOptions: {
+        move: { action: 'playCell', params: { index: 190 } },
+        source: 'model_dispatch',
+      },
+    });
+
+    expect(appendHumanMoveMessage).not.toHaveBeenCalled();
+    expect(runActorTurn).not.toHaveBeenCalled();
+    expect(getSession()?.actor).toBe('user');
+  });
+
   it('runs model turn after human move once session was reconciled from external model save', async () => {
     const { orchestrator, runActorTurn, getSession } = createOrchestratorHarness({
       initialSession: {
@@ -511,6 +592,9 @@ describe('WidgetOrchestrator', () => {
       incomingData: {
         board: ['X', 'O', 'X', null, null, null, null, null, null],
         current: 'O',
+      },
+      saveOptions: {
+        move: { action: 'playCell', params: { index: 2 } },
       },
     });
 

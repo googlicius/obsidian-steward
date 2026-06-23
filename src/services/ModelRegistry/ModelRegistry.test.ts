@@ -87,6 +87,20 @@ describe('ModelRegistry', () => {
     expect(registry.resolveTemperature('openai:gpt-4o', 0.2)).toBe(0.2);
   });
 
+  it('resolves reasoning from user model definition', () => {
+    mockPlugin.settings.models = [
+      {
+        id: 'openai:gpt-4o',
+        kinds: ['chat'],
+        temperaturePolicy: 'configurable',
+        reasoning: 'high',
+      },
+    ];
+    const registry = ModelRegistry.getInstance(mockPlugin as unknown as StewardPlugin);
+    expect(registry.resolveReasoning('openai:gpt-4o')).toBe('high');
+    expect(registry.resolveReasoning('google:gemini-2.5-flash')).toBe('provider-default');
+  });
+
   it('lists user and preset models for kind', () => {
     const registry = ModelRegistry.getInstance();
     const models = registry.getModelsForKind('chat');

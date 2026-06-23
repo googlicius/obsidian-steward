@@ -539,6 +539,20 @@ const vi = {
       modelTemperature: 'Temperature của mô hình',
       modelTemperatureDesc:
         'Temperature cho mô hình này. Khi tắt, tham số sẽ không được gửi trong yêu cầu API.',
+      reasoning: 'Suy luận (reasoning)',
+      reasoningDesc:
+        'Điều khiển suy nghĩ mở rộng cho các nhà cung cấp được hỗ trợ. Tùy chọn phụ thuộc vào API của nhà cung cấp.',
+      reasoningThinkingEnabled: 'Bật thinking',
+      reasoningThinkingDisabled: 'Tắt reasoning',
+      reasoningLevel: {
+        providerDefault: 'Mặc định nhà cung cấp',
+        none: 'Không',
+        minimal: 'Tối thiểu',
+        low: 'Thấp',
+        medium: 'Trung bình',
+        high: 'Cao',
+        xhigh: 'Rất cao',
+      },
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',
       maxGenerationTokensDesc:
         'Số lượng token tối đa để tạo trong phản hồi (giá trị cao hơn có thể tăng chi phí API)',

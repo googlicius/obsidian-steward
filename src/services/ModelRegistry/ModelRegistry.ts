@@ -5,6 +5,7 @@ import type {
   ModelKind,
   ModelListItem,
   PresetModelDefinition,
+  ReasoningLevel,
   StewardModelDefinition,
   TemperaturePolicy,
 } from 'src/types/models';
@@ -140,6 +141,7 @@ export class ModelRegistry {
         kinds: [...preset.kinds],
         temperaturePolicy: preset.temperaturePolicy,
         temperature: preset.temperature,
+        reasoning: preset.reasoning,
       };
     }
 
@@ -148,6 +150,7 @@ export class ModelRegistry {
       kinds: mergeKinds(preset.kinds, userEntry.kinds),
       temperaturePolicy: userEntry.temperaturePolicy ?? preset.temperaturePolicy,
       temperature: userEntry.temperature ?? preset.temperature,
+      reasoning: userEntry.reasoning ?? preset.reasoning,
     };
   }
 
@@ -199,6 +202,7 @@ export class ModelRegistry {
         kinds: mergeKinds(models[i].kinds, definition.kinds),
         temperaturePolicy: definition.temperaturePolicy,
         temperature: definition.temperature,
+        reasoning: definition.reasoning,
       };
       return;
     }
@@ -208,6 +212,7 @@ export class ModelRegistry {
       kinds: [...definition.kinds],
       temperaturePolicy: definition.temperaturePolicy,
       temperature: definition.temperature,
+      reasoning: definition.reasoning,
     });
   }
 
@@ -256,5 +261,16 @@ export class ModelRegistry {
     }
 
     return globalDefault;
+  }
+
+  /**
+   * Resolve effective reasoning level for a model id; defaults to `provider-default`.
+   */
+  public resolveReasoning(modelId: string): ReasoningLevel {
+    const definition = this.resolveModelDefinition(modelId);
+    if (definition?.reasoning) {
+      return definition.reasoning;
+    }
+    return 'provider-default';
   }
 }

@@ -505,9 +505,6 @@ export class WidgetSessionService {
     const lines: string[] = [];
 
     lines.push(`You are actor \`${params.actorId}\`.`);
-    lines.push(
-      `Pass \`actorId: "${params.actorId}"\` on every \`widget_action\` call.`
-    );
 
     const recentMoves = params.moveLog ?? [];
     if (recentMoves.length > 0) {

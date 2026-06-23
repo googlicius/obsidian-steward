@@ -328,5 +328,24 @@ describe('LLMService', () => {
       const config = await llmService.getLLMConfig({ generateType: 'text' });
       expect(config.temperature).toBe(0.7);
     });
+
+    it('includes reasoning extras from model settings', async () => {
+      mockPlugin.settings.llm.chat.model = 'openai:gpt-4o';
+      mockPlugin.settings.models = [
+        {
+          id: 'openai:gpt-4o',
+          kinds: ['chat'],
+          temperaturePolicy: 'configurable',
+          reasoning: 'high',
+        },
+      ];
+      const config = await llmService.getLLMConfig({ generateType: 'text' });
+      expect(config.reasoning).toBe('high');
+      expect(config.reasoningCallExtras).toEqual({
+        providerOptions: {
+          openai: { reasoningEffort: 'high' },
+        },
+      });
+    });
   });
 });

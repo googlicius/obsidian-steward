@@ -1,5 +1,6 @@
 import { z } from 'zod/v3';
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
+import { WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH } from './WidgetProtocol';
 
 export const widgetActionsSchema = z.object({
   name: z.literal('actions'),
@@ -80,12 +81,24 @@ export const widgetStateSaveMoveSchema = z.object({
 
 export type WidgetStateSaveMove = z.infer<typeof widgetStateSaveMoveSchema>;
 
+/** Who initiated a gameplay setState; host-only — never stored in `data`. */
+export const widgetStateSaveSourceSchema = z.literal(WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH).or(
+  z.literal('human')
+);
+
+export type WidgetStateSaveSource = z.infer<typeof widgetStateSaveSourceSchema>;
+
 /** Optional second argument to `window.stw.setState(data, options)`. Host-only; never stored in `data`. */
 export const widgetStateSaveOptionsSchema = z.object({
   /** Clears `session` after save. Use for new game / play again / restart. Does not trigger a model turn. */
   intent: z.literal('reset').optional(),
   /** Records the human move in session moveLog when the current actor is human. */
   move: widgetStateSaveMoveSchema.optional(),
+  /**
+   * Set automatically by the host iframe bridge when setState runs inside dispatchAction.
+   * Human UI saves omit this or may pass `human`.
+   */
+  source: widgetStateSaveSourceSchema.optional(),
 });
 
 export type WidgetStateSaveOptions = z.infer<typeof widgetStateSaveOptionsSchema>;

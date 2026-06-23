@@ -37,3 +37,6 @@ export const WIDGET_STATE_GLOBAL = '__STW_STATE__';
 
 /** Debounce delay (ms) before posting state saves to the parent */
 export const WIDGET_STATE_SAVE_DEBOUNCE_MS = 400;
+
+/** saveOptions.source set automatically when setState runs inside dispatchAction (widget_action). */
+export const WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH = 'model_dispatch';

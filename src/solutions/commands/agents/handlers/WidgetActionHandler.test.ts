@@ -3,12 +3,12 @@ import type { WidgetActionArgs } from './WidgetActionHandler';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
+import { IntentResultStatus } from '../../types';
 import { WidgetOrchestrator } from 'src/services/WidgetService/WidgetOrchestrator';
 
 describe('widgetActionSchema', () => {
-  it('accepts actorId, action, optional params and comment', () => {
+  it('accepts action, optional params and comment', () => {
     const result = widgetActionSchema.safeParse({
-      actorId: 'o',
       action: 'playCell',
       params: { index: 0 },
       comment: 'Blocking',
@@ -20,7 +20,6 @@ describe('widgetActionSchema', () => {
 
 describe('WidgetActionHandler turn gate', () => {
   const projectPath = 'Steward/Widgets/tic-tac-toe';
-  const actorId = 'o';
 
   const definition = {
     actors: {
@@ -40,7 +39,7 @@ describe('WidgetActionHandler turn gate', () => {
     },
   };
 
-  function createHandlerHarness(currentActor: string) {
+  function createHandlerHarness(currentActor: string, phase: 'thinking' | 'awaiting_input' = 'thinking') {
     const applyAction = jest.fn().mockResolvedValue({ ok: true });
     const recordMoveAndMaybeAdvance = jest.fn().mockResolvedValue(undefined);
     const updateConversationNote = jest.fn().mockResolvedValue(undefined);
@@ -70,7 +69,7 @@ describe('WidgetActionHandler turn gate', () => {
               conversationTitle: 'tic-tac-toe__session_live',
               actor: currentActor,
               turnIndex: 1,
-              phase: 'thinking',
+              phase,
               moveLog: [],
             }),
           },
@@ -95,7 +94,7 @@ describe('WidgetActionHandler turn gate', () => {
       type: 'tool-call',
       toolCallId: 'call-1',
       toolName: 'widget_action',
-      input: { actorId: 'o', action: 'playCell', params: { index: 0 } },
+      input: { action: 'playCell', params: { index: 0 } },
     } as unknown as ToolCallPart<WidgetActionArgs>;
 
     return {
@@ -115,7 +114,6 @@ describe('WidgetActionHandler turn gate', () => {
     const commentedCall = {
       ...toolCall,
       input: {
-        actorId: 'o',
         action: 'playCell',
         params: { index: 0 },
         comment: 'Place O near the center to establish control.',
@@ -151,7 +149,7 @@ describe('WidgetActionHandler turn gate', () => {
     const { handler, ctx, toolCall, applyAction, recordMoveAndMaybeAdvance, serializeInvocation } =
       createHandlerHarness('o');
 
-    await handler.handle(ctx, { toolCall });
+    const result = await handler.handle(ctx, { toolCall });
 
     expect(applyAction).toHaveBeenCalledTimes(1);
     expect(recordMoveAndMaybeAdvance).toHaveBeenCalledWith(
@@ -168,6 +166,7 @@ describe('WidgetActionHandler turn gate', () => {
     expect(okResult.value).toEqual(
       expect.objectContaining({ ok: true, endTurn: true, message: expect.any(String) })
     );
+    expect(result.status).toBe(IntentResultStatus.STOP_PROCESSING);
   });
 
   it('records move without advancing for endTurn false actions', async () => {
@@ -175,10 +174,10 @@ describe('WidgetActionHandler turn gate', () => {
 
     const undoCall = {
       ...toolCall,
-      input: { actorId: 'o', action: 'undo' },
+      input: { action: 'undo' },
     } as unknown as ToolCallPart<WidgetActionArgs>;
 
-    await handler.handle(ctx, { toolCall: undoCall });
+    const result = await handler.handle(ctx, { toolCall: undoCall });
 
     expect(recordMoveAndMaybeAdvance).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -187,17 +186,16 @@ describe('WidgetActionHandler turn gate', () => {
         endTurn: false,
       })
     );
+    expect(result.status).toBe(IntentResultStatus.SUCCESS);
   });
 
-  it('rejects wrong actorId without applying', async () => {
-    const { handler, ctx, toolCall, applyAction, serializeInvocation } = createHandlerHarness('o');
+  it('rejects when session phase is not thinking', async () => {
+    const { handler, ctx, toolCall, applyAction, serializeInvocation } = createHandlerHarness(
+      'o',
+      'awaiting_input'
+    );
 
-    const wrongActorCall = {
-      ...toolCall,
-      input: { actorId: 'x', action: 'playCell', params: { index: 0 } },
-    } as unknown as ToolCallPart<WidgetActionArgs>;
-
-    await handler.handle(ctx, { toolCall: wrongActorCall });
+    await handler.handle(ctx, { toolCall });
 
     expect(applyAction).not.toHaveBeenCalled();
     expect(serializeInvocation).toHaveBeenCalledWith(
@@ -207,7 +205,7 @@ describe('WidgetActionHandler turn gate', () => {
 
   it('rejects an out-of-turn move without applying when the roster already advanced', async () => {
     const { handler, ctx, toolCall, applyAction, recordMoveAndMaybeAdvance, serializeInvocation } =
-      createHandlerHarness('user');
+      createHandlerHarness('user', 'awaiting_input');
 
     await handler.handle(ctx, { toolCall });
 

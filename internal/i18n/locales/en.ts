@@ -602,6 +602,20 @@ const en = {
       modelTemperature: 'Model temperature',
       modelTemperatureDesc:
         'Temperature for this model. When disabled, the parameter is omitted from API requests.',
+      reasoning: 'Reasoning',
+      reasoningDesc:
+        'Controls extended thinking for supported providers. Options depend on the provider API.',
+      reasoningThinkingEnabled: 'Enable thinking',
+      reasoningThinkingDisabled: 'Disable reasoning',
+      reasoningLevel: {
+        providerDefault: 'Provider default',
+        none: 'None',
+        minimal: 'Minimal',
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        xhigh: 'Extra high',
+      },
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',

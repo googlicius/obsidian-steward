@@ -22,6 +22,7 @@ import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
 import { ModelRegistry } from 'src/services/ModelRegistry';
 import type { TemperaturePolicy, TestModelInput } from 'src/types/models';
+import { ReasoningService } from 'src/services/LLMService/ReasoningService';
 
 /** When model id is unknown / unmatched — compaction threshold denominator fallback */
 const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
@@ -69,7 +70,12 @@ export class LLMService {
     (a, b) => b[0].length - a[0].length
   );
 
-  private constructor(private plugin: StewardPlugin) {}
+  /** Resolves model reasoning levels into provider-specific AI SDK call extras. */
+  public readonly reasoningService: ReasoningService;
+
+  private constructor(private plugin: StewardPlugin) {
+    this.reasoningService = new ReasoningService(plugin, this);
+  }
 
   /**
    * Get the singleton instance of LLMService
@@ -248,11 +254,19 @@ export class LLMService {
         this.plugin.settings.llm.temperature
       );
     }
+
+    const reasoning =
+      input.reasoning ?? ModelRegistry.getInstance(this.plugin).resolveReasoning(trimmed);
+    const reasoningCallExtras = this.reasoningService.buildCallExtras(trimmed, reasoning);
+
     await generateText({
       model: provider(modelId) as LanguageModel,
       prompt: 'Reply with exactly: OK',
       maxOutputTokens: 16,
       ...(temperature !== undefined ? { temperature } : {}),
+      ...(reasoningCallExtras.providerOptions
+        ? { providerOptions: reasoningCallExtras.providerOptions }
+        : {}),
     });
   }
 
@@ -420,9 +434,14 @@ export class LLMService {
    * @param options Options for object generation
    */
   public async getLLMConfig(
-    options: { overrideModel?: string; generateType?: 'text' | 'object' } = {}
+    options: {
+      overrideModel?: string;
+      generateType?: 'text' | 'object';
+      /** When true, omit reasoning provider options (e.g. title/summary agents). */
+      disableReasoning?: boolean;
+    } = {}
   ) {
-    const { generateType = 'object', overrideModel } = options;
+    const { generateType = 'object', overrideModel, disableReasoning = false } = options;
 
     const {
       model: defaultModel,
@@ -446,11 +465,20 @@ export class LLMService {
 
     const languageModel = provider(modelId);
 
+    const reasoning = disableReasoning
+      ? 'none'
+      : ModelRegistry.getInstance(this.plugin).resolveReasoning(model);
+    const reasoningCallExtras = disableReasoning
+      ? {}
+      : this.reasoningService.buildCallExtras(model, reasoning);
+
     const generateParams = {
       model: languageModel as LanguageModel,
       ...(temperature !== undefined ? { temperature } : {}),
       maxOutputTokens: maxGenerationTokens,
       systemPrompt,
+      reasoning,
+      reasoningCallExtras,
       repairToolCall: async (options: {
         toolCall: ToolCallPart;
         error: JSONParseError | InvalidToolInputError | NoSuchToolError;

@@ -332,7 +332,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Apply one allowed widget action during a widget session turn. Used by model actors in turn-based interactive widgets.',
     guidelines: [
-      'Call exactly once with one allowed action, then stop.',
+      'Finish with one allowed action that ends your turn (default). Auxiliary actions marked as not ending your turn may be called first.',
       `Call $${ToolName.WIDGET_QUERY} zero or more times before ${ToolName.WIDGET_ACTION} to gather information.`,
       'Keep the optional comment to one short sentence.',
     ],

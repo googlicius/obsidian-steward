@@ -566,6 +566,10 @@ code[class*='language-stw-hidden-from-user'] {
   gap: var(--size-2-1);
 }
 
+.stw-model-reasoning-setting--hidden {
+  display: none;
+}
+
 .stw-extraction-details-link {
   font-size: 0.9em;
 }

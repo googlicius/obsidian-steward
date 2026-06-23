@@ -44,6 +44,7 @@ export class CompactionSummaryAgent {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
         overrideModel: this.plugin.settings.llm.agents.compactionSummary.model,
+        disableReasoning: true,
       });
 
       const { generateText, Output, asSchema } = await getBundledLib('ai');

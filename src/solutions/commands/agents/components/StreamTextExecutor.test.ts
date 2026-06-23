@@ -283,6 +283,38 @@ describe('StreamTextExecutor', () => {
       expect(userMessage.content).toBe('test query');
     });
 
+    it('should spread reasoning providerOptions into streamText', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      mockPlugin.llmService.getLLMConfig = jest.fn().mockResolvedValue({
+        model: 'mock-model',
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+        reasoningCallExtras: {
+          providerOptions: {
+            openai: { reasoningEffort: 'high' },
+          },
+        },
+      });
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: [], hasCompactionContext: false });
+
+      await testAgent.executeForTest(params);
+
+      const call = getMockStreamText().mock.calls[0][0];
+      expect(call.providerOptions).toEqual({
+        openai: { reasoningEffort: 'high' },
+      });
+    });
+
     it('should NOT append user message when invocationCount is greater than 0', async () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',

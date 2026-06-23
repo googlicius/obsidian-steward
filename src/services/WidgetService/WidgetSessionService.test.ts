@@ -21,7 +21,7 @@ function bindPrivateMethods(service: WidgetSessionService) {
     ) as WidgetSessionService['resolveActorTools'],
     formatMoveLogAction: WidgetSessionService['formatMoveLogAction'].bind(
       WidgetSessionService
-    ) as typeof WidgetSessionService['formatMoveLogAction'],
+    ) as (typeof WidgetSessionService)['formatMoveLogAction'],
   };
 }
 
@@ -79,11 +79,11 @@ describe('WidgetSessionService turn context helpers', () => {
   });
 
   describe('buildTurnContext', () => {
-    it('includes actorId instruction and turn guidance', () => {
+    it('includes actor identity and turn guidance', () => {
       const text = buildTurnContext({ actorId: 'o', moveLog: [] });
 
       expect(text).toContain('You are actor `o`');
-      expect(text).toContain('actorId: "o"');
+      expect(text).not.toContain('actorId:');
       expect(text).not.toContain('## Available queries');
       expect(text).not.toContain('## Allowed actions');
       expect(text).toContain('defaults to `get_state`');
@@ -131,7 +131,7 @@ describe('WidgetSessionService turn context helpers', () => {
 
 describe('WidgetSessionService session move helpers', () => {
   let service: WidgetSessionService;
-  let formatMoveLogAction: typeof WidgetSessionService['formatMoveLogAction'];
+  let formatMoveLogAction: (typeof WidgetSessionService)['formatMoveLogAction'];
 
   beforeEach(() => {
     (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
@@ -245,6 +245,18 @@ describe('WidgetSessionService session move helpers', () => {
       ).toEqual({
         intent: 'reset',
         move: { action: 'playCell', params: { index: 2 }, comment: 'block' },
+      });
+    });
+
+    it('parses model_dispatch source', () => {
+      expect(
+        WidgetSessionService.parseWidgetStateSaveOptions({
+          move: { action: 'playCell', params: { index: 190 } },
+          source: 'model_dispatch',
+        })
+      ).toEqual({
+        move: { action: 'playCell', params: { index: 190 } },
+        source: 'model_dispatch',
       });
     });
   });

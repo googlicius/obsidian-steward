@@ -4,6 +4,7 @@ import {
   WIDGET_ASSET_REQUEST_TIMEOUT_MS,
   WIDGET_STATE_GLOBAL,
   WIDGET_STATE_SAVE_DEBOUNCE_MS,
+  WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH,
 } from './WidgetProtocol';
 import type { WidgetState } from './types';
 
@@ -50,6 +51,7 @@ export function buildWidgetStateHead(params: {
 (function () {
   window.${WIDGET_STATE_GLOBAL} = ${serialized};
   var saveTimer;
+  var modelDispatchDepth = 0;
   var actionHandlers = {};
   var queryHandlers = {};
   var assetRegistry = ${serializedAssets};
@@ -253,12 +255,18 @@ export function buildWidgetStateHead(params: {
     },
     setState: function (data, options) {
       window.${WIDGET_STATE_GLOBAL} = { version: 1, data: data };
+      var saveOptions = options && typeof options === 'object' ? options : undefined;
+      if (modelDispatchDepth > 0) {
+        saveOptions = Object.assign({}, saveOptions || {}, {
+          source: '${WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH}'
+        });
+      }
       clearTimeout(saveTimer);
       saveTimer = setTimeout(function () {
         parent.postMessage({
           type: '${WidgetMessageType.StateSave}',
           state: data,
-          options: options && typeof options === 'object' ? options : undefined
+          options: saveOptions
         }, '*');
       }, ${WIDGET_STATE_SAVE_DEBOUNCE_MS});
     },
@@ -279,9 +287,12 @@ export function buildWidgetStateHead(params: {
         return { ok: false, error: 'unknown_action' };
       }
       try {
+        modelDispatchDepth += 1;
         return normalizeActionResult(handler(params || {}));
       } catch (err) {
         return { ok: false, error: err && err.message ? err.message : 'action_failed' };
+      } finally {
+        modelDispatchDepth -= 1;
       }
     },
     dispatchQuery: function (name, params) {

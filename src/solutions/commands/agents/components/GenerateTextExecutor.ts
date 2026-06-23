@@ -197,6 +197,9 @@ export class GenerateTextExecutor {
       abortSignal: agent.plugin.abortService.createAbortController(params.title),
       system: agent.buildCorePrompt(),
       messages,
+      ...(llmConfig.reasoningCallExtras?.providerOptions
+        ? { providerOptions: llmConfig.reasoningCallExtras.providerOptions }
+        : {}),
       tools: registry.getToolsObject() as NonNullable<AiGenerateTextParams['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
     });

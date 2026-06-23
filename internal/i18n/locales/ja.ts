@@ -477,7 +477,22 @@ const ja = {
         'モデル{{fromModel}}でエラーが発生しました。フォールバックモデル{{toModel}}を試行中...',
     },
     // Settings (Obsidian doesn't support Japanese, so ignore it)
-    settings: {},
+    settings: {
+      reasoning: '推論',
+      reasoningDesc:
+        '対応プロバイダーの拡張思考を制御します。オプションはプロバイダー API によって異なります。',
+      reasoningThinkingEnabled: '思考を有効にする',
+      reasoningThinkingDisabled: '推論を無効にする',
+      reasoningLevel: {
+        providerDefault: 'プロバイダーのデフォルト',
+        none: 'なし',
+        minimal: '最小',
+        low: '低',
+        medium: '中',
+        high: '高',
+        xhigh: '最高',
+      },
+    },
   },
 };
 
