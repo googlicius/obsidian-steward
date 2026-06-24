@@ -482,7 +482,7 @@ const ja = {
       reasoningDesc:
         '対応プロバイダーの拡張思考を制御します。オプションはプロバイダー API によって異なります。',
       reasoningThinkingEnabled: '思考を有効にする',
-      reasoningThinkingDisabled: '推論を無効にする',
+      reasoningThinkingDisabled: '思考を無効にする',
       reasoningLevel: {
         providerDefault: 'プロバイダーのデフォルト',
         none: 'なし',

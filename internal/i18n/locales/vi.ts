@@ -543,7 +543,7 @@ const vi = {
       reasoningDesc:
         'Điều khiển suy nghĩ mở rộng cho các nhà cung cấp được hỗ trợ. Tùy chọn phụ thuộc vào API của nhà cung cấp.',
       reasoningThinkingEnabled: 'Bật thinking',
-      reasoningThinkingDisabled: 'Tắt reasoning',
+      reasoningThinkingDisabled: 'Tắt thinking',
       reasoningLevel: {
         providerDefault: 'Mặc định nhà cung cấp',
         none: 'Không',

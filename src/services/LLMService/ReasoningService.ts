@@ -129,10 +129,16 @@ export class ReasoningService {
    */
   public uiValueToReasoningLevel(uiValue: string, mode: ReasoningUiMode): ReasoningLevel {
     if (mode === 'thinking-toggle') {
+      if (uiValue === 'provider-default') {
+        return 'provider-default';
+      }
       if (uiValue === 'enabled') {
         return ReasoningService.THINKING_ENABLED_LEVEL;
       }
-      return 'none';
+      if (uiValue === 'none') {
+        return 'none';
+      }
+      return 'provider-default';
     }
     if (ReasoningService.EFFORT_LEVELS.includes(uiValue as ReasoningLevel)) {
       return uiValue as ReasoningLevel;
@@ -145,7 +151,13 @@ export class ReasoningService {
    */
   public reasoningLevelToUiValue(level: ReasoningLevel, mode: ReasoningUiMode): string {
     if (mode === 'thinking-toggle') {
-      return level === 'none' ? 'none' : 'enabled';
+      if (level === 'provider-default') {
+        return 'provider-default';
+      }
+      if (level === 'none') {
+        return 'none';
+      }
+      return 'enabled';
     }
     return level;
   }
@@ -391,6 +403,7 @@ export class ReasoningService {
   ];
 
   private static readonly THINKING_TOGGLE_UI_OPTIONS: ReasoningUiOption[] = [
+    { value: 'provider-default', labelKey: 'settings.reasoningLevel.providerDefault' },
     { value: 'none', labelKey: 'settings.reasoningThinkingDisabled' },
     { value: 'enabled', labelKey: 'settings.reasoningThinkingEnabled' },
   ];

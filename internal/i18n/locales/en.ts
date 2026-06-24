@@ -606,7 +606,7 @@ const en = {
       reasoningDesc:
         'Controls extended thinking for supported providers. Options depend on the provider API.',
       reasoningThinkingEnabled: 'Enable thinking',
-      reasoningThinkingDisabled: 'Disable reasoning',
+      reasoningThinkingDisabled: 'Disable thinking',
       reasoningLevel: {
         providerDefault: 'Provider default',
         none: 'None',
