@@ -434,7 +434,7 @@ export class WidgetSessionService {
    * the new turn-query should be marked as the history anchor.
    */
   private async shouldAnchorNewUserMessage(conversationTitle: string): Promise<boolean> {
-    const messages =
+    const { messages } =
       await this.plugin.conversationRenderer.extractAllConversationMessages(conversationTitle);
 
     const userMessages: typeof messages = [];

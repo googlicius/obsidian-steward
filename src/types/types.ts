@@ -53,6 +53,14 @@ export interface ConversationMessage {
   step?: number;
 }
 
+export interface ExtractedConversationMessages {
+  messages: ConversationMessage[];
+  /** Indexes of messages with intent 'compacted', in ascending chronological order */
+  compactedIndexes: number[];
+  /** Indexes of messages with anchor === true, in ascending chronological order */
+  anchorIndexes: number[];
+}
+
 export interface DocWithPath {
   path: string;
   [key: string]: unknown;

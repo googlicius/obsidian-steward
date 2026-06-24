@@ -969,7 +969,7 @@ describe('ConversationRenderer', () => {
 
       expect(currentContent).toContain('ANCHOR:true');
 
-      const messages =
+      const { messages } =
         await conversationRenderer.extractAllConversationMessages('test-conversation');
       const anchored = messages.find(message => message.role === 'user');
       expect(anchored?.anchor).toBe(true);
@@ -998,7 +998,7 @@ describe('ConversationRenderer', () => {
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       // Call the method
-      const messages =
+      const { messages } =
         await conversationRenderer.extractAllConversationMessages('test-conversation');
 
       // Verify that the user message content is extracted without the code block wrapper
@@ -1024,7 +1024,7 @@ describe('ConversationRenderer', () => {
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       // Call the method
-      const messages =
+      const { messages } =
         await conversationRenderer.extractAllConversationMessages('test-conversation');
 
       // Verify that escaped backticks are properly unescaped

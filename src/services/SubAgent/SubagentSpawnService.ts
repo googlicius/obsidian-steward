@@ -64,7 +64,7 @@ export class SubagentSpawnService {
   }
 
   private async extractChildSummary(childTitle: string): Promise<string> {
-    const messages =
+    const { messages } =
       await this.plugin.conversationRenderer.extractAllConversationMessages(childTitle);
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const message = messages[i];

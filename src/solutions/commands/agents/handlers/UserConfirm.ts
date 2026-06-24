@@ -40,7 +40,8 @@ export class UserConfirm {
     const lastResult = this.agent.commandProcessor.getLastResult(title);
 
     if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION) {
-      const history = (await this.agent.renderer.extractAllConversationMessages(title)).filter(
+      const { messages: history } = await this.agent.renderer.extractAllConversationMessages(title);
+      const filtered = history.filter(
         message =>
           message.intent !== 'summary' &&
           message.intent !== 'confirm' &&
@@ -48,7 +49,7 @@ export class UserConfirm {
           message.role === 'assistant'
       );
 
-      if (history.length === 0) {
+      if (filtered.length === 0) {
         await ctx.updateConversationNote({
           newContent: t('confirmation.noPending'),
         });
@@ -62,7 +63,7 @@ export class UserConfirm {
       logger.log('No pending command to confirm, letting LLMs handle it.');
 
       // If the previous message was a assistant question, it is more likely that the user is responding to the previous message.
-      const prevMessage = history[history.length - 1];
+      const prevMessage = filtered[filtered.length - 1];
       if (prevMessage.role === 'assistant' && this.isAQuestion(prevMessage.content)) {
         return {
           status: IntentResultStatus.SUCCESS,

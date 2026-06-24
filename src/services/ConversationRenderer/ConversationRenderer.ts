@@ -1,7 +1,7 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../../utils/uniqueID';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ConversationMessage, ConversationRole } from '../../types/types';
+import { ConversationMessage, ConversationRole, ExtractedConversationMessages } from '../../types/types';
 import type StewardPlugin from '../../main';
 import { logger } from 'src/utils/logger';
 import {
@@ -1152,14 +1152,8 @@ export class ConversationRenderer {
    * Used when appending a new compaction so formatting can skip duplicate guidelines.
    */
   public async countCompactedMessageBlocks(conversationTitle: string): Promise<number> {
-    const messages = await this.extractAllConversationMessages(conversationTitle);
-    let count = 0;
-    for (let i = 0; i < messages.length; i++) {
-      if (messages[i].intent === 'compacted') {
-        count++;
-      }
-    }
-    return count;
+    const { compactedIndexes } = await this.extractAllConversationMessages(conversationTitle);
+    return compactedIndexes.length;
   }
 
   /**
@@ -1366,13 +1360,13 @@ export class ConversationRenderer {
   }
 
   /**
-   * Extracts all messages from a conversation
+   * Extracts all messages from a conversation along with indexes of
+   * compacted and anchor messages for efficient downstream lookups.
    * @param conversationTitle The title of the conversation
-   * @returns Array of all conversation messages
    */
   public async extractAllConversationMessages(
     conversationTitle: string
-  ): Promise<ConversationMessage[]> {
+  ): Promise<ExtractedConversationMessages> {
     try {
       const file = this.getConversationFileByName(conversationTitle);
 
@@ -1384,6 +1378,8 @@ export class ConversationRenderer {
       const matches = Array.from(content.matchAll(metadataRegex));
 
       const messages: Array<ConversationMessage> = [];
+      const compactedIndexes: number[] = [];
+      const anchorIndexes: number[] = [];
 
       // Process each message block
       for (let i = 0; i < matches.length; i++) {
@@ -1495,37 +1491,46 @@ export class ConversationRenderer {
         if (metadata.TYPE === 'reasoning') {
           const { reasoningText, visibleText } = this.splitReasoningMessageContent(messageContent);
 
-          messages.push({
+          const reasoningMsg: ConversationMessage = {
             id: metadata.ID,
             content: reasoningText,
             type: metadata.TYPE,
             ...sharedMessageFields,
-          });
+          };
+          if (reasoningMsg.intent === 'compacted') compactedIndexes.push(messages.length);
+          if (reasoningMsg.anchor === true) anchorIndexes.push(messages.length);
+          messages.push(reasoningMsg);
 
           if (visibleText.length > 0) {
-            messages.push({
+            const visibleMsg: ConversationMessage = {
               id: `${metadata.ID}-text`,
               content: visibleText,
               ...sharedMessageFields,
-            });
+            };
+            if (visibleMsg.intent === 'compacted') compactedIndexes.push(messages.length);
+            if (visibleMsg.anchor === true) anchorIndexes.push(messages.length);
+            messages.push(visibleMsg);
           }
           continue;
         }
 
-        messages.push({
+        const msg: ConversationMessage = {
           id: metadata.ID,
           content: messageContent.trim(),
           ...(metadata.TYPE && {
             type: metadata.TYPE,
           }),
           ...sharedMessageFields,
-        });
+        };
+        if (msg.intent === 'compacted') compactedIndexes.push(messages.length);
+        if (msg.anchor === true) anchorIndexes.push(messages.length);
+        messages.push(msg);
       }
 
-      return messages;
+      return { messages, compactedIndexes, anchorIndexes };
     } catch (error) {
       logger.error('Error extracting conversation messages:', error);
-      return [];
+      return { messages: [], compactedIndexes: [], anchorIndexes: [] };
     }
   }
 
@@ -1566,8 +1571,18 @@ export class ConversationRenderer {
   ): Promise<ConversationMessage[]> {
     const { maxMessages = null, includeCompactedMessage = true } = options || {};
 
-    const allMessages = await this.extractAllConversationMessages(conversationTitle);
-    const messagesForHistory = allMessages.filter(message => message.history !== false);
+    const { messages: allMessages, compactedIndexes, anchorIndexes } =
+      await this.extractAllConversationMessages(conversationTitle);
+
+    // Build filtered array while mapping original indexes to their new positions
+    const messagesForHistory: ConversationMessage[] = [];
+    const originalToFilteredIndex = new Map<number, number>();
+    for (let i = 0; i < allMessages.length; i++) {
+      if (allMessages[i].history !== false) {
+        originalToFilteredIndex.set(i, messagesForHistory.length);
+        messagesForHistory.push(allMessages[i]);
+      }
+    }
 
     if (
       messagesForHistory.length > 0 &&
@@ -1576,13 +1591,14 @@ export class ConversationRenderer {
       messagesForHistory.pop();
     }
 
-    let latestAnchorIndex = -1;
-    for (let i = messagesForHistory.length - 1; i >= 0; i -= 1) {
-      if (messagesForHistory[i].anchor === true) {
-        latestAnchorIndex = i;
-        break;
-      }
-    }
+    // Remap anchor indexes to the filtered array
+    const filteredAnchorIndexes = anchorIndexes
+      .map(i => originalToFilteredIndex.get(i))
+      .filter((i): i is number => i !== undefined);
+
+    const latestAnchorIndex = filteredAnchorIndexes.length > 0
+      ? filteredAnchorIndexes[filteredAnchorIndexes.length - 1]
+      : -1;
 
     if (latestAnchorIndex >= 0) {
       const anchoredMessages = messagesForHistory.slice(latestAnchorIndex);
@@ -1611,13 +1627,17 @@ export class ConversationRenderer {
 
     let filteredMessages: ConversationMessage[];
 
-    const compactedEntries = this.collectCompactedMessages(messagesForHistory);
-    if (compactedEntries.length > 0) {
-      const maxCompactedIndex = compactedEntries[compactedEntries.length - 1].index;
+    // Remap compacted indexes to the filtered array
+    const filteredCompactedIndexes = compactedIndexes
+      .map(i => originalToFilteredIndex.get(i))
+      .filter((i): i is number => i !== undefined);
+
+    if (filteredCompactedIndexes.length > 0) {
+      const maxCompactedIndex = filteredCompactedIndexes[filteredCompactedIndexes.length - 1];
       if (includeCompactedMessage) {
         const startIndex = Math.max(maxCompactedIndex + 1, topicStartIndex);
         filteredMessages = [
-          ...compactedEntries.map(entry => entry.message),
+          ...filteredCompactedIndexes.map(i => messagesForHistory[i]),
           ...messagesForHistory.slice(startIndex),
         ];
       } else {
@@ -1631,22 +1651,6 @@ export class ConversationRenderer {
     return maxMessages === null
       ? filteredMessages
       : this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
-  }
-
-  /**
-   * All messages with intent `compacted`, in ascending index order.
-   * The latest compaction is the last entry (largest index).
-   */
-  private collectCompactedMessages(
-    messages: ConversationMessage[]
-  ): { index: number; message: ConversationMessage }[] {
-    const result: { index: number; message: ConversationMessage }[] = [];
-    for (let i = 0; i < messages.length; i++) {
-      if (messages[i].intent === 'compacted') {
-        result.push({ index: i, message: messages[i] });
-      }
-    }
-    return result;
   }
 
   /**

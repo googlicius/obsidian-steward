@@ -288,7 +288,7 @@ export class ArtifactManagerV2 {
       }
 
       // Get all messages from the conversation
-      const messages = await this.plugin.conversationRenderer.extractAllConversationMessages(
+      const { messages } = await this.plugin.conversationRenderer.extractAllConversationMessages(
         this.conversationTitle
       );
 

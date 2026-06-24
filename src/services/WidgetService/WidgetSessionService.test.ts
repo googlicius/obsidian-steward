@@ -307,7 +307,7 @@ describe('WidgetSessionService shouldAnchorNewUserMessage', () => {
     ];
 
     const mockPlugin = createMockPlugin({
-      extractAllConversationMessages: jest.fn().mockResolvedValue(messages),
+      extractAllConversationMessages: jest.fn().mockResolvedValue({ messages, compactedIndexes: [], anchorIndexes: [] }),
     });
 
     service = WidgetSessionService.getInstance(mockPlugin);
@@ -342,7 +342,7 @@ describe('WidgetSessionService shouldAnchorNewUserMessage', () => {
     ];
 
     const mockPlugin = createMockPlugin({
-      extractAllConversationMessages: jest.fn().mockResolvedValue(messages),
+      extractAllConversationMessages: jest.fn().mockResolvedValue({ messages, compactedIndexes: [], anchorIndexes: [] }),
     });
 
     service = WidgetSessionService.getInstance(mockPlugin);
@@ -363,7 +363,7 @@ describe('WidgetSessionService shouldAnchorNewUserMessage', () => {
     ];
 
     const mockPlugin = createMockPlugin({
-      extractAllConversationMessages: jest.fn().mockResolvedValue(messages),
+      extractAllConversationMessages: jest.fn().mockResolvedValue({ messages, compactedIndexes: [], anchorIndexes: [] }),
     });
 
     service = WidgetSessionService.getInstance(mockPlugin);

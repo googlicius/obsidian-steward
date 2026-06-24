@@ -123,14 +123,18 @@ describe('RevertLatestQuery', () => {
   }
 
   it('returns error when there is no previous user query window', async () => {
-    mockAgent.renderer.extractAllConversationMessages = jest.fn().mockResolvedValue([
-      {
-        id: 'u-1',
-        role: 'user',
-        content: 'revert',
-        intent: 'revert',
-      },
-    ]);
+    mockAgent.renderer.extractAllConversationMessages = jest.fn().mockResolvedValue({
+      messages: [
+        {
+          id: 'u-1',
+          role: 'user',
+          content: 'revert',
+          intent: 'revert',
+        },
+      ],
+      compactedIndexes: [],
+      anchorIndexes: [],
+    });
 
     const result = await handler.handle(
       createCtx({
@@ -173,47 +177,55 @@ describe('RevertLatestQuery', () => {
       .fn()
       .mockImplementation(async (title: string) => {
         if (title === 'conversation') {
-          return [
-            { id: 'u-1', role: 'user', content: 'query 1', intent: 'vault' },
-            {
-              id: 'p-a1',
-              role: 'assistant',
-              content: 'artifact',
-              intent: 'create',
-              type: 'artifact',
-              artifactType: ArtifactType.CREATED_PATHS,
-            },
-            {
-              id: 'spawn-1',
-              role: 'assistant',
-              content: spawnContent,
-              intent: 'spawn_subagent',
-              type: 'tool-invocation',
-            },
-            { id: 'u-2', role: 'user', content: 'revert', intent: 'revert' },
-            {
-              id: 'a-after-1',
-              role: 'assistant',
-              content: 'Reverting all operations from the latest user query',
-              intent: 'revert_latest_query',
-              type: 'text',
-            },
-          ];
+          return {
+            messages: [
+              { id: 'u-1', role: 'user', content: 'query 1', intent: 'vault' },
+              {
+                id: 'p-a1',
+                role: 'assistant',
+                content: 'artifact',
+                intent: 'create',
+                type: 'artifact',
+                artifactType: ArtifactType.CREATED_PATHS,
+              },
+              {
+                id: 'spawn-1',
+                role: 'assistant',
+                content: spawnContent,
+                intent: 'spawn_subagent',
+                type: 'tool-invocation',
+              },
+              { id: 'u-2', role: 'user', content: 'revert', intent: 'revert' },
+              {
+                id: 'a-after-1',
+                role: 'assistant',
+                content: 'Reverting all operations from the latest user query',
+                intent: 'revert_latest_query',
+                type: 'text',
+              },
+            ],
+            compactedIndexes: [],
+            anchorIndexes: [],
+          };
         }
         if (title === 'conversation__subagent_1') {
-          return [
-            { id: 'u-s1', role: 'user', content: 'child task', intent: 'vault' },
-            {
-              id: 'c-a1',
-              role: 'assistant',
-              content: 'artifact',
-              intent: 'create',
-              type: 'artifact',
-              artifactType: ArtifactType.CREATED_PATHS,
-            },
-          ];
+          return {
+            messages: [
+              { id: 'u-s1', role: 'user', content: 'child task', intent: 'vault' },
+              {
+                id: 'c-a1',
+                role: 'assistant',
+                content: 'artifact',
+                intent: 'create',
+                type: 'artifact',
+                artifactType: ArtifactType.CREATED_PATHS,
+              },
+            ],
+            compactedIndexes: [],
+            anchorIndexes: [],
+          };
         }
-        return [];
+        return { messages: [], compactedIndexes: [], anchorIndexes: [] };
       });
 
     mockPlugin.app.vault.getAbstractFileByPath = jest.fn((path: string) => createMockFile(path));
@@ -252,33 +264,37 @@ describe('RevertLatestQuery', () => {
       },
     ]);
 
-    mockAgent.renderer.extractAllConversationMessages = jest.fn().mockResolvedValue([
-      { id: 'u-1', role: 'user', content: 'query 1', intent: 'vault' },
-      {
-        id: 'a-1',
-        role: 'assistant',
-        content: 'artifact',
-        intent: 'create',
-        type: 'artifact',
-        artifactType: ArtifactType.CREATED_PATHS,
-      },
-      {
-        id: 'a-2',
-        role: 'assistant',
-        content: 'artifact',
-        intent: 'create',
-        type: 'artifact',
-        artifactType: ArtifactType.CREATED_PATHS,
-      },
-      { id: 'u-2', role: 'user', content: 'revert', intent: 'revert' },
-      {
-        id: 'a-after-2',
-        role: 'assistant',
-        content: 'Reverting all operations from the latest user query',
-        intent: 'revert_latest_query',
-        type: 'text',
-      },
-    ]);
+    mockAgent.renderer.extractAllConversationMessages = jest.fn().mockResolvedValue({
+      messages: [
+        { id: 'u-1', role: 'user', content: 'query 1', intent: 'vault' },
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: 'artifact',
+          intent: 'create',
+          type: 'artifact',
+          artifactType: ArtifactType.CREATED_PATHS,
+        },
+        {
+          id: 'a-2',
+          role: 'assistant',
+          content: 'artifact',
+          intent: 'create',
+          type: 'artifact',
+          artifactType: ArtifactType.CREATED_PATHS,
+        },
+        { id: 'u-2', role: 'user', content: 'revert', intent: 'revert' },
+        {
+          id: 'a-after-2',
+          role: 'assistant',
+          content: 'Reverting all operations from the latest user query',
+          intent: 'revert_latest_query',
+          type: 'text',
+        },
+      ],
+      compactedIndexes: [],
+      anchorIndexes: [],
+    });
 
     mockPlugin.app.vault.getAbstractFileByPath = jest.fn((path: string) => createMockFile(path));
     mockPlugin.app.vault.delete = jest.fn(async (file: TFile) => {
