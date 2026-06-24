@@ -39,6 +39,8 @@ export interface ConversationMessage {
   lang?: string;
   intent: string;
   history?: boolean;
+  /** When true, history extraction starts from this message (drops everything before it). */
+  anchor?: boolean;
   type?: string;
   artifactType?: string;
   /**

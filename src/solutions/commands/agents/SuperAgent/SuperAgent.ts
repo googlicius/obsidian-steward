@@ -310,6 +310,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
         newContent: intent.query,
         step: params.invocationCount,
         contentFormat: 'hidden',
+        ...(intent.anchor === true && { anchor: true }),
       });
     }
 

@@ -237,6 +237,7 @@ export class ConversationRenderer {
     includeHistory?: boolean;
     step?: number;
     contentFormat?: 'callout' | 'hidden' | 'plain';
+    anchor?: boolean;
   }): Promise<string | undefined> {
     try {
       const file = this.getConversationFileByName(params.path);
@@ -246,6 +247,7 @@ export class ConversationRenderer {
         role: 'User',
         includeHistory: params.includeHistory ?? true,
         step: params.step,
+        ...(params.anchor === true && { anchor: true }),
       });
 
       // Determine content format (default to 'callout' for user messages)
@@ -528,6 +530,7 @@ export class ConversationRenderer {
       artifactType?: ArtifactType;
       handlerId?: string;
       step?: number;
+      anchor?: boolean;
     } = {}
   ) {
     const {
@@ -563,6 +566,9 @@ export class ConversationRenderer {
       }),
       ...(step !== undefined && {
         STEP: step,
+      }),
+      ...(options.anchor === true && {
+        ANCHOR: 'true',
       }),
     };
 
@@ -907,6 +913,9 @@ export class ConversationRenderer {
         intent: metadata.COMMAND || metadata.AGENT,
         lang: metadata.LANG,
         history: includeInHistory,
+        ...(metadata.ANCHOR === 'true' && {
+          anchor: true,
+        }),
         ...(metadata.TYPE && {
           type: metadata.TYPE,
         }),
@@ -1349,8 +1358,7 @@ export class ConversationRenderer {
 
     const reasoningText = (match[1] || match[2] || '').trim();
     let visibleText =
-      messageContent.slice(0, match.index) +
-      messageContent.slice(match.index + match[0].length);
+      messageContent.slice(0, match.index) + messageContent.slice(match.index + match[0].length);
     visibleText = visibleText.replace(/>\[!info\][^\n]*stw-toggle-block[^\n]*\n?/m, '');
     visibleText = visibleText.trim();
 
@@ -1470,6 +1478,9 @@ export class ConversationRenderer {
           intent: metadata.COMMAND || metadata.AGENT,
           lang: metadata.LANG,
           history: includeInHistory,
+          ...(metadata.ANCHOR === 'true' && {
+            anchor: true,
+          }),
           ...(metadata.ARTIFACT_TYPE && {
             artifactType: metadata.ARTIFACT_TYPE,
           }),
@@ -1526,7 +1537,6 @@ export class ConversationRenderer {
     conversationTitle: string,
     options?: {
       maxMessages?: number | null;
-      fromLastUserMessage?: number;
       includeCompactedMessage?: boolean;
     }
   ): Promise<{ messages: ModelMessage[]; hasCompactionContext: boolean }> {
@@ -1551,15 +1561,10 @@ export class ConversationRenderer {
     conversationTitle: string,
     options?: {
       maxMessages?: number | null;
-      fromLastUserMessage?: number;
       includeCompactedMessage?: boolean;
     }
   ): Promise<ConversationMessage[]> {
-    const {
-      maxMessages = null,
-      fromLastUserMessage,
-      includeCompactedMessage = true,
-    } = options || {};
+    const { maxMessages = null, includeCompactedMessage = true } = options || {};
 
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
     const messagesForHistory = allMessages.filter(message => message.history !== false);
@@ -1569,6 +1574,21 @@ export class ConversationRenderer {
       messagesForHistory[messagesForHistory.length - 1].role === 'user'
     ) {
       messagesForHistory.pop();
+    }
+
+    let latestAnchorIndex = -1;
+    for (let i = messagesForHistory.length - 1; i >= 0; i -= 1) {
+      if (messagesForHistory[i].anchor === true) {
+        latestAnchorIndex = i;
+        break;
+      }
+    }
+
+    if (latestAnchorIndex >= 0) {
+      const anchoredMessages = messagesForHistory.slice(latestAnchorIndex);
+      return maxMessages === null
+        ? anchoredMessages
+        : this.sliceMessagesPreservingSteps(anchoredMessages, maxMessages);
     }
 
     const allCommandWithoutPrefixes = this.plugin.userDefinedCommandService
@@ -1608,34 +1628,9 @@ export class ConversationRenderer {
       filteredMessages = messagesForHistory.slice(topicStartIndex);
     }
 
-    if (fromLastUserMessage !== undefined && fromLastUserMessage > 0) {
-      return this.sliceFromUserMessageBoundary(filteredMessages, fromLastUserMessage);
-    }
-
     return maxMessages === null
       ? filteredMessages
       : this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
-  }
-
-  /**
-   * Returns messages from the Nth user message counting backward from the end
-   * (1 = last user message) through the end of the list.
-   */
-  private sliceFromUserMessageBoundary(
-    messages: ConversationMessage[],
-    userMessageCountFromEnd: number
-  ): ConversationMessage[] {
-    let userCountFromEnd = 0;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        userCountFromEnd += 1;
-        if (userCountFromEnd === userMessageCountFromEnd) {
-          return messages.slice(i);
-        }
-      }
-    }
-
-    return messages;
   }
 
   /**

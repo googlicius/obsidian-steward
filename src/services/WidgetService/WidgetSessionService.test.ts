@@ -3,9 +3,14 @@ import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import { WidgetSessionService } from './WidgetSessionService';
 import type { WidgetAgent, WidgetDefinition } from './types';
 import { DEFAULT_WIDGET_QUERY_NAME } from './types';
+import type { ConversationMessage } from 'src/types/types';
 
-function createMockPlugin(): jest.Mocked<StewardPlugin> {
-  return {} as unknown as jest.Mocked<StewardPlugin>;
+function createMockPlugin(
+  conversationRenderer?: Partial<StewardPlugin['conversationRenderer']>
+): jest.Mocked<StewardPlugin> {
+  return {
+    conversationRenderer,
+  } as unknown as jest.Mocked<StewardPlugin>;
 }
 
 function bindPrivateMethods(service: WidgetSessionService) {
@@ -259,5 +264,111 @@ describe('WidgetSessionService session move helpers', () => {
         source: 'model_dispatch',
       });
     });
+  });
+});
+
+describe('WidgetSessionService shouldAnchorNewUserMessage', () => {
+  let service: WidgetSessionService;
+  let shouldAnchorNewUserMessage: WidgetSessionService['shouldAnchorNewUserMessage'];
+
+  beforeEach(() => {
+    (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+  });
+
+  it('returns true when the 2nd-to-last history-eligible user message is not anchored', async () => {
+    const messages: ConversationMessage[] = [
+      {
+        id: 'u1',
+        role: 'user',
+        content: 'turn 1',
+        intent: ' ',
+        history: true,
+      },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: 'reply 1',
+        intent: ' ',
+      },
+      {
+        id: 'u2',
+        role: 'user',
+        content: 'turn 2',
+        intent: ' ',
+        history: true,
+      },
+      {
+        id: 'u-human',
+        role: 'user',
+        content: 'human move',
+        intent: ' ',
+        history: false,
+      },
+    ];
+
+    const mockPlugin = createMockPlugin({
+      extractAllConversationMessages: jest.fn().mockResolvedValue(messages),
+    });
+
+    service = WidgetSessionService.getInstance(mockPlugin);
+    shouldAnchorNewUserMessage = service['shouldAnchorNewUserMessage'].bind(service);
+
+    await expect(shouldAnchorNewUserMessage('widget-session')).resolves.toBe(true);
+  });
+
+  it('returns false when the 2nd-to-last history-eligible user message is already anchored', async () => {
+    const messages: ConversationMessage[] = [
+      {
+        id: 'u1',
+        role: 'user',
+        content: 'turn 1',
+        intent: ' ',
+        history: true,
+        anchor: true,
+      },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content: 'reply 1',
+        intent: ' ',
+      },
+      {
+        id: 'u2',
+        role: 'user',
+        content: 'turn 2',
+        intent: ' ',
+        history: true,
+      },
+    ];
+
+    const mockPlugin = createMockPlugin({
+      extractAllConversationMessages: jest.fn().mockResolvedValue(messages),
+    });
+
+    service = WidgetSessionService.getInstance(mockPlugin);
+    shouldAnchorNewUserMessage = service['shouldAnchorNewUserMessage'].bind(service);
+
+    await expect(shouldAnchorNewUserMessage('widget-session')).resolves.toBe(false);
+  });
+
+  it('returns false when fewer than 2 history-eligible user messages exist', async () => {
+    const messages: ConversationMessage[] = [
+      {
+        id: 'u1',
+        role: 'user',
+        content: 'turn 1',
+        intent: ' ',
+        history: true,
+      },
+    ];
+
+    const mockPlugin = createMockPlugin({
+      extractAllConversationMessages: jest.fn().mockResolvedValue(messages),
+    });
+
+    service = WidgetSessionService.getInstance(mockPlugin);
+    shouldAnchorNewUserMessage = service['shouldAnchorNewUserMessage'].bind(service);
+
+    await expect(shouldAnchorNewUserMessage('widget-session')).resolves.toBe(false);
   });
 });

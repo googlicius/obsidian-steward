@@ -866,7 +866,7 @@ describe('ConversationRenderer', () => {
       expect(joined).toContain('Final answer after compaction.');
     });
 
-    it('fromLastUserMessage keeps from the Nth user message counting backward through the end', async () => {
+    it('extractConversationMessagesForHistory slices from the latest anchor when present', async () => {
       const mockContent = [
         '<!--STW ID:u1,ROLE:user-->',
         '>[!stw-user-message]',
@@ -875,7 +875,7 @@ describe('ConversationRenderer', () => {
         '<!--STW ID:a1,ROLE:steward-->',
         'old assistant reply',
         '',
-        '<!--STW ID:u2,ROLE:user-->',
+        '<!--STW ID:u2,ROLE:user,ANCHOR:true-->',
         '>[!stw-user-message]',
         '>/ middle turn prompt',
         '',
@@ -884,19 +884,7 @@ describe('ConversationRenderer', () => {
         '',
         '<!--STW ID:u3,ROLE:user-->',
         '>[!stw-user-message]',
-        '>/ ## Current game state',
-        '',
-        '<!--STW ID:a3,ROLE:steward-->',
-        'query result 1',
-        '',
-        '<!--STW ID:a4,ROLE:steward-->',
-        'query result 2',
-        '',
-        '<!--STW ID:a5,ROLE:steward-->',
-        'query result 3',
-        '',
-        '<!--STW ID:a6,ROLE:steward-->',
-        'query result 4',
+        '>/ current turn prompt',
       ].join('\n');
 
       const mockPlugin = createMockPlugin(mockContent);
@@ -905,26 +893,26 @@ describe('ConversationRenderer', () => {
       const extractMessages =
         conversationRenderer['extractConversationMessagesForHistory'].bind(conversationRenderer);
 
-      const trimmedHistory = await extractMessages('test-conversation', {
-        maxMessages: 4,
-      });
-      const fullTurnHistory = await extractMessages('test-conversation', {
-        fromLastUserMessage: 2,
-      });
+      const history = await extractMessages('test-conversation');
 
-      const includesTurnPrompt = (messages: ConversationMessage[]) =>
-        messages.some(message => (message.content ?? '').includes('Current game state'));
-
-      expect(includesTurnPrompt(trimmedHistory)).toBe(false);
-      expect(includesTurnPrompt(fullTurnHistory)).toBe(true);
       expect(
-        fullTurnHistory.some((message: ConversationMessage) =>
+        history.some((message: ConversationMessage) =>
           (message.content ?? '').includes('old turn prompt')
+        )
+      ).toBe(false);
+      expect(
+        history.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('middle turn prompt')
+        )
+      ).toBe(true);
+      expect(
+        history.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('current turn prompt')
         )
       ).toBe(false);
     });
 
-    it('fromLastUserMessage number keeps from the Nth user message counting backward through the end', async () => {
+    it('extractConversationMessagesForHistory keeps existing behavior when no anchor is present', async () => {
       const mockContent = [
         '<!--STW ID:u1,ROLE:user-->',
         '>[!stw-user-message]',
@@ -935,10 +923,7 @@ describe('ConversationRenderer', () => {
         '',
         '<!--STW ID:u2,ROLE:user-->',
         '>[!stw-user-message]',
-        '>/ ## Current game state',
-        '',
-        '<!--STW ID:a2,ROLE:steward-->',
-        'query result 1',
+        '>/ current turn prompt',
       ].join('\n');
 
       const mockPlugin = createMockPlugin(mockContent);
@@ -947,33 +932,47 @@ describe('ConversationRenderer', () => {
       const extractMessages =
         conversationRenderer['extractConversationMessagesForHistory'].bind(conversationRenderer);
 
-      const fromLastUser = await extractMessages('test-conversation', {
-        fromLastUserMessage: 1,
-      });
-      const fromSecondToLastUser = await extractMessages('test-conversation', {
-        fromLastUserMessage: 2,
-      });
+      const history = await extractMessages('test-conversation');
 
       expect(
-        fromLastUser.some((message: ConversationMessage) =>
+        history.some((message: ConversationMessage) =>
           (message.content ?? '').includes('old turn prompt')
+        )
+      ).toBe(true);
+      expect(
+        history.some((message: ConversationMessage) =>
+          (message.content ?? '').includes('current turn prompt')
         )
       ).toBe(false);
-      expect(
-        fromLastUser.some((message: ConversationMessage) =>
-          (message.content ?? '').includes('Current game state')
-        )
-      ).toBe(true);
-      expect(
-        fromSecondToLastUser.some((message: ConversationMessage) =>
-          (message.content ?? '').includes('old turn prompt')
-        )
-      ).toBe(true);
-      expect(
-        fromSecondToLastUser.some((message: ConversationMessage) =>
-          (message.content ?? '').includes('Current game state')
-        )
-      ).toBe(true);
+    });
+
+    it('addUserMessage writes ANCHOR:true when anchor is requested', async () => {
+      const mockContent = '';
+
+      const mockPlugin = createMockPlugin(mockContent);
+      let currentContent = mockContent;
+
+      jest.spyOn(mockPlugin.app.vault, 'process').mockImplementation(async (_file, callback) => {
+        currentContent = callback(currentContent);
+        mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(currentContent);
+        return Promise.resolve(currentContent);
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: 'turn prompt',
+        contentFormat: 'hidden',
+        anchor: true,
+      });
+
+      expect(currentContent).toContain('ANCHOR:true');
+
+      const messages =
+        await conversationRenderer.extractAllConversationMessages('test-conversation');
+      const anchored = messages.find(message => message.role === 'user');
+      expect(anchored?.anchor).toBe(true);
     });
 
     it('should resolve the tool-invocation output as a message reference', async () => {});

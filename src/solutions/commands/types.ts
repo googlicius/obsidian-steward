@@ -24,8 +24,8 @@ export interface Intent {
   tools?: ToolName[];
   /** When set, limits how many trailing conversation messages are replayed as model history. */
   maxHistoryMessages?: number;
-  /** When set to a positive N, replay from the Nth user message counting backward from the end (1 = last user only). Ignores maxHistoryMessages. */
-  historyFromLastUserMessage?: number;
+  /** When true, the new user message for this turn is marked as a history anchor. */
+  anchor?: boolean;
 }
 
 export interface ContextAugmentationIntent extends Intent {

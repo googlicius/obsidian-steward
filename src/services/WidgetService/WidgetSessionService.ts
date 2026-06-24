@@ -25,8 +25,6 @@ const { getTranslation } = getBundledInternal('i18n');
 
 export const WIDGET_PLAYGROUND_FILE = 'Playground.md';
 
-/** Widget actor turns replay from the first user message so prior query/reasoning stays in context. */
-
 export interface WidgetActorTurnResult {
   ok: boolean;
   error?: string;
@@ -294,7 +292,7 @@ export class WidgetSessionService {
 
     await this.plugin.conversationRenderer.createConversationNote(params.conversationTitle, {
       intent: {
-        type: 'widget_session',
+        type: ' ',
         query: 'Widget session started.',
       },
       properties: [
@@ -395,6 +393,8 @@ export class WidgetSessionService {
       moveLog: params.session.moveLog ?? [],
     });
 
+    const shouldAnchor = await this.shouldAnchorNewUserMessage(params.session.conversationTitle);
+
     const handlerParams: AgentHandlerParams = {
       title: params.session.conversationTitle,
       intent: {
@@ -408,7 +408,7 @@ export class WidgetSessionService {
         }),
         model: params.agent.model,
         no_confirm: true,
-        historyFromLastUserMessage: 2,
+        ...(shouldAnchor && { anchor: true }),
       },
       lang: params.lang,
       handlerId: uniqueID(),
@@ -427,6 +427,30 @@ export class WidgetSessionService {
     }
 
     return { ok: true };
+  }
+
+  /**
+   * When the 2nd-to-last history-eligible user message is not already anchored,
+   * the new turn-query should be marked as the history anchor.
+   */
+  private async shouldAnchorNewUserMessage(conversationTitle: string): Promise<boolean> {
+    const messages =
+      await this.plugin.conversationRenderer.extractAllConversationMessages(conversationTitle);
+
+    const userMessages: typeof messages = [];
+    for (let i = 0; i < messages.length; i += 1) {
+      const message = messages[i];
+      if (message.role === 'user' && message.history !== false) {
+        userMessages.push(message);
+      }
+    }
+
+    if (userMessages.length < 2) {
+      return false;
+    }
+
+    const secondToLastUser = userMessages[userMessages.length - 2];
+    return secondToLastUser.anchor !== true;
   }
 
   /**
