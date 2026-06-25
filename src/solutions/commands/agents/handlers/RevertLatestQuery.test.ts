@@ -133,7 +133,6 @@ describe('RevertLatestQuery', () => {
         },
       ],
       compactedIndexes: [],
-      anchorIndexes: [],
     });
 
     const result = await handler.handle(
@@ -205,8 +204,7 @@ describe('RevertLatestQuery', () => {
               },
             ],
             compactedIndexes: [],
-            anchorIndexes: [],
-          };
+                };
         }
         if (title === 'conversation__subagent_1') {
           return {
@@ -222,8 +220,7 @@ describe('RevertLatestQuery', () => {
               },
             ],
             compactedIndexes: [],
-            anchorIndexes: [],
-          };
+                };
         }
         return { messages: [], compactedIndexes: [], anchorIndexes: [] };
       });
@@ -293,7 +290,6 @@ describe('RevertLatestQuery', () => {
         },
       ],
       compactedIndexes: [],
-      anchorIndexes: [],
     });
 
     mockPlugin.app.vault.getAbstractFileByPath = jest.fn((path: string) => createMockFile(path));

@@ -125,7 +125,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     const stewardFolder = this.plugin.settings.stewardFolder;
     const memorySourcePath = this.plugin.toolInstructionService.getToolInstructionsRelativePath();
 
-    return new MarkdownBuilder()
+    const builder = new MarkdownBuilder()
       .addSection(
         '# Agent',
         'You are a helpful assistant who helps users with their Obsidian vault.'
@@ -167,7 +167,15 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
           "- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.",
           `- When working with memory files (${stewardFolder}/Memory/*), also read the ${stewardFolder}/Memory/Agent.md file for editing instructions.`,
         ].join('\n')
-      )
+      );
+
+    const extraSections = context.extraCorePromptSections ?? [];
+    for (let i = 0; i < extraSections.length; i += 1) {
+      const section = extraSections[i];
+      builder.addSection(section.heading, section.body);
+    }
+
+    return builder
       .addSection(
         '## Context',
         context.currentNote !== null
@@ -310,7 +318,6 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
         newContent: intent.query,
         step: params.invocationCount,
         contentFormat: 'hidden',
-        ...(intent.anchor === true && { anchor: true }),
       });
     }
 

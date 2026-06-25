@@ -7,7 +7,7 @@ import { ToolName, ToolRegistry } from 'src/solutions/commands/ToolRegistry';
 import { createAgentFromConfig } from 'src/solutions/commands/agents/AgentFactory';
 import { DEFAULT_AGENT_CONFIGS } from 'src/solutions/commands/agents/defaultAgents';
 import type { Agent } from 'src/solutions/commands/Agent';
-import type { AgentHandlerParams } from 'src/solutions/commands/types';
+import type { AgentHandlerParams, ExtraCorePromptSection } from 'src/solutions/commands/types';
 import { DEFAULT_INTENT_TYPE } from 'src/solutions/commands/agents/intentHelpers';
 import {
   DEFAULT_WIDGET_QUERY_NAME,
@@ -383,17 +383,16 @@ export class WidgetSessionService {
       [{ name: 'tools', value: actorTools }]
     );
 
-    const systemPrompts = await this.resolveActorSystemPrompts({
-      agent: params.agent,
-      projectPath: params.projectPath,
-    });
-
     const turnQuery = this.buildTurnContext({
       actorId: params.actorId,
       moveLog: params.session.moveLog ?? [],
     });
 
-    const shouldAnchor = await this.shouldAnchorNewUserMessage(params.session.conversationTitle);
+    const actorContext = await this.buildActorContext({
+      agent: params.agent,
+      definition: params.definition,
+      projectPath: params.projectPath,
+    });
 
     const handlerParams: AgentHandlerParams = {
       title: params.session.conversationTitle,
@@ -401,14 +400,10 @@ export class WidgetSessionService {
         type: ' ',
         query: turnQuery,
         tools: actorTools,
-        systemPrompts,
-        extraCorePromptSections: this.buildActorExtraCorePromptSections({
-          agent: params.agent,
-          definition: params.definition,
-        }),
+        systemPrompts: actorContext.systemPrompts,
+        extraCorePromptSections: actorContext.extraCorePromptSections,
         model: params.agent.model,
         no_confirm: true,
-        ...(shouldAnchor && { anchor: true }),
       },
       lang: params.lang,
       handlerId: uniqueID(),
@@ -427,30 +422,6 @@ export class WidgetSessionService {
     }
 
     return { ok: true };
-  }
-
-  /**
-   * When the 2nd-to-last history-eligible user message is not already anchored,
-   * the new turn-query should be marked as the history anchor.
-   */
-  private async shouldAnchorNewUserMessage(conversationTitle: string): Promise<boolean> {
-    const { messages } =
-      await this.plugin.conversationRenderer.extractAllConversationMessages(conversationTitle);
-
-    const userMessages: typeof messages = [];
-    for (let i = 0; i < messages.length; i += 1) {
-      const message = messages[i];
-      if (message.role === 'user' && message.history !== false) {
-        userMessages.push(message);
-      }
-    }
-
-    if (userMessages.length < 2) {
-      return false;
-    }
-
-    const secondToLastUser = userMessages[userMessages.length - 2];
-    return secondToLastUser.anchor !== true;
   }
 
   /**
@@ -492,10 +463,62 @@ export class WidgetSessionService {
     });
   }
 
-  private buildActorExtraCorePromptSections(params: {
+  /**
+   * Shared entry point for resolving widget context (system prompts + extra core prompt sections)
+   * from a project path and actor id. Used by both the orchestrator and AgentRunner paths.
+   */
+  public async resolveWidgetContext(params: {
+    projectPath: string;
+    actorId: string;
+  }): Promise<{
+    systemPrompts: string[];
+    extraCorePromptSections: ExtraCorePromptSection[];
+  } | null> {
+    const definition = await this.definitionService.getWidgetDefinition(params.projectPath);
+    const agent = definition.agents[params.actorId];
+    if (!agent) {
+      return null;
+    }
+
+    return this.buildActorContext({
+      agent,
+      definition,
+      projectPath: params.projectPath,
+    });
+  }
+
+  /** Combines system prompt resolution and extra core prompt sections into one call. */
+  private async buildActorContext(params: {
     agent: WidgetAgent;
     definition: WidgetDefinition;
-  }): { heading: string; body: string }[] {
+    projectPath: string;
+  }): Promise<{
+    systemPrompts: string[];
+    extraCorePromptSections: ExtraCorePromptSection[];
+  }> {
+    const definitionPath = normalizePath(`${params.projectPath}/Widget.md`);
+    const rawPrompts = params.agent.instructions;
+
+    const transformed: string[] = [];
+    for (let i = 0; i < rawPrompts.length; i++) {
+      transformed.push(
+        this.plugin.noteContentService.transformHeadingOnlyWikilinks(rawPrompts[i], definitionPath)
+      );
+    }
+
+    const systemPrompts: string[] = [];
+    for (let i = 0; i < transformed.length; i++) {
+      try {
+        const processed = await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+          [transformed[i]]
+        );
+        systemPrompts.push(processed[0]);
+      } catch (error) {
+        logger.warn('Widget actor system prompt wikilink resolution failed:', error);
+        systemPrompts.push(transformed[i]);
+      }
+    }
+
     const allowedQueries = resolveAgentAllowedQueries(params.agent);
     const queryCatalog = params.definition.queries?.queries ?? {};
     const queryLines: string[] = [];
@@ -516,10 +539,13 @@ export class WidgetSessionService {
       actionLines.push(`- \`${actionName}\`${description}${endTurnHint}`);
     }
 
-    return [
-      { heading: '## Available queries', body: queryLines.join('\n') },
-      { heading: '## Allowed actions', body: actionLines.join('\n') },
-    ];
+    return {
+      systemPrompts,
+      extraCorePromptSections: [
+        { heading: '## Available queries', body: queryLines.join('\n') },
+        { heading: '## Allowed actions', body: actionLines.join('\n') },
+      ],
+    };
   }
 
   private buildTurnContext(params: {
@@ -558,36 +584,6 @@ export class WidgetSessionService {
       return catalog[queryName]?.description ?? 'Current public game state (JSON).';
     }
     return catalog[queryName]?.description;
-  }
-
-  private async resolveActorSystemPrompts(params: {
-    agent: WidgetAgent;
-    projectPath: string;
-  }): Promise<string[]> {
-    const definitionPath = normalizePath(`${params.projectPath}/Widget.md`);
-    const rawPrompts = params.agent.instructions;
-
-    const transformed: string[] = [];
-    for (let i = 0; i < rawPrompts.length; i++) {
-      transformed.push(
-        this.plugin.noteContentService.transformHeadingOnlyWikilinks(rawPrompts[i], definitionPath)
-      );
-    }
-
-    const resolved: string[] = [];
-    for (let i = 0; i < transformed.length; i++) {
-      try {
-        const processed = await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
-          [transformed[i]]
-        );
-        resolved.push(processed[0]);
-      } catch (error) {
-        logger.warn('Widget actor system prompt wikilink resolution failed:', error);
-        resolved.push(transformed[i]);
-      }
-    }
-
-    return resolved;
   }
 
   private resolveActorTools(agent: WidgetAgent | undefined): ToolName[] {

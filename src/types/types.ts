@@ -39,8 +39,6 @@ export interface ConversationMessage {
   lang?: string;
   intent: string;
   history?: boolean;
-  /** When true, history extraction starts from this message (drops everything before it). */
-  anchor?: boolean;
   type?: string;
   artifactType?: string;
   /**
@@ -57,8 +55,6 @@ export interface ExtractedConversationMessages {
   messages: ConversationMessage[];
   /** Indexes of messages with intent 'compacted', in ascending chronological order */
   compactedIndexes: number[];
-  /** Indexes of messages with anchor === true, in ascending chronological order */
-  anchorIndexes: number[];
 }
 
 export interface DocWithPath {

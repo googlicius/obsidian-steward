@@ -52,7 +52,7 @@ export class WidgetActionHandler {
     }
 
     const session = await this.agent.plugin.widgetService.stateService.readSession(projectPath);
-    if (!session || session.phase !== 'thinking') {
+    if (!session) {
       await ctx.serializeInvocation({
         command: ToolName.WIDGET_ACTION,
         toolCall,
@@ -134,6 +134,10 @@ export class WidgetActionHandler {
           },
         },
       });
+
+      if (endTurn) {
+        return { status: IntentResultStatus.STOP_PROCESSING };
+      }
 
       return { status: IntentResultStatus.SUCCESS };
     }

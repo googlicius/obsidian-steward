@@ -3,13 +3,17 @@ import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import { WidgetSessionService } from './WidgetSessionService';
 import type { WidgetAgent, WidgetDefinition } from './types';
 import { DEFAULT_WIDGET_QUERY_NAME } from './types';
-import type { ConversationMessage } from 'src/types/types';
 
-function createMockPlugin(
-  conversationRenderer?: Partial<StewardPlugin['conversationRenderer']>
-): jest.Mocked<StewardPlugin> {
+function createMockPlugin(overrides?: Partial<StewardPlugin>): jest.Mocked<StewardPlugin> {
   return {
-    conversationRenderer,
+    widgetService: overrides?.widgetService,
+    conversationRenderer: overrides?.conversationRenderer,
+    noteContentService: {
+      transformHeadingOnlyWikilinks: jest.fn(text => text),
+    },
+    userDefinedCommandService: {
+      processSystemPromptsWikilinks: jest.fn((prompts: string[]) => Promise.resolve(prompts)),
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
@@ -18,9 +22,6 @@ function bindPrivateMethods(service: WidgetSessionService) {
     buildTurnContext: service['buildTurnContext'].bind(
       service
     ) as WidgetSessionService['buildTurnContext'],
-    buildActorExtraCorePromptSections: service['buildActorExtraCorePromptSections'].bind(
-      service
-    ) as WidgetSessionService['buildActorExtraCorePromptSections'],
     resolveActorTools: service['resolveActorTools'].bind(
       service
     ) as WidgetSessionService['resolveActorTools'],
@@ -33,53 +34,100 @@ function bindPrivateMethods(service: WidgetSessionService) {
 describe('WidgetSessionService turn context helpers', () => {
   let service: WidgetSessionService;
   let buildTurnContext: WidgetSessionService['buildTurnContext'];
-  let buildActorExtraCorePromptSections: WidgetSessionService['buildActorExtraCorePromptSections'];
   let resolveActorTools: WidgetSessionService['resolveActorTools'];
-
-  const agent: WidgetAgent = {
-    name: 'agent',
-    id: 'o',
-    instructions: ['Play O'],
-    actions: ['playCell'],
-    queries: ['text_representation'],
-  };
-
-  const definition: WidgetDefinition = {
-    manifest: null,
-    actions: {
-      name: 'actions',
-      actions: { playCell: { description: 'Play in a cell' } },
-    },
-    queries: {
-      name: 'queries',
-      queries: {
-        text_representation: { description: 'ASCII board view' },
-      },
-    },
-    actors: null,
-    agents: { o: agent },
-  };
 
   beforeEach(() => {
     (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
     service = WidgetSessionService.getInstance(createMockPlugin());
     const bound = bindPrivateMethods(service);
     buildTurnContext = bound.buildTurnContext;
-    buildActorExtraCorePromptSections = bound.buildActorExtraCorePromptSections;
     resolveActorTools = bound.resolveActorTools;
   });
 
-  describe('buildActorExtraCorePromptSections', () => {
-    it('lists get_state and agent queries with descriptions', () => {
-      const sections = buildActorExtraCorePromptSections({ agent, definition });
+  describe('resolveWidgetContext', () => {
+    const projectPath = 'Steward/Widgets/test';
+    const agent: WidgetAgent = {
+      name: 'agent',
+      id: 'o',
+      instructions: ['Play O'],
+      actions: ['playCell'],
+      queries: ['text_representation'],
+    };
 
-      expect(sections).toHaveLength(2);
-      expect(sections[0].heading).toBe('## Available queries');
-      expect(sections[0].body).toContain(`\`${DEFAULT_WIDGET_QUERY_NAME}\``);
-      expect(sections[0].body).toContain('`text_representation`');
-      expect(sections[1].heading).toBe('## Allowed actions');
-      expect(sections[1].body).toContain('`playCell`');
-      expect(sections[1].body).toContain('Play in a cell');
+    const definition: WidgetDefinition = {
+      manifest: null,
+      actions: {
+        name: 'actions',
+        actions: { playCell: { description: 'Play in a cell' } },
+      },
+      queries: {
+        name: 'queries',
+        queries: {
+          text_representation: { description: 'ASCII board view' },
+        },
+      },
+      actors: null,
+      agents: { o: agent },
+    };
+
+    it('returns system prompts and extra core prompt sections', async () => {
+      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+      const plugin = createMockPlugin({
+        widgetService: {
+          definitionService: {
+            getWidgetDefinition: jest.fn().mockResolvedValue(definition),
+          },
+        } as unknown as StewardPlugin['widgetService'],
+      });
+      service = WidgetSessionService.getInstance(plugin);
+
+      const result = await service.resolveWidgetContext({ projectPath, actorId: 'o' });
+
+      expect(result).not.toBeNull();
+      expect(result!.systemPrompts).toEqual(['Play O']);
+      expect(result!.extraCorePromptSections).toHaveLength(2);
+      expect(result!.extraCorePromptSections[0].heading).toBe('## Available queries');
+      expect(result!.extraCorePromptSections[0].body).toContain(`\`${DEFAULT_WIDGET_QUERY_NAME}\``);
+      expect(result!.extraCorePromptSections[0].body).toContain('`text_representation`');
+      expect(result!.extraCorePromptSections[1].heading).toBe('## Allowed actions');
+      expect(result!.extraCorePromptSections[1].body).toContain('`playCell`');
+      expect(result!.extraCorePromptSections[1].body).toContain('Play in a cell');
+    });
+
+    it('returns null when actor id is not in the definition', async () => {
+      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+      const plugin = createMockPlugin({
+        widgetService: {
+          definitionService: {
+            getWidgetDefinition: jest.fn().mockResolvedValue(definition),
+          },
+        } as unknown as StewardPlugin['widgetService'],
+      });
+      service = WidgetSessionService.getInstance(plugin);
+
+      const result = await service.resolveWidgetContext({
+        projectPath,
+        actorId: 'nonexistent',
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when definition has no agents', async () => {
+      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+      const emptyDef: WidgetDefinition = { manifest: null, actions: null, queries: null, actors: null, agents: {} };
+      const plugin = createMockPlugin({
+        widgetService: {
+          definitionService: {
+            getWidgetDefinition: jest.fn().mockResolvedValue(emptyDef),
+          },
+        } as unknown as StewardPlugin['widgetService'],
+      });
+      service = WidgetSessionService.getInstance(plugin);
+
+      const result = await service.resolveWidgetContext({ projectPath, actorId: 'o' });
+
+      expect(result).toBeNull();
     });
   });
 
@@ -267,108 +315,3 @@ describe('WidgetSessionService session move helpers', () => {
   });
 });
 
-describe('WidgetSessionService shouldAnchorNewUserMessage', () => {
-  let service: WidgetSessionService;
-  let shouldAnchorNewUserMessage: WidgetSessionService['shouldAnchorNewUserMessage'];
-
-  beforeEach(() => {
-    (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
-  });
-
-  it('returns true when the 2nd-to-last history-eligible user message is not anchored', async () => {
-    const messages: ConversationMessage[] = [
-      {
-        id: 'u1',
-        role: 'user',
-        content: 'turn 1',
-        intent: ' ',
-        history: true,
-      },
-      {
-        id: 'a1',
-        role: 'assistant',
-        content: 'reply 1',
-        intent: ' ',
-      },
-      {
-        id: 'u2',
-        role: 'user',
-        content: 'turn 2',
-        intent: ' ',
-        history: true,
-      },
-      {
-        id: 'u-human',
-        role: 'user',
-        content: 'human move',
-        intent: ' ',
-        history: false,
-      },
-    ];
-
-    const mockPlugin = createMockPlugin({
-      extractAllConversationMessages: jest.fn().mockResolvedValue({ messages, compactedIndexes: [], anchorIndexes: [] }),
-    });
-
-    service = WidgetSessionService.getInstance(mockPlugin);
-    shouldAnchorNewUserMessage = service['shouldAnchorNewUserMessage'].bind(service);
-
-    await expect(shouldAnchorNewUserMessage('widget-session')).resolves.toBe(true);
-  });
-
-  it('returns false when the 2nd-to-last history-eligible user message is already anchored', async () => {
-    const messages: ConversationMessage[] = [
-      {
-        id: 'u1',
-        role: 'user',
-        content: 'turn 1',
-        intent: ' ',
-        history: true,
-        anchor: true,
-      },
-      {
-        id: 'a1',
-        role: 'assistant',
-        content: 'reply 1',
-        intent: ' ',
-      },
-      {
-        id: 'u2',
-        role: 'user',
-        content: 'turn 2',
-        intent: ' ',
-        history: true,
-      },
-    ];
-
-    const mockPlugin = createMockPlugin({
-      extractAllConversationMessages: jest.fn().mockResolvedValue({ messages, compactedIndexes: [], anchorIndexes: [] }),
-    });
-
-    service = WidgetSessionService.getInstance(mockPlugin);
-    shouldAnchorNewUserMessage = service['shouldAnchorNewUserMessage'].bind(service);
-
-    await expect(shouldAnchorNewUserMessage('widget-session')).resolves.toBe(false);
-  });
-
-  it('returns false when fewer than 2 history-eligible user messages exist', async () => {
-    const messages: ConversationMessage[] = [
-      {
-        id: 'u1',
-        role: 'user',
-        content: 'turn 1',
-        intent: ' ',
-        history: true,
-      },
-    ];
-
-    const mockPlugin = createMockPlugin({
-      extractAllConversationMessages: jest.fn().mockResolvedValue({ messages, compactedIndexes: [], anchorIndexes: [] }),
-    });
-
-    service = WidgetSessionService.getInstance(mockPlugin);
-    shouldAnchorNewUserMessage = service['shouldAnchorNewUserMessage'].bind(service);
-
-    await expect(shouldAnchorNewUserMessage('widget-session')).resolves.toBe(false);
-  });
-});

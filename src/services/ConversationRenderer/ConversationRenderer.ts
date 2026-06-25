@@ -237,7 +237,6 @@ export class ConversationRenderer {
     includeHistory?: boolean;
     step?: number;
     contentFormat?: 'callout' | 'hidden' | 'plain';
-    anchor?: boolean;
   }): Promise<string | undefined> {
     try {
       const file = this.getConversationFileByName(params.path);
@@ -247,7 +246,6 @@ export class ConversationRenderer {
         role: 'User',
         includeHistory: params.includeHistory ?? true,
         step: params.step,
-        ...(params.anchor === true && { anchor: true }),
       });
 
       // Determine content format (default to 'callout' for user messages)
@@ -530,7 +528,6 @@ export class ConversationRenderer {
       artifactType?: ArtifactType;
       handlerId?: string;
       step?: number;
-      anchor?: boolean;
     } = {}
   ) {
     const {
@@ -566,9 +563,6 @@ export class ConversationRenderer {
       }),
       ...(step !== undefined && {
         STEP: step,
-      }),
-      ...(options.anchor === true && {
-        ANCHOR: 'true',
       }),
     };
 
@@ -913,9 +907,6 @@ export class ConversationRenderer {
         intent: metadata.COMMAND || metadata.AGENT,
         lang: metadata.LANG,
         history: includeInHistory,
-        ...(metadata.ANCHOR === 'true' && {
-          anchor: true,
-        }),
         ...(metadata.TYPE && {
           type: metadata.TYPE,
         }),
@@ -1379,7 +1370,6 @@ export class ConversationRenderer {
 
       const messages: Array<ConversationMessage> = [];
       const compactedIndexes: number[] = [];
-      const anchorIndexes: number[] = [];
 
       // Process each message block
       for (let i = 0; i < matches.length; i++) {
@@ -1474,9 +1464,6 @@ export class ConversationRenderer {
           intent: metadata.COMMAND || metadata.AGENT,
           lang: metadata.LANG,
           history: includeInHistory,
-          ...(metadata.ANCHOR === 'true' && {
-            anchor: true,
-          }),
           ...(metadata.ARTIFACT_TYPE && {
             artifactType: metadata.ARTIFACT_TYPE,
           }),
@@ -1498,7 +1485,6 @@ export class ConversationRenderer {
             ...sharedMessageFields,
           };
           if (reasoningMsg.intent === 'compacted') compactedIndexes.push(messages.length);
-          if (reasoningMsg.anchor === true) anchorIndexes.push(messages.length);
           messages.push(reasoningMsg);
 
           if (visibleText.length > 0) {
@@ -1508,7 +1494,6 @@ export class ConversationRenderer {
               ...sharedMessageFields,
             };
             if (visibleMsg.intent === 'compacted') compactedIndexes.push(messages.length);
-            if (visibleMsg.anchor === true) anchorIndexes.push(messages.length);
             messages.push(visibleMsg);
           }
           continue;
@@ -1523,14 +1508,13 @@ export class ConversationRenderer {
           ...sharedMessageFields,
         };
         if (msg.intent === 'compacted') compactedIndexes.push(messages.length);
-        if (msg.anchor === true) anchorIndexes.push(messages.length);
         messages.push(msg);
       }
 
-      return { messages, compactedIndexes, anchorIndexes };
+      return { messages, compactedIndexes };
     } catch (error) {
       logger.error('Error extracting conversation messages:', error);
-      return { messages: [], compactedIndexes: [], anchorIndexes: [] };
+      return { messages: [], compactedIndexes: [] };
     }
   }
 
@@ -1571,7 +1555,7 @@ export class ConversationRenderer {
   ): Promise<ConversationMessage[]> {
     const { maxMessages = null, includeCompactedMessage = true } = options || {};
 
-    const { messages: allMessages, compactedIndexes, anchorIndexes } =
+    const { messages: allMessages, compactedIndexes } =
       await this.extractAllConversationMessages(conversationTitle);
 
     // Build filtered array while mapping original indexes to their new positions
@@ -1589,22 +1573,6 @@ export class ConversationRenderer {
       messagesForHistory[messagesForHistory.length - 1].role === 'user'
     ) {
       messagesForHistory.pop();
-    }
-
-    // Remap anchor indexes to the filtered array
-    const filteredAnchorIndexes = anchorIndexes
-      .map(i => originalToFilteredIndex.get(i))
-      .filter((i): i is number => i !== undefined);
-
-    const latestAnchorIndex = filteredAnchorIndexes.length > 0
-      ? filteredAnchorIndexes[filteredAnchorIndexes.length - 1]
-      : -1;
-
-    if (latestAnchorIndex >= 0) {
-      const anchoredMessages = messagesForHistory.slice(latestAnchorIndex);
-      return maxMessages === null
-        ? anchoredMessages
-        : this.sliceMessagesPreservingSteps(anchoredMessages, maxMessages);
     }
 
     const allCommandWithoutPrefixes = this.plugin.userDefinedCommandService

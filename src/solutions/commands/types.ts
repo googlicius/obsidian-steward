@@ -24,8 +24,6 @@ export interface Intent {
   tools?: ToolName[];
   /** When set, limits how many trailing conversation messages are replayed as model history. */
   maxHistoryMessages?: number;
-  /** When true, the new user message for this turn is marked as a history anchor. */
-  anchor?: boolean;
 }
 
 export interface ContextAugmentationIntent extends Intent {

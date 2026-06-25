@@ -112,7 +112,7 @@ export abstract class Agent {
       params.handlerId = params.handlerId || uniqueID();
       params.lang = params.lang || (await this.loadConversationLang(params.title));
       params.intent.tools = await this.resolveIntentTools(params.title, params.intent.tools);
-      params.intent.systemPrompts = await this.loadSystemPrompts(params);
+      await this.loadConversationContext(params);
 
       // Call the original handle method
       const result = await this.handle(params, ...args);
@@ -263,27 +263,79 @@ export abstract class Agent {
     return undefined;
   }
 
-  private async loadSystemPrompts(params: AgentHandlerParams): Promise<string[] | undefined> {
+  /**
+   * Enrich the intent with conversation context from multiple sources in priority order:
+   * 1. UDC system prompts (via udc_command frontmatter)
+   * 2. Conversation-type-specific context (e.g. widget system prompts via session_type)
+   * Skips entirely when systemPrompts are already set (orchestrator path).
+   */
+  private async loadConversationContext(params: AgentHandlerParams): Promise<void> {
     if (params.intent.systemPrompts && params.intent.systemPrompts.length > 0) {
-      return params.intent.systemPrompts;
+      return;
     }
 
+    const udcPrompts = await this.loadUdcSystemPrompts(params);
+    if (udcPrompts && udcPrompts.length > 0) {
+      params.intent.systemPrompts = udcPrompts;
+      return;
+    }
+
+    const sessionType = await this.renderer.getConversationProperty<string>(
+      params.title,
+      'session_type'
+    );
+    if (sessionType !== 'widget') {
+      return;
+    }
+
+    const widgetProjectPath = await this.renderer.getConversationProperty<string>(
+      params.title,
+      'widget_project_path'
+    );
+    if (!widgetProjectPath) {
+      return;
+    }
+
+    const session =
+      await this.plugin.widgetService.stateService.readSession(widgetProjectPath);
+    if (!session) {
+      return;
+    }
+
+    const context = await this.plugin.widgetService.sessionService.resolveWidgetContext({
+      projectPath: widgetProjectPath,
+      actorId: session.actor,
+    });
+    if (!context) {
+      return;
+    }
+
+    if (context.systemPrompts.length > 0) {
+      params.intent.systemPrompts = context.systemPrompts;
+    }
+    if (context.extraCorePromptSections.length > 0) {
+      params.intent.extraCorePromptSections = context.extraCorePromptSections;
+    }
+  }
+
+  /** Resolve UDC v2 system prompts from the conversation's udc_command frontmatter. */
+  private async loadUdcSystemPrompts(params: AgentHandlerParams): Promise<string[] | undefined> {
     const udcCommand = await this.renderer.getConversationProperty<string>(
       params.title,
       'udc_command'
     );
     if (!udcCommand) {
-      return params.intent.systemPrompts;
+      return undefined;
     }
 
     const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(udcCommand);
     if (!command || command.getVersion() !== 2) {
-      return params.intent.systemPrompts;
+      return undefined;
     }
 
     const rootSystemPrompts = command.normalized.system_prompt;
     if (!rootSystemPrompts || rootSystemPrompts.length === 0) {
-      return params.intent.systemPrompts;
+      return undefined;
     }
 
     return this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(rootSystemPrompts);
