@@ -2,11 +2,12 @@ import type { WidgetType } from 'src/solutions/commands/agents/handlers/ShowWidg
 import {
   WidgetMessageType,
   WIDGET_ASSET_REQUEST_TIMEOUT_MS,
+  WIDGET_ACTORS_GLOBAL,
   WIDGET_STATE_GLOBAL,
   WIDGET_STATE_SAVE_DEBOUNCE_MS,
   WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH,
 } from './WidgetProtocol';
-import type { WidgetState } from './types';
+import type { WidgetIframeActorsConfig, WidgetState } from './types';
 
 /** Content-Security-Policy applied to sandboxed widget iframes. */
 const WIDGET_CSP =
@@ -44,12 +45,15 @@ export const WIDGET_SRCDOC_HEAD = `<meta charset="utf-8"><meta http-equiv="Conte
 export function buildWidgetStateHead(params: {
   state: WidgetState | null;
   assets?: Record<string, string>;
+  actors?: WidgetIframeActorsConfig | null;
 }): string {
   const serialized = JSON.stringify(params.state);
   const serializedAssets = JSON.stringify(params.assets ?? {});
+  const serializedActors = JSON.stringify(params.actors ?? null);
   return `<script>
 (function () {
   window.${WIDGET_STATE_GLOBAL} = ${serialized};
+  window.${WIDGET_ACTORS_GLOBAL} = ${serializedActors};
   var saveTimer;
   var modelDispatchDepth = 0;
   var actionHandlers = {};
@@ -252,6 +256,17 @@ export function buildWidgetStateHead(params: {
     getSession: function () {
       var envelope = window.${WIDGET_STATE_GLOBAL};
       return envelope && envelope.session ? envelope.session : null;
+    },
+    getActors: function () {
+      var config = window.${WIDGET_ACTORS_GLOBAL};
+      if (!config || !config.turnOrder || !config.actors) {
+        return null;
+      }
+      return {
+        mode: config.mode,
+        turnOrder: config.turnOrder.slice(),
+        actors: config.actors
+      };
     },
     setState: function (data, options) {
       window.${WIDGET_STATE_GLOBAL} = { version: 1, data: data };

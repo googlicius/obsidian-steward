@@ -24,6 +24,11 @@ export interface ToolMetaDefinition {
   showDescriptionWhenInactive?: boolean;
   /** Tools auto-activated alongside this tool when it becomes active */
   companionTools?: readonly ToolName[];
+  /**
+   * Exclude this tool from the tool catalog ("Available tools" and "Other tools" sections).
+   * Use for tools that are only relevant in specific sub-conversations (e.g. widget tools).
+   */
+  catalogExclude?: boolean;
 }
 
 /**
@@ -82,6 +87,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `Use ${ToolName.HELP} when the user requests help or wants to see available commands.`,
     ],
     category: 'user-interaction',
+    catalogExclude: true,
   },
 
   [ToolName.STOP]: {
@@ -89,6 +95,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Stop all active operations and abort any ongoing processes.',
     guidelines: [],
     category: 'user-interaction',
+    catalogExclude: true,
   },
 
   [ToolName.THANK_YOU]: {
@@ -96,6 +103,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Respond to user expressions of gratitude.',
     guidelines: [`Use ${ToolName.THANK_YOU} when the user expresses thanks or gratitude.`],
     category: 'user-interaction',
+    catalogExclude: true,
   },
 
   [ToolName.NEW_SESSION]: {
@@ -103,6 +111,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Close the current conversation embed and start a fresh chat session.',
     guidelines: [],
     category: 'user-interaction',
+    catalogExclude: true,
   },
 
   [ToolName.BUILD_SEARCH_INDEX]: {
@@ -140,6 +149,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `Use ${ToolName.SEARCH_MORE} when the user requests to see more results from a previous search.`,
     ],
     category: 'vault-access',
+    catalogExclude: true,
   },
 
   [ToolName.GREP]: {
@@ -337,6 +347,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Keep the optional comment to one short sentence.',
     ],
     category: 'content-generation',
+    catalogExclude: true,
   },
 
   [ToolName.WIDGET_QUERY]: {
@@ -351,6 +362,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `After you have enough information, call ${ToolName.WIDGET_ACTION} exactly once to take your turn.`,
     ],
     category: 'content-generation',
+    catalogExclude: true,
   },
 
   [ToolName.TODO_WRITE]: {
@@ -738,6 +750,20 @@ export class ToolRegistry<T> {
       return [];
     }
     return [...companions];
+  }
+
+  /**
+   * Tool names that should be excluded from the tool catalog based on
+   * {@link TOOL_DEFINITIONS}.
+   */
+  public static buildCatalogExcludeSet(): Set<string> {
+    const excluded = new Set<string>();
+    for (const [name, meta] of Object.entries(TOOL_DEFINITIONS)) {
+      if (meta.catalogExclude) {
+        excluded.add(name);
+      }
+    }
+    return excluded;
   }
 
   /**

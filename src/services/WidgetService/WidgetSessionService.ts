@@ -467,10 +467,7 @@ export class WidgetSessionService {
    * Shared entry point for resolving widget context (system prompts + extra core prompt sections)
    * from a project path and actor id. Used by both the orchestrator and AgentRunner paths.
    */
-  public async resolveWidgetContext(params: {
-    projectPath: string;
-    actorId: string;
-  }): Promise<{
+  public async resolveWidgetContext(params: { projectPath: string; actorId: string }): Promise<{
     systemPrompts: string[];
     extraCorePromptSections: ExtraCorePromptSection[];
   } | null> {

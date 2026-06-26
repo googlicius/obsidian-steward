@@ -82,16 +82,23 @@ export const widgetStateSaveMoveSchema = z.object({
 export type WidgetStateSaveMove = z.infer<typeof widgetStateSaveMoveSchema>;
 
 /** Who initiated a gameplay setState; host-only — never stored in `data`. */
-export const widgetStateSaveSourceSchema = z.literal(WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH).or(
-  z.literal('human')
-);
+export const widgetStateSaveSourceSchema = z
+  .literal(WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH)
+  .or(z.literal('human'));
 
 export type WidgetStateSaveSource = z.infer<typeof widgetStateSaveSourceSchema>;
 
 /** Optional second argument to `window.stw.setState(data, options)`. Host-only; never stored in `data`. */
 export const widgetStateSaveOptionsSchema = z.object({
-  /** Clears `session` after save. Use for new game / play again / restart. Does not trigger a model turn. */
-  intent: z.literal('reset').optional(),
+  /**
+   * `reset` — clears host session after save; no model turn.
+   * `start` — user-initiated play; when turnOrder[0] is model, runs that actor's turn.
+   * `reset_and_start` — clears session then starts (model-first when turnOrder[0] is model).
+   * Model turns never start on widget mount — use click/hotkey with one of the intents above.
+   */
+  intent: z
+    .union([z.literal('reset'), z.literal('start'), z.literal('reset_and_start')])
+    .optional(),
   /** Records the human move in session moveLog when the current actor is human. */
   move: widgetStateSaveMoveSchema.optional(),
   /**
@@ -133,6 +140,13 @@ export const widgetActorsSchema = z.object({
 });
 
 export type WidgetActors = z.infer<typeof widgetActorsSchema>;
+
+/** Read-only actors roster injected into interactive widget iframes (from Widget.md). */
+export type WidgetIframeActorsConfig = {
+  mode: WidgetActors['mode'];
+  turnOrder: string[];
+  actors: WidgetActors['actors'];
+};
 
 export const widgetAgentSchema = z.object({
   name: z.literal('agent'),

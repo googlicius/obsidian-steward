@@ -289,6 +289,26 @@ describe('WidgetSessionService session move helpers', () => {
   });
 
   describe('parseWidgetStateSaveOptions', () => {
+    it('parses reset_and_start intent', () => {
+      expect(
+        WidgetSessionService.parseWidgetStateSaveOptions({
+          intent: 'reset_and_start',
+        })
+      ).toEqual({
+        intent: 'reset_and_start',
+      });
+    });
+
+    it('parses start intent', () => {
+      expect(
+        WidgetSessionService.parseWidgetStateSaveOptions({
+          intent: 'start',
+        })
+      ).toEqual({
+        intent: 'start',
+      });
+    });
+
     it('parses reset intent and move metadata', () => {
       expect(
         WidgetSessionService.parseWidgetStateSaveOptions({

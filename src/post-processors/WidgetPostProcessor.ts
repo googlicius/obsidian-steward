@@ -381,10 +381,11 @@ async function mountWidgetProject(
 
     const buildSrcdoc = async (html: string, assets: Record<string, string>) => {
       const state = await widgetService.stateService.readState(projectPath);
+      const actors = await widgetService.definitionService.getIframeActorsConfig(projectPath);
       return buildWidgetSrcdoc({
         type: 'html',
         code: html,
-        extraHead: widgetService.stateService.buildStateHead(state, assets),
+        extraHead: widgetService.stateService.buildStateHead(state, assets, actors),
       });
     };
 
@@ -473,13 +474,14 @@ async function mountWidgetProject(
     } else {
       const bundled = await widgetService.bundleProject(projectPath);
       const initialState = await widgetService.stateService.readState(projectPath);
+      const actors = await widgetService.definitionService.getIframeActorsConfig(projectPath);
       teardownIframe = mountWidgetIframe({
         container,
         type: 'html',
         source: { mode: 'srcdoc', code: bundled.html },
         options: {
           ...iframeCallbacks,
-          extraHead: widgetService.stateService.buildStateHead(initialState, bundled.assets),
+          extraHead: widgetService.stateService.buildStateHead(initialState, bundled.assets, actors),
         },
       });
     }
@@ -491,12 +493,6 @@ async function mountWidgetProject(
         lang: parsed.lang,
       });
     }
-
-    void widgetService.orchestrator.handleMount({
-      projectPath,
-      widgetId: parsed.widgetId,
-      lang: parsed.lang,
-    });
   } catch (e) {
     logger.error('Failed to mount widget project:', e);
     container.textContent = 'Failed to load widget project.';

@@ -25,7 +25,7 @@ type BootstrapSession = {
 
 /**
  * Turn scheduling for interactive widgets: human saves advance the roster; model actors run via widget_actor.
- * Session is persisted only when a model turn runs (not on widget mount).
+ * Session is persisted only when a model turn runs (user-initiated `start` / `reset_and_start`, or human gameplay saves).
  */
 export class WidgetOrchestrator {
   private static instance: WidgetOrchestrator | null = null;
@@ -50,70 +50,6 @@ export class WidgetOrchestrator {
 
   private get definitionService(): WidgetDefinitionService {
     return this.plugin.widgetService.definitionService;
-  }
-
-  public async handleMount(params: {
-    projectPath: string;
-    widgetId: string;
-    lang?: string | null;
-  }): Promise<void> {
-    await this.withProjectLock(params.projectPath, async () => {
-      const definition = await this.definitionService.getWidgetDefinition(params.projectPath);
-      if (Object.keys(definition.agents).length === 0 || !definition.actors) {
-        return;
-      }
-
-      if (!(await this.isDefinitionEnabled(params.projectPath))) {
-        return;
-      }
-
-      const actors = definition.actors;
-      const session = await this.stateService.readSession(params.projectPath);
-
-      if (session) {
-        const actorEntry = actors.actors[session.actor];
-        if (!actorEntry) {
-          return;
-        }
-
-        const isFreshSession = session.turnIndex === 0 && (session.moveLog?.length ?? 0) === 0;
-        const shouldAutoStart =
-          actors.mode === 'models_only' || (isFreshSession && actorEntry.kind === 'model');
-        if (!shouldAutoStart) {
-          return;
-        }
-
-        await this.runModelTurnChain({
-          projectPath: params.projectPath,
-          widgetId: params.widgetId,
-          definition,
-          actors,
-          lang: params.lang,
-          burstCount: 0,
-        });
-        return;
-      }
-
-      const firstActorId = actors.turnOrder[0];
-      const firstEntry = actors.actors[firstActorId];
-      const shouldAutoStart = actors.mode === 'models_only' || firstEntry?.kind === 'model';
-      if (!shouldAutoStart) {
-        return;
-      }
-
-      await this.runModelTurnChain({
-        projectPath: params.projectPath,
-        widgetId: params.widgetId,
-        definition,
-        actors,
-        lang: params.lang,
-        burstCount: 0,
-        bootstrapSession: {
-          actor: firstActorId,
-          turnIndex: 0,
-        },
-      });
-    });
   }
 
   public async handleStateSave(params: {
@@ -156,8 +92,25 @@ export class WidgetOrchestrator {
       return;
     }
 
-    if (this.isSessionResetRequest(params.saveOptions)) {
+    const isReset = this.isSessionResetRequest(params.saveOptions);
+    const isUserStart = this.isUserStartRequest(params.saveOptions);
+
+    if (isReset) {
       await this.stateService.clearSession(params.projectPath);
+    }
+
+    if (isUserStart) {
+      await this.triggerUserInitiatedStart({
+        projectPath: params.projectPath,
+        widgetId: params.widgetId,
+        definition,
+        incomingData: params.incomingData,
+        lang: params.lang,
+      });
+      return;
+    }
+
+    if (isReset) {
       return;
     }
 
@@ -522,7 +475,84 @@ export class WidgetOrchestrator {
   }
 
   private isSessionResetRequest(saveOptions?: WidgetStateSaveOptions): boolean {
-    return saveOptions?.intent === 'reset';
+    const intent = saveOptions?.intent;
+    return intent === 'reset' || intent === 'reset_and_start';
+  }
+
+  private isUserStartRequest(saveOptions?: WidgetStateSaveOptions): boolean {
+    const intent = saveOptions?.intent;
+    return intent === 'start' || intent === 'reset_and_start';
+  }
+
+  /**
+   * User click/hotkey path: when turnOrder opens with a model actor (or mode is models_only),
+   * bootstrap session and run the model chain. Never called on mount.
+   */
+  private async triggerUserInitiatedStart(params: {
+    projectPath: string;
+    widgetId: string;
+    definition: WidgetDefinition;
+    incomingData: unknown;
+    lang?: string | null;
+  }): Promise<void> {
+    const actors = params.definition.actors;
+    if (!actors) {
+      return;
+    }
+
+    const session = await this.stateService.readSession(params.projectPath);
+    if (session && this.isSessionBlockingUserStart(session)) {
+      return;
+    }
+
+    if (session) {
+      const actorEntry = actors.actors[session.actor];
+      if (!actorEntry || actorEntry.kind !== 'model') {
+        return;
+      }
+
+      await this.runModelTurnChain({
+        projectPath: params.projectPath,
+        widgetId: params.widgetId,
+        definition: params.definition,
+        actors,
+        lang: params.lang,
+        burstCount: 0,
+      });
+      return;
+    }
+
+    const firstActorId = actors.turnOrder[0];
+    const firstEntry = actors.actors[firstActorId];
+    if (!firstEntry) {
+      return;
+    }
+
+    const shouldRunModel = actors.mode === 'models_only' || firstEntry.kind === 'model';
+    if (!shouldRunModel) {
+      return;
+    }
+
+    await this.runModelTurnChain({
+      projectPath: params.projectPath,
+      widgetId: params.widgetId,
+      definition: params.definition,
+      actors,
+      lang: params.lang,
+      burstCount: 0,
+      bootstrapSession: {
+        actor: firstActorId,
+        turnIndex: 0,
+        lastDataSnapshot: params.incomingData,
+      },
+    });
+  }
+
+  private isSessionBlockingUserStart(session: WidgetSessionData): boolean {
+    if (session.phase === 'thinking') {
+      return true;
+    }
+    return (session.moveLog?.length ?? 0) > 0;
   }
 
   private async isDefinitionEnabled(projectPath: string): Promise<boolean> {

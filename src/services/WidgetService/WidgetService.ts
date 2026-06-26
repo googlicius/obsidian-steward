@@ -125,7 +125,7 @@ export class WidgetService {
     return this._sessionService;
   }
 
-  /** Turn scheduling after iframe state saves and on mount. */
+  /** Turn scheduling after iframe state saves. */
   public get orchestrator(): WidgetOrchestrator {
     return this._orchestrator;
   }
@@ -380,10 +380,11 @@ export class WidgetService {
   private async writeGeneratedHtml(projectPath: string): Promise<string> {
     const bundled = await this.bundleProject(projectPath);
     const state = await this.stateService.readState(projectPath);
+    const actors = await this.definitionService.getIframeActorsConfig(projectPath);
     const { srcdoc } = buildWidgetSrcdoc({
       type: 'html',
       code: bundled.html,
-      extraHead: this.stateService.buildStateHead(state, bundled.assets),
+      extraHead: this.stateService.buildStateHead(state, bundled.assets, actors),
     });
 
     const outputPath = this.getGeneratedHtmlPath(projectPath);

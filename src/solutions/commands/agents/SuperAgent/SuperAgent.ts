@@ -120,7 +120,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
 
-    const otherToolsExclude = new Set([ToolName.SEARCH_MORE]);
+    const otherToolsExclude = ToolRegistry.buildCatalogExcludeSet();
     const inactiveToolCount = context.registry.listInactiveToolNames(otherToolsExclude).length;
     const stewardFolder = this.plugin.settings.stewardFolder;
     const memorySourcePath = this.plugin.toolInstructionService.getToolInstructionsRelativePath();

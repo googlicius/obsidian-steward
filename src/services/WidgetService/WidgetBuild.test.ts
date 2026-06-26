@@ -1,6 +1,7 @@
 import { buildWidgetSrcdoc, buildWidgetStateHead, WIDGET_SRCDOC_HEAD } from './WidgetBuild';
 import {
   WidgetMessageType,
+  WIDGET_ACTORS_GLOBAL,
   WIDGET_STATE_GLOBAL,
   WIDGET_STATE_SAVE_SOURCE_MODEL_DISPATCH,
 } from './WidgetProtocol';
@@ -95,6 +96,24 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain(WidgetMessageType.ActionsRegistered);
     expect(head).toContain(WidgetMessageType.QueriesRegistered);
     expect(head).toContain(WidgetMessageType.Log);
+  });
+
+  it('injects actors roster and getActors when interactive config is provided', () => {
+    const head = buildWidgetStateHead({
+      state: null,
+      actors: {
+        mode: 'user_and_models',
+        turnOrder: ['o', 'user'],
+        actors: {
+          user: { kind: 'human' },
+          o: { kind: 'model' },
+        },
+      },
+    });
+
+    expect(head).toContain(`window.${WIDGET_ACTORS_GLOBAL}`);
+    expect(head).toContain('"turnOrder":["o","user"]');
+    expect(head).toContain('getActors');
   });
 
   it('tags setState saves during dispatchAction with model_dispatch source', () => {

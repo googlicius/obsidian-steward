@@ -5,6 +5,7 @@ import { buildWidgetStateHead } from './WidgetBuild';
 import {
   WIDGET_STATE_VERSION,
   widgetStateSchema,
+  type WidgetIframeActorsConfig,
   type WidgetSessionData,
   type WidgetState,
 } from './types';
@@ -35,9 +36,13 @@ export class WidgetStateService {
     return normalizePath(`${projectPath}/state.json`);
   }
 
-  /** Returns extraHead script that injects persisted state and window.stw into the iframe. */
-  public buildStateHead(state: WidgetState | null, assets?: Record<string, string>): string {
-    return buildWidgetStateHead({ state, assets });
+  /** Returns extraHead script that injects persisted state, actors roster, and window.stw into the iframe. */
+  public buildStateHead(
+    state: WidgetState | null,
+    assets?: Record<string, string>,
+    actors?: WidgetIframeActorsConfig | null
+  ): string {
+    return buildWidgetStateHead({ state, assets, actors });
   }
 
   /** Reads and parses state.json from a project folder. */

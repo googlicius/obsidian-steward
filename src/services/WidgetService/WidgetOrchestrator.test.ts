@@ -49,7 +49,9 @@ function resetSessionServiceSingleton(): void {
 function createOrchestratorHarness(options: {
   initialSession: WidgetSessionData | null;
   initialData?: unknown;
+  definition?: WidgetDefinition;
 }) {
+  const harnessDefinition = options.definition ?? definition;
   let session: WidgetSessionData | null = options.initialSession
     ? { ...options.initialSession }
     : null;
@@ -80,7 +82,7 @@ function createOrchestratorHarness(options: {
   // roster (append moveLog + next actor) before the orchestrator regains control.
   const runActorTurn = jest.fn().mockImplementation(async () => {
     if (session) {
-      const turnOrder = definition.actors?.turnOrder ?? [];
+      const turnOrder = harnessDefinition.actors?.turnOrder ?? [];
       const nextIndex = turnOrder.length
         ? (session.turnIndex + 1) % turnOrder.length
         : session.turnIndex;
@@ -148,7 +150,7 @@ function createOrchestratorHarness(options: {
         clearSession,
       },
       definitionService: {
-        getWidgetDefinition: jest.fn().mockResolvedValue(definition),
+        getWidgetDefinition: jest.fn().mockResolvedValue(harnessDefinition),
       },
     },
   } as never;
@@ -171,12 +173,90 @@ describe('WidgetOrchestrator', () => {
     resetSessionServiceSingleton();
   });
 
-  it('does not create session on mount for human-first widgets', async () => {
+  it('runs model on reset_and_start when first actor is model', async () => {
+    const modelFirstDefinition: WidgetDefinition = {
+      ...definition,
+      actors: {
+        name: 'actors',
+        mode: 'user_and_models',
+        turnOrder: ['o', 'user'],
+        actors: {
+          user: { kind: 'human' },
+          o: { kind: 'model' },
+        },
+      },
+    };
+
     const { orchestrator, createSessionForModelTurn, runActorTurn } = createOrchestratorHarness({
       initialSession: null,
+      initialData: { board: Array(9).fill(null), current: 'O' },
+      definition: modelFirstDefinition,
     });
 
-    await orchestrator.handleMount({ projectPath, widgetId });
+    await orchestrator.handleStateSave({
+      projectPath,
+      widgetId,
+      incomingData: { board: Array(9).fill(null), current: 'O' },
+      saveOptions: { intent: 'reset_and_start' },
+    });
+
+    expect(createSessionForModelTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'o',
+        turnIndex: 0,
+      })
+    );
+    expect(runActorTurn).toHaveBeenCalled();
+  });
+
+  it('runs model on start intent when first actor is model and no session exists', async () => {
+    const modelFirstDefinition: WidgetDefinition = {
+      ...definition,
+      actors: {
+        name: 'actors',
+        mode: 'user_and_models',
+        turnOrder: ['o', 'user'],
+        actors: {
+          user: { kind: 'human' },
+          o: { kind: 'model' },
+        },
+      },
+    };
+
+    const { orchestrator, createSessionForModelTurn, runActorTurn } = createOrchestratorHarness({
+      initialSession: null,
+      initialData: { board: Array(9).fill(null), current: 'O' },
+      definition: modelFirstDefinition,
+    });
+
+    await orchestrator.handleStateSave({
+      projectPath,
+      widgetId,
+      incomingData: { board: Array(9).fill(null), current: 'O' },
+      saveOptions: { intent: 'start' },
+    });
+
+    expect(createSessionForModelTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'o',
+        turnIndex: 0,
+      })
+    );
+    expect(runActorTurn).toHaveBeenCalled();
+  });
+
+  it('does not run model on start intent when first actor is human', async () => {
+    const { orchestrator, createSessionForModelTurn, runActorTurn } = createOrchestratorHarness({
+      initialSession: null,
+      initialData: { board: Array(9).fill(null), current: 'X' },
+    });
+
+    await orchestrator.handleStateSave({
+      projectPath,
+      widgetId,
+      incomingData: { board: Array(9).fill(null), current: 'X' },
+      saveOptions: { intent: 'start' },
+    });
 
     expect(createSessionForModelTurn).not.toHaveBeenCalled();
     expect(runActorTurn).not.toHaveBeenCalled();

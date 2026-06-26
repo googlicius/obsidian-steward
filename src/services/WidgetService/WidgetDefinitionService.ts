@@ -13,6 +13,7 @@ import {
   widgetQueriesSchema,
   type WidgetAgent,
   type WidgetDefinition,
+  type WidgetIframeActorsConfig,
 } from './types';
 
 const EMPTY_WIDGET_DEFINITION: WidgetDefinition = {
@@ -170,6 +171,26 @@ export class WidgetDefinitionService {
       logger.error('Failed to read widget definition:', error);
       return EMPTY_WIDGET_DEFINITION;
     }
+  }
+
+  /** Read-only actors roster from Widget.md for iframe injection via window.stw.getActors(). */
+  public async getIframeActorsConfig(projectPath: string): Promise<WidgetIframeActorsConfig | null> {
+    const definition = await this.getWidgetDefinition(projectPath);
+    const actors = definition.actors;
+    if (!actors) {
+      return null;
+    }
+
+    const turnOrder: string[] = [];
+    for (let i = 0; i < actors.turnOrder.length; i += 1) {
+      turnOrder.push(actors.turnOrder[i]);
+    }
+
+    return {
+      mode: actors.mode,
+      turnOrder,
+      actors: actors.actors,
+    };
   }
 
   private get markdownDefinitionService(): MarkdownDefinitionService {

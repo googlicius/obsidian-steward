@@ -46,9 +46,11 @@ export class GenerateTextExecutor {
     registry: ToolRegistry<Record<string, unknown>>,
     memorySourcePath: string
   ): string {
-    const inactiveToolCount = registry.listInactiveToolNames().length;
+    const otherToolsExclude = ToolRegistry.buildCatalogExcludeSet();
+    const inactiveToolCount = registry.listInactiveToolNames(otherToolsExclude).length;
     const toolSection = registry.generateToolSectionBody({
       inactiveToolCount,
+      otherToolsExclude,
       otherToolsEmptyLabel: 'No inactive tools available.',
       memorySourcePath,
     });

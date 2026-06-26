@@ -205,6 +205,29 @@ describe('ToolRegistry', () => {
     });
   });
 
+  describe('buildCatalogExcludeSet', () => {
+    it('returns tools marked with catalogExclude: true', () => {
+      const excluded = ToolRegistry.buildCatalogExcludeSet();
+      expect(excluded.has(ToolName.WIDGET_ACTION)).toBe(true);
+      expect(excluded.has(ToolName.WIDGET_QUERY)).toBe(true);
+      expect(excluded.has(ToolName.HELP)).toBe(true);
+      expect(excluded.has(ToolName.STOP)).toBe(true);
+      expect(excluded.has(ToolName.THANK_YOU)).toBe(true);
+      expect(excluded.has(ToolName.NEW_SESSION)).toBe(true);
+    });
+
+    it('includes SEARCH_MORE in catalog exclude set', () => {
+      const excluded = ToolRegistry.buildCatalogExcludeSet();
+      expect(excluded.has(ToolName.SEARCH_MORE)).toBe(true);
+    });
+
+    it('does not include tools without catalogExclude', () => {
+      const excluded = ToolRegistry.buildCatalogExcludeSet();
+      expect(excluded.has(ToolName.SHELL)).toBe(false);
+      expect(excluded.has(ToolName.GREP)).toBe(false);
+    });
+  });
+
   describe('generateToolSectionBody', () => {
     it('orders available tools, guidelines, and other tools', () => {
       const registry = ToolRegistry.buildFromTools({
@@ -227,6 +250,72 @@ describe('ToolRegistry', () => {
       expect(guidelinesIndex).toBeGreaterThan(availableIndex);
       expect(otherToolsIndex).toBeGreaterThan(guidelinesIndex);
       expect(body).toContain(`- ${ToolName.GREP}`);
+    });
+
+    it('otherToolsExclude removes catalog excluded tools from Other tools only, Available shows all active', () => {
+      const registry = ToolRegistry.buildFromTools({
+        [ToolName.SHELL]: jest.fn(),
+        [ToolName.WIDGET_ACTION]: jest.fn(),
+        [ToolName.GREP]: jest.fn(),
+        [ToolName.HELP]: jest.fn(),
+      });
+      registry.setActive([ToolName.SHELL, ToolName.WIDGET_ACTION]);
+      const otherToolsExclude = ToolRegistry.buildCatalogExcludeSet();
+
+      const body = registry.generateToolSectionBody({
+        inactiveToolCount: 2,
+        otherToolsExclude,
+        otherToolsEmptyLabel: 'No other tools available.',
+        memorySourcePath: 'Steward/Memory/Tool instructions.md',
+      });
+
+      // Available tools — all active tools show regardless of catalogExclude
+      expect(body).toContain(`- ${ToolName.SHELL}`);
+      expect(body).toContain(ToolName.WIDGET_ACTION);
+
+      // Other tools — catalog-excluded tools (HELP) are suppressed, non-excluded (GREP) still shown
+      expect(body).toContain(`- ${ToolName.GREP}`);
+      expect(body).not.toContain(ToolName.HELP);
+    });
+
+    it('otherToolsExclude merges catalog exclusion with additional exclusions', () => {
+      const registry = ToolRegistry.buildFromTools({
+        [ToolName.SHELL]: jest.fn(),
+        [ToolName.GREP]: jest.fn(),
+        [ToolName.HELP]: jest.fn(),
+      });
+      registry.setActive([ToolName.SHELL]);
+      const otherToolsExclude = new Set([ToolName.GREP, ToolName.HELP]);
+
+      const body = registry.generateToolSectionBody({
+        inactiveToolCount: 2,
+        otherToolsExclude,
+        otherToolsEmptyLabel: 'No other tools available.',
+        memorySourcePath: 'Steward/Memory/Tool instructions.md',
+      });
+
+      // Both excluded from Other tools
+      expect(body).not.toContain(ToolName.HELP);
+      expect(body).not.toContain(ToolName.GREP);
+    });
+
+    it('Available tools always shows all active tools regardless of otherToolsExclude', () => {
+      const registry = ToolRegistry.buildFromTools({
+        [ToolName.SHELL]: jest.fn(),
+        [ToolName.WIDGET_ACTION]: jest.fn(),
+      });
+      registry.setActive([ToolName.SHELL, ToolName.WIDGET_ACTION]);
+
+      const body = registry.generateToolSectionBody({
+        inactiveToolCount: 0,
+        otherToolsExclude: new Set([ToolName.WIDGET_ACTION]),
+        otherToolsEmptyLabel: 'No other tools available.',
+        memorySourcePath: 'Steward/Memory/Tool instructions.md',
+      });
+
+      // Even when excluded from Other tools, WIDGET_ACTION still shows in Available
+      expect(body).toContain(`- ${ToolName.SHELL}`);
+      expect(body).toContain(ToolName.WIDGET_ACTION);
     });
 
     it('includes memory file description under Guidelines when memory instructions exist', () => {

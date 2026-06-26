@@ -37,7 +37,8 @@ This skill adds **turn-based** APIs:
 | API                                        | Description                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `window.stw.getSession()`                  | Read-only. Returns a session object or `null` when no interactive session is active. Fields: `actor` (current turn id), `turnIndex`, `phase`, optional `moveLog`, optional `conversationTitle`. `phase` is `awaiting_input` (human or idle), `thinking` (model turn running), or `ended`. Use in `render()` for turn status (e.g. "O is thinking…"). Never write session — the host advances it. |
-| `window.stw.setState(data, options?)`      | Saves **data** (debounced ~400ms). Optional **`options.intent: 'reset'`** clears host **`session`** for new game / play again / restart. **Does not trigger a model turn.** Options are host-only — never stored in `data`.                                                                                                                                                                      |
+| `window.stw.getActors()`                   | Read-only. Returns `{ mode, turnOrder, actors }` from `Widget.md` or `null` when the project is not interactive. Use to derive who opens (e.g. map `turnOrder[0]` to your game's first player token). Injected at mount — not stored in `data`. |
+| `window.stw.setState(data, options?)`      | Saves **data** (debounced ~400ms). Optional **`options.intent`**: `'reset'` (clear session), `'start'` (begin play; model-first when `turnOrder[0]` is model), `'reset_and_start'` (both). **Never triggers model on mount.** Options are host-only — never stored in `data`.                                                                                                                                                                      |
 | `window.stw.registerAction(name, fn)`      | Register a handler the **host** dispatches during **model** turns. `name` must match a key under `actions` in `Widget.md`. Not called on human clicks.                                                                                                                                                                                                                                           |
 | `window.stw.registerQuery(name, fn)`       | Register a **read-only** handler for model **`widget_query`** calls. `name` must match a key under `queries` in `Widget.md` (except **`get_state`**, which the host serves from persisted `data`). Must **not** call `setState`.                                                                                                                                                                                                                                        |
 | `window.stw.dispatchAction(name, params)`  | Runs a registered action handler inside the iframe (host `applyAction` bridge). Human clicks should call the shared action function directly instead.                                                                                                                                                                                                                                                   |
@@ -47,11 +48,15 @@ This skill adds **turn-based** APIs:
 
 | Goal                          | How                                                              | Triggers model?                    | Clears `session`? |
 | ----------------------------- | ---------------------------------------------------------------- | ---------------------------------- | ----------------- |
-| **Reset game ("Play again")** | Fresh initial `data` + **`setState(data, { intent: 'reset' })`** | **No**                             | **Yes**           |
+| **Reset only**                | **`setState(data, { intent: 'reset' })`**                        | **No**                             | **Yes**           |
+| **Start only**                | **`setState(data, { intent: 'start' })`**                        | **Yes** when `turnOrder[0]` is model | **No**          |
+| **Reset + start (one button)** | **`setState(data, { intent: 'reset_and_start' })`**           | **Yes** when `turnOrder[0]` is model | **Yes**         |
 | **Normal move**               | **`setState(data, { move: { action, params, endTurn? } })`** — `endTurn` defaults from catalog | **Yes** when next actor is `model` | **No**            |
 | **Reset session only**        | **Edit `{projectPath}/state.json`** — remove the `session` key   | **No**                             | **Yes**           |
 
-- **Play again / New game** → **`setState(freshData, { intent: 'reset' })`** — do not use `registerAction` for reset.
+- **Reset only** → **`setState(freshData, { intent: 'reset' })`** — use when a separate **Start** button calls `{ intent: 'start' }`.
+- **Reset + model opens** → **`setState(freshData, { intent: 'reset_and_start' })`** — one **New game** button when the model moves first per `Widget.md`.
+- **Start without reset** → **`setState(data, { intent: 'start' })`** — after the user already reset board data locally or on a fresh board.
 - Normal gameplay moves → **`setState(data)`** with no options.
 - Widget code only writes **`data`** via `setState`. Session is host-owned in `state.json`.
 
@@ -103,15 +108,17 @@ You never call the host to "start the model turn". **`setState` after a valid hu
 
 | Host action                                     | Who triggers it                  | Writes `session` to `state.json`      | Starts session conversation | Triggers model / LLM                                                            |
 | ----------------------------------------------- | -------------------------------- | ------------------------------------- | --------------------------- | ------------------------------------------------------------------------------- |
-| **Mount**                                       | Host when widget renders         | **No**                                | **No**                      | **No** (unless `models_only` or first actor is `model`, then on first LLM call) |
-| **Edit `state.json`** (remove `session`)        | You / model via `edit`           | Removes `session`                     | **No** until next LLM call  | **No**                                                                          |
-| **Reset game (`setState` + `intent: 'reset'`)** | Widget "Play again" / "New game" | Removes `session` (any current actor) | No                          | **No**                                                                          |
+| **Mount**                                       | Host when widget renders         | **No**                                | **No**                      | **No**                                                                          |
+| **Edit `state.json`** (remove `session`)        | You / model via `edit`           | Removes `session`                     | **No** until user start     | **No**                                                                          |
+| **Reset (`intent: 'reset'`)**                   | Widget button / hotkey           | Removes `session`                     | No                          | **No**                                                                          |
+| **Start (`intent: 'start'`)**                   | Widget button / hotkey           | **Yes** when `turnOrder[0]` is model  | **Yes** — when LLM runs     | **Yes** — when `turnOrder[0]` is model                                          |
+| **Reset + start (`intent: 'reset_and_start'`)** | Widget button / hotkey           | Removes then starts                   | **Yes** — when LLM runs     | **Yes** — when `turnOrder[0]` is model                                          |
 | **Human move (`setState`)**                     | Widget after user click          | **Yes** — on first model turn         | **Yes** — when LLM runs     | **Yes** — when next actor is `model`                                            |
 | **Model turn**                                  | Orchestrator                     | **Yes** — created/updated             | **Yes**                     | **Yes**                                                                         |
 
 When a turn-based widget **mounts**, the host does **not** write `session` to `state.json`. `window.stw.getSession()` returns `null` until the first model turn.
 
-**First model turn** (in `user_and_models` mode): after the human actor's **first gameplay** **`setState`**, the orchestrator creates `session`, opens the session conversation, updates Playground, and runs the model agent. Exception: `models_only`, or first actor is `kind: model`, may auto-run on mount (session still created at LLM call time).
+**First model turn** (in `user_and_models` mode): never on mount. User must trigger **`intent: 'start'`** or **`intent: 'reset_and_start'`** (click/hotkey), or play a human move when the human opens (`setState` with `move` advances to the model).
 
 **Playground** (`{stewardFolder}/Playground.md`) embeds the live session conversation **after** the first model turn. Before that, the note may be empty. There is no Playground link on the widget — point the user to Playground in your **final response** (see **Workflow**).
 
@@ -479,7 +486,8 @@ Model turns → **`widget_query`** (optional, read-only) → **`widget_action`**
 
 ## Notes
 
-- **Play again / New game** → **`setState(freshData, { intent: 'reset' })`** — clears `session`; no `startNewSession()` needed.
+- **Opening player** — derive from `window.stw.getActors().turnOrder[0]` mapped to your game tokens; do not hardcode who opens.
+- **Play again / New game** → **`reset`**, **`reset_and_start`**, or separate **`reset`** + **`start`** buttons — do not use `registerAction` for reset.
 - **Playground link** — no widget footer link; tell the user in your final response with `[[Steward/Playground.md]]` (adjust path if `{stewardFolder}` is not `Steward`).
 - **Model turns** — lean turn prompts list queries and actions; models call `widget_query` (`get_state` by default) before `widget_action`.
 - **Queries** — optional `name: queries` block + `registerQuery` for read-only model probes via `widget_query`; does not advance turns or mutate state.
