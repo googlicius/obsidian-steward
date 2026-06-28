@@ -107,8 +107,7 @@ export class ToolCallExecutor {
       }
 
       switch (toolCall.toolName) {
-        case ToolName.CONFIRMATION:
-        case ToolName.ASK_USER: {
+        case ToolName.CONFIRMATION: {
           await invocationCtx.updateConversationNote({
             newContent: toolCall.input.message,
             command: toolCall.toolName,
@@ -124,18 +123,11 @@ export class ToolCallExecutor {
             });
           };
 
-          if (toolCall.toolName === ToolName.CONFIRMATION) {
-            toolCallResult = {
-              status: IntentResultStatus.NEEDS_CONFIRMATION,
-              toolCall,
-              onConfirmation: callBack,
-            };
-          } else {
-            toolCallResult = {
-              status: IntentResultStatus.NEEDS_USER_INPUT,
-              onUserInput: callBack,
-            };
-          }
+          toolCallResult = {
+            status: IntentResultStatus.NEEDS_CONFIRMATION,
+            toolCall,
+            onConfirmation: callBack,
+          };
           break;
         }
 

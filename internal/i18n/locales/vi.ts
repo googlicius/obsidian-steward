@@ -362,6 +362,12 @@ const vi = {
       operationCancelled: 'Thao tác đã bị hủy bỏ.',
       errorProcessing: 'Lỗi khi xử lý xác nhận: {{errorMessage}}',
     },
+    preference: {
+      continue: 'Tiếp tục',
+      selectOptionFirst: 'Hãy chọn một tùy chọn trước.',
+      updateFailed: 'Không thể lưu lựa chọn của bạn. Vui lòng thử lại.',
+      buttonsHint: 'gõ câu trả lời của bạn trong chat nếu không có lựa chọn nào phù hợp.',
+    },
     // UI elements
     ui: {
       yes: 'Có',

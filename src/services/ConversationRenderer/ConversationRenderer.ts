@@ -16,13 +16,17 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ArtifactType } from 'src/solutions/artifact';
 import { applyMixins } from 'src/utils/applyMixins';
 import { ToolSerialization } from './ToolSerialization';
+import { UserPreferenceSerialization } from './UserPreferenceSerialization';
 import { Frontmatter } from './Frontmatter';
 import { Events } from 'src/types/events';
 
 const { getTranslation } = getBundledInternal('i18n');
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
-export interface ConversationRenderer extends ToolSerialization, Frontmatter {}
+export interface ConversationRenderer
+  extends ToolSerialization,
+    UserPreferenceSerialization,
+    Frontmatter {}
 
 /** User or assistant text row produced for compaction token budgeting. */
 type ConversationCompactionMessageEntry = {
@@ -1905,4 +1909,4 @@ export class ConversationRenderer {
   }
 }
 
-applyMixins(ConversationRenderer, [ToolSerialization, Frontmatter]);
+applyMixins(ConversationRenderer, [ToolSerialization, UserPreferenceSerialization, Frontmatter]);

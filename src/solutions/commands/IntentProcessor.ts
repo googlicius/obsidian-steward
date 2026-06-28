@@ -7,6 +7,8 @@ export interface ProcessIntentsOptions {
   sendToDownstream?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;
+    invocationCount?: number;
+    handlerId?: string;
   };
 }
 

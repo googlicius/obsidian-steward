@@ -108,8 +108,10 @@ export abstract class Agent {
     try {
       params.intent.model = await this.getCurrentModel(params.title, params.intent);
       params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
-      params.invocationCount = params.invocationCount || 0;
-      params.handlerId = params.handlerId || uniqueID();
+      params.invocationCount =
+        params.upstreamOptions?.invocationCount ?? params.invocationCount ?? 0;
+      params.handlerId =
+        params.upstreamOptions?.handlerId ?? params.handlerId ?? uniqueID();
       params.lang = params.lang || (await this.loadConversationLang(params.title));
       params.intent.tools = await this.resolveIntentTools(params.title, params.intent.tools);
       await this.loadConversationContext(params);
@@ -117,15 +119,9 @@ export abstract class Agent {
       // Call the original handle method
       const result = await this.handle(params, ...args);
 
-      if (
-        result.status === IntentResultStatus.NEEDS_CONFIRMATION ||
-        result.status === IntentResultStatus.NEEDS_USER_INPUT
-      ) {
+      if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
         this.commandProcessor.setLastResult(params.title, result);
-
-        if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
-          await this.renderer.showConfirmationButtons(params.title, result.buttonLabels);
-        }
+        await this.renderer.showConfirmationButtons(params.title, result.buttonLabels);
       }
 
       return result;

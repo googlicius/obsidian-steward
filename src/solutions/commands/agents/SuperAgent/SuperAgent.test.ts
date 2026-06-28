@@ -71,6 +71,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     serializeToolInvocation: jest.fn(),
     removeConfirmationButtons: jest.fn(),
     showConfirmationButtons: jest.fn(),
+    hasPendingUserPreference: jest.fn().mockResolvedValue(false),
+    replaceWaitingForUserAnswer: jest.fn().mockResolvedValue(true),
+    removePreferenceButtons: jest.fn(),
     extractConversationHistory: jest
       .fn()
       .mockResolvedValue({ messages: [], hasCompactionContext: false }),

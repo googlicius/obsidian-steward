@@ -108,7 +108,7 @@ export class StreamTextExecutor {
       });
 
     if (params.intent.no_confirm) {
-      registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
+      registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE]);
     }
 
     const messages = [...historyResult.messages];

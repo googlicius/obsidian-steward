@@ -1,7 +1,7 @@
 import { ToolName } from '../ToolRegistry';
 import * as handlers from './handlers';
 import { getActivateToolsTool } from '../tools/activateTools';
-import { createAskUserTool } from '../tools/askUser';
+import { createConfirmationTool } from '../tools/askUser';
 import type { Tool } from 'ai';
 
 /** Subagent tool names (sync list for validation before the tools map is loaded). */
@@ -40,7 +40,7 @@ const SUBAGENT_TOOL_NAME_LIST = [
 
 const SUPER_ONLY_TOOL_NAMES = [
   ToolName.CONFIRMATION,
-  ToolName.ASK_USER,
+  ToolName.ASK_USER_PREFERENCE,
   ToolName.USER_CONFIRM,
   ToolName.SPAWN_SUBAGENT,
   ToolName.SWITCH_AGENT_CAPACITY,
@@ -193,25 +193,19 @@ export function loadGoogleTools(): Promise<AgentToolsRecord> {
 export function loadSuperAgentToolsBase(): Promise<AgentToolsRecord> {
   if (!superAgentOnlyToolsPromise) {
     superAgentOnlyToolsPromise = loadSubagentToolsBase().then(async base => {
-      const [
-        confirmationBundle,
-        askBundle,
-        userConfirmTool,
-        spawnSubagentTool,
-        switchAgentCapacityTool,
-        runCommandTool,
-      ] = await Promise.all([
-        createAskUserTool('confirmation'),
-        createAskUserTool('ask'),
-        handlers.UserConfirm.getUserConfirmTool(),
-        handlers.SpawnSubagent.getSpawnSubagentTool(),
-        handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
-        handlers.RunCommand.getRunCommandTool(),
-      ]);
+      const [confirmationBundle, askUserPreferenceTool, userConfirmTool, spawnSubagentTool, switchAgentCapacityTool, runCommandTool] =
+        await Promise.all([
+          createConfirmationTool(),
+          handlers.AskUserPreference.getAskUserPreferenceTool(),
+          handlers.UserConfirm.getUserConfirmTool(),
+          handlers.SpawnSubagent.getSpawnSubagentTool(),
+          handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
+          handlers.RunCommand.getRunCommandTool(),
+        ]);
       return {
         ...base,
-        [ToolName.CONFIRMATION]: confirmationBundle.askUserTool,
-        [ToolName.ASK_USER]: askBundle.askUserTool,
+        [ToolName.CONFIRMATION]: confirmationBundle.confirmationTool,
+        [ToolName.ASK_USER_PREFERENCE]: askUserPreferenceTool,
         [ToolName.USER_CONFIRM]: userConfirmTool,
         [ToolName.SPAWN_SUBAGENT]: spawnSubagentTool,
         [ToolName.SWITCH_AGENT_CAPACITY]: switchAgentCapacityTool,

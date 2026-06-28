@@ -372,6 +372,12 @@ const ja = {
       operationCancelled: '操作をキャンセルしました。',
       errorProcessing: '確認の処理中にエラーが発生しました：{{errorMessage}}',
     },
+    preference: {
+      continue: '続行',
+      selectOptionFirst: '先にオプションを選択してください。',
+      updateFailed: '選択を保存できませんでした。もう一度お試しください。',
+      buttonsHint: 'どれも当てはまらない場合は、チャットに自分の回答を入力してください。',
+    },
     // UI elements
     ui: {
       yes: 'はい',

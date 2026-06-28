@@ -23,6 +23,7 @@ import { createHistoryPostProcessor } from './post-processors/HistoryPostProcess
 import { createRunPostProcessor } from './post-processors/RunPostProcessor';
 import { createCollapsibleBlockPostProcessor } from './post-processors/CollapsibleBlockPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
+import { createPreferenceButtonsProcessor } from './post-processors/PreferenceButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
 import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
@@ -551,6 +552,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createWidgetPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
+
+    this.registerMarkdownPostProcessor(createPreferenceButtonsProcessor(this));
 
     this.registerMarkdownPostProcessor(createHistoryPostProcessor(this));
 

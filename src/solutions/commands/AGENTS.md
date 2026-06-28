@@ -85,7 +85,7 @@ flowchart TD
   K --> L
   L --> M{AgentResult status}
   M -->|SUCCESS + more steps| G
-  M -->|NEEDS_CONFIRMATION / NEEDS_USER_INPUT| N[Pause; UserMessageButtonsProcessor resumes]
+  M -->|NEEDS_CONFIRMATION| N[Pause; ConfirmationButtonsProcessor resumes]
   M -->|CONTINUE_WITH_INTENT| G
   M -->|ERROR| O[Stop; model fallback in safeHandle]
 ```
@@ -110,7 +110,7 @@ flowchart TD
    - `StreamTextExecutor.executeStreamText` (LLM + tools)
 5. **`ToolCallExecutor.executeToolCalls`** — dispatch to handler map; middleware chain includes guardrails
 6. **Multi-step loop** — up to 20 steps; UDC todo steps via `TodoList`; step-limit confirmation; `createStepProcessedQuery` strips processed prefix
-7. **Special statuses** — `CONTINUE_WITH_INTENT` (RunCommand UDC expansion), `NEEDS_CONFIRMATION`, `NEEDS_USER_INPUT`, deferred `btw:` side questions
+7. **Special statuses** — `CONTINUE_WITH_INTENT` (RunCommand UDC expansion), `NEEDS_CONFIRMATION`, vault-durable `ask_user_preference`, deferred `btw:` side questions
 
 ```mermaid
 flowchart LR

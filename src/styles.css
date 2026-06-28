@@ -618,6 +618,46 @@ code[class*='language-stw-hidden-from-user'] {
   }
 }
 
+.stw-preference-buttons {
+  .stw-preference-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-2-1);
+  }
+
+  .stw-preference-option {
+    padding: var(--size-2-1) var(--size-2-2);
+    border-radius: var(--radius-s);
+    background-color: var(--background-modifier-form-field);
+    border: 2px solid var(--background-modifier-border);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--background-modifier-hover);
+    }
+
+    &.is-selected {
+      border-color: var(--interactive-accent);
+      background-color: var(--background-modifier-hover);
+    }
+  }
+
+  .stw-preference-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--size-2-2);
+    margin-top: var(--size-2-2);
+
+    > .hint {
+      font-style: italic;
+      font-size: var(--font-ui-smaller);
+      color: var(--text-muted);
+      white-space: normal;
+    }
+  }
+}
+
 .stw-autocomplete-icon {
   display: inline-flex;
   align-items: center;

@@ -426,6 +426,12 @@ const en = {
       operationCancelled: 'Operation cancelled.',
       errorProcessing: 'Error processing confirmation: {{errorMessage}}',
     },
+    preference: {
+      continue: 'Continue',
+      selectOptionFirst: 'Select an option first.',
+      updateFailed: 'Could not save your selection. Please try again.',
+      buttonsHint: 'type your own answer in the chat if none of these fit.',
+    },
     // UI elements
     ui: {
       yes: 'Yes',

@@ -176,15 +176,14 @@ export class AgentRunner {
         title,
         intent,
         lang: payload.lang,
+        handlerId: options.sendToDownstream?.handlerId,
+        invocationCount: options.sendToDownstream?.invocationCount,
         activeTools:
           canUseTools && activeToolsFromQuery.length > 0 ? activeToolsFromQuery : undefined,
         upstreamOptions: options.sendToDownstream,
       });
 
-      if (
-        result.status === IntentResultStatus.NEEDS_CONFIRMATION ||
-        result.status === IntentResultStatus.NEEDS_USER_INPUT
-      ) {
+      if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
         this.setLastResult(title, result);
       }
 
@@ -198,7 +197,6 @@ export class AgentRunner {
           return;
 
         case IntentResultStatus.NEEDS_CONFIRMATION:
-        case IntentResultStatus.NEEDS_USER_INPUT:
           return;
 
         case IntentResultStatus.LOW_CONFIDENCE:

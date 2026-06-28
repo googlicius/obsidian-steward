@@ -1,7 +1,7 @@
 export enum ToolName {
   CONTENT_READING = 'content_reading',
   CONFIRMATION = 'confirmation',
-  ASK_USER = 'askUser',
+  ASK_USER_PREFERENCE = 'ask_user_preference',
   EDIT = 'edit',
   // ADD_TABLE_COLUMN = 'edit:add_table_column',
   // REPLACE_BY_LINES = 'edit:replace_by_lines',

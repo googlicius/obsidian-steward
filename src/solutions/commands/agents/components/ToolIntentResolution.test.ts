@@ -10,7 +10,7 @@ jest.mock('../agentTools', () => {
     'content_reading',
     'todo_write',
     'confirmation',
-    'ask_user',
+    'ask_user_preference',
     'switch_agent_capacity',
     'activate_tools',
     'recall_compacted_context',
@@ -38,7 +38,7 @@ const ALL_SUPER_KEYS: ToolName[] = [
   ToolName.CONTENT_READING,
   ToolName.TODO_WRITE,
   ToolName.CONFIRMATION,
-  ToolName.ASK_USER,
+  ToolName.ASK_USER_PREFERENCE,
   ToolName.SWITCH_AGENT_CAPACITY,
   ToolName.ACTIVATE,
   ToolName.RECALL_COMPACTED_CONTEXT,
@@ -139,7 +139,7 @@ describe('ToolIntentResolution', () => {
       const names = buildSuperAgentEffectiveAllowedNames({
         declaredNormalized: declared,
         expandedDeclared: expanded,
-        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
+        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE],
         allToolKeys: ALL_SUPER_KEYS,
         hasCompactionContext: false,
       });
@@ -147,7 +147,7 @@ describe('ToolIntentResolution', () => {
       expect(names).toContain(ToolName.SWITCH_AGENT_CAPACITY);
       expect(names).toContain(ToolName.TODO_WRITE);
       expect(names).toContain(ToolName.CONFIRMATION);
-      expect(names).toContain(ToolName.ASK_USER);
+      expect(names).toContain(ToolName.ASK_USER_PREFERENCE);
     });
 
     it('ignores conversation active tools not present in allToolKeys', () => {
@@ -229,7 +229,7 @@ describe('ToolIntentResolution', () => {
         buildSuperAgentEffectiveAllowedNames({
           declaredNormalized: declared,
           expandedDeclared: expanded,
-          conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
+          conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE],
           allToolKeys: ALL_SUPER_KEYS,
           hasCompactionContext: false,
         })
@@ -238,7 +238,7 @@ describe('ToolIntentResolution', () => {
         declaredNormalized: declared,
         expandedDeclared: expanded,
         effectiveAllowed: effective,
-        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
+        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE],
         hasCompactionContext: false,
       });
       expect([...active].sort()).toEqual([...effective].sort());

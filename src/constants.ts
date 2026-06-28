@@ -75,6 +75,12 @@ export const CONFIRMATION_BUTTONS_PATTERN =
   '\\{\\{stw-confirmation-buttons title:([^,]+)(?:,confirm:([^,]*))?(?:,reject:([^}]*))?\\}\\}';
 
 /**
+ * Matches {{stw-preference-buttons title:…,messageId:…}} — URI-encoded segments.
+ */
+export const PREFERENCE_BUTTONS_PATTERN =
+  '\\{\\{stw-preference-buttons title:([^,]+),messageId:([^}]+)\\}\\}';
+
+/**
  * Pattern to match any wikilink
  */
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';

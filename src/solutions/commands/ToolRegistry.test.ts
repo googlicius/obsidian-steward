@@ -75,7 +75,6 @@ describe('ToolRegistry', () => {
     it('returns companions from TOOL_DEFINITIONS', () => {
       expect(ToolRegistry.getCompanionTools(ToolName.CONTENT_READING)).toEqual([
         ToolName.CONFIRMATION,
-        ToolName.ASK_USER,
       ]);
       expect(ToolRegistry.getCompanionTools(ToolName.EDIT)).toEqual([]);
       expect(ToolRegistry.getCompanionTools(ToolName.SHOW_WIDGET)).toEqual([
@@ -89,14 +88,13 @@ describe('ToolRegistry', () => {
       expect(ToolRegistry.expandWithCompanionTools([ToolName.CONTENT_READING])).toEqual([
         ToolName.CONTENT_READING,
         ToolName.CONFIRMATION,
-        ToolName.ASK_USER,
       ]);
     });
 
     it('dedupes overlapping tools', () => {
       expect(
         ToolRegistry.expandWithCompanionTools([ToolName.CONTENT_READING, ToolName.CONFIRMATION])
-      ).toEqual([ToolName.CONTENT_READING, ToolName.CONFIRMATION, ToolName.ASK_USER]);
+      ).toEqual([ToolName.CONTENT_READING, ToolName.CONFIRMATION]);
     });
 
     it('expands show_widget with edit companions but not the reverse', () => {

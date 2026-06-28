@@ -309,6 +309,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       } else {
         await this.skipPendingConfirmation(invocationCtx);
       }
+      await this.resolvePendingUserPreference(invocationCtx);
     }
 
     // Add user message to conversation note for the first iteration
@@ -607,6 +608,21 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     });
 
     this.commandProcessor.clearLastResult(ctx.title);
+  }
+
+  /**
+   * When the user types in chat while ask_user_preference is pending, record their answer in the tool output.
+   */
+  private async resolvePendingUserPreference(ctx: HandlerInvocationContext): Promise<void> {
+    if (!(await this.renderer.hasPendingUserPreference(ctx.title))) {
+      return;
+    }
+
+    await this.renderer.replaceWaitingForUserAnswer(
+      ctx.title,
+      'User provided their own input'
+    );
+    await this.renderer.removePreferenceButtons(ctx.title);
   }
 
   private async getSuperAgentTools(

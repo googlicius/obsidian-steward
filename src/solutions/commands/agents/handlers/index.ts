@@ -11,6 +11,7 @@ export * from './RevertLatestQuery';
 export * from './ReadContent';
 export * from './EditHandler';
 export * from './UserConfirm';
+export * from './AskUserPreference';
 export * from './Help';
 export * from './Stop';
 export * from './ThankYou';

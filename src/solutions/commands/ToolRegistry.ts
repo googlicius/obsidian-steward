@@ -42,7 +42,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
     category: 'content-access',
-    companionTools: [ToolName.CONFIRMATION, ToolName.ASK_USER],
+    companionTools: [ToolName.CONFIRMATION],
     guidelines: [
       `When reading notes:
   - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
@@ -64,11 +64,14 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'user-interaction',
   },
 
-  [ToolName.ASK_USER]: {
-    name: ToolName.ASK_USER,
-    description: 'Ask the user for additional information or clarification when needed.',
+  [ToolName.ASK_USER_PREFERENCE]: {
+    name: ToolName.ASK_USER_PREFERENCE,
+    description:
+      'Present 2–6 options and ask the user to pick a preference before continuing.',
     guidelines: [
-      `Use ${ToolName.ASK_USER} when you need clarification or additional information from the user to fulfill their request.`,
+      `Use ${ToolName.ASK_USER_PREFERENCE} when the user must choose one of a few specific options (format, scope, target, etc.).`,
+      `For open-ended clarification, ask in plain text instead of using this tool.`,
+      `Keep ${ToolName.CONFIRMATION} for proceed/cancel before performing an action.`,
     ],
     category: 'user-interaction',
   },

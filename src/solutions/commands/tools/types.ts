@@ -44,9 +44,16 @@ export type ToolCallPartOf<N extends ToolName, INPUT> = Omit<AI_ToolCallPart, 't
   input: INPUT;
 };
 
-/** Input shape for the CONFIRMATION and ASK_USER tools. */
+/** Input shape for the CONFIRMATION tool. */
 export interface ConfirmationInput {
   message: string;
+  [key: string]: unknown;
+}
+
+/** Input shape for ask_user_preference. */
+export interface AskUserPreferenceInput {
+  question: string;
+  options: string[];
   [key: string]: unknown;
 }
 
@@ -56,7 +63,7 @@ export interface ConfirmationInput {
  */
 export type KnownToolCallPart =
   | ToolCallPartOf<ToolName.CONFIRMATION, ConfirmationInput>
-  | ToolCallPartOf<ToolName.ASK_USER, ConfirmationInput>
+  | ToolCallPartOf<ToolName.ASK_USER_PREFERENCE, AskUserPreferenceInput>
   | ToolCallPartOf<ToolName.ACTIVATE, ActivateToolsArgs>
   | ToolCallPartOf<ToolName.SPAWN_SUBAGENT, SpawnSubagentArgs>
   | ToolCallPartOf<ToolName.TODO_WRITE, TodoWriteArgs>

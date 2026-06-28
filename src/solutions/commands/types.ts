@@ -35,17 +35,11 @@ export enum IntentResultStatus {
   SUCCESS = 'success',
   ERROR = 'error',
   NEEDS_CONFIRMATION = 'needs_confirmation',
-  NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
   STOP_PROCESSING = 'stop_processing',
   /** Tool handler finished setup; SuperAgent should continue with `nextParams` (e.g. after UDC expansion). */
   CONTINUE_WITH_INTENT = 'continue_with_intent',
 }
-
-type UserInputResult = {
-  status: IntentResultStatus.NEEDS_USER_INPUT;
-  onUserInput: (message: string) => Promise<AgentResult> | AgentResult;
-};
 
 type SuccessResult = {
   status: IntentResultStatus.SUCCESS;
@@ -92,7 +86,6 @@ export type ConfirmationResult<T = unknown> = {
 
 export type AgentResult =
   | ConfirmationResult
-  | UserInputResult
   | SuccessResult
   | ContinueWithIntentResult
   | ErrorResult
@@ -116,6 +109,8 @@ export interface AgentHandlerParams<T extends Intent = Intent> {
   upstreamOptions?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;
+    invocationCount?: number;
+    handlerId?: string;
   };
   activeTools?: ToolName[];
   inactiveTools?: ToolName[]; // When provided, the tool set is activeTools + inactiveTools.

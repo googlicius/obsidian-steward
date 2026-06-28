@@ -53,6 +53,7 @@ export class Handlers {
   private _readContent: handlers.ReadContent;
   private _editHandler: handlers.EditHandler;
   private _userConfirm: handlers.UserConfirm;
+  private _askUserPreference: handlers.AskUserPreference;
   private _help: handlers.Help;
   private _stop: handlers.Stop;
   private _thankYou: handlers.ThankYou;
@@ -154,6 +155,13 @@ export class Handlers {
   public get userConfirm(): handlers.UserConfirm {
     if (!this._userConfirm) this._userConfirm = new handlers.UserConfirm(this.getAgent());
     return this._userConfirm;
+  }
+
+  public get askUserPreference(): handlers.AskUserPreference {
+    if (!this._askUserPreference) {
+      this._askUserPreference = new handlers.AskUserPreference(this.getAgent());
+    }
+    return this._askUserPreference;
   }
 
   public get help(): handlers.Help {
@@ -302,6 +310,7 @@ export class Handlers {
       [ToolName.EXISTS]: () => this.vaultExists,
       [ToolName.REVERT]: () => this.revertLatestQuery,
       [ToolName.USER_CONFIRM]: () => this.userConfirm,
+      [ToolName.ASK_USER_PREFERENCE]: () => this.askUserPreference,
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.STOP]: () => this.stop,
       [ToolName.THANK_YOU]: () => this.thankYou,
