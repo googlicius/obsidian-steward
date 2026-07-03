@@ -1,8 +1,6 @@
-import { PREFERENCE_BUTTONS_PATTERN } from 'src/constants';
+import { PREFERENCE_BUTTONS_PATTERN, USER_PREFERENCE_WAITING_PLACEHOLDER } from 'src/constants';
 import type { ConversationMessage } from 'src/types/types';
 import type { ConversationRenderer } from './ConversationRenderer';
-
-const USER_PREFERENCE_WAITING_PLACEHOLDER = 'waiting_for_user_answer';
 
 export type PendingUserPreferenceContext = {
   messageId: string;
@@ -70,22 +68,25 @@ export class UserPreferenceSerialization {
 
   public async removePreferenceButtons(
     this: UserPreferenceSerializationHost,
-    conversationTitle: string
+    conversationTitle: string,
+    message?: string
   ): Promise<void> {
     const file = this.getConversationFileByName(conversationTitle);
     const pattern = new RegExp(PREFERENCE_BUTTONS_PATTERN, 'g');
+    const replacement = message ? `*${message}*` : '';
 
     await this.plugin.app.vault.process(file, currentContent => {
       return currentContent.replace(pattern, (full, titleEnc) => {
         const title = decodeMarkerSegment(titleEnc);
-        return title === conversationTitle ? '' : full;
+        return title === conversationTitle ? replacement : full;
       });
     });
   }
 
   /**
-   * Replaces the single `waiting_for_user_answer` placeholder in the note with the resolved answer.
-   * Only one pending preference is supported at a time; the value is JSON-escaped in place.
+   * Replaces every remaining `waiting_for_user_answer` placeholder in the note with the same
+   * value. Used when the user skips the preference prompt entirely (e.g. types a new message in
+   * chat instead of answering via the buttons), regardless of how many questions are pending.
    */
   public async replaceWaitingForUserAnswer(
     this: UserPreferenceSerializationHost,
@@ -100,10 +101,39 @@ export class UserPreferenceSerialization {
         return content;
       }
       replaced = true;
-      return content.replace(
-        USER_PREFERENCE_WAITING_PLACEHOLDER,
-        escapeForJsonStringContent(outputValue)
-      );
+      return content
+        .split(USER_PREFERENCE_WAITING_PLACEHOLDER)
+        .join(escapeForJsonStringContent(outputValue));
+    });
+
+    return replaced;
+  }
+
+  /**
+   * Replaces the `waiting_for_user_answer` placeholders one at a time, in order, with each
+   * provided answer. Used when the user answers every question via the preference buttons UI.
+   */
+  public async replaceWaitingForUserAnswers(
+    this: UserPreferenceSerializationHost,
+    conversationTitle: string,
+    outputValues: string[]
+  ): Promise<boolean> {
+    const file = this.getConversationFileByName(conversationTitle);
+    let replaced = false;
+
+    await this.plugin.app.vault.process(file, content => {
+      let result = content;
+      for (const value of outputValues) {
+        if (!result.includes(USER_PREFERENCE_WAITING_PLACEHOLDER)) {
+          break;
+        }
+        replaced = true;
+        result = result.replace(
+          USER_PREFERENCE_WAITING_PLACEHOLDER,
+          escapeForJsonStringContent(value)
+        );
+      }
+      return result;
     });
 
     return replaced;

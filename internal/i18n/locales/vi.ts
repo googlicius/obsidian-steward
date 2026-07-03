@@ -364,9 +364,10 @@ const vi = {
     },
     preference: {
       continue: 'Tiếp tục',
-      selectOptionFirst: 'Hãy chọn một tùy chọn trước.',
-      updateFailed: 'Không thể lưu lựa chọn của bạn. Vui lòng thử lại.',
-      buttonsHint: 'gõ câu trả lời của bạn trong chat nếu không có lựa chọn nào phù hợp.',
+      selectOptionFirst: 'Hãy trả lời tất cả các câu hỏi trước.',
+      updateFailed: 'Không thể lưu câu trả lời của bạn. Vui lòng thử lại.',
+      buttonsHint: 'hoặc gõ để bỏ qua',
+      customAnswerPlaceholder: 'Hoặc nhập câu trả lời của riêng bạn...',
     },
     // UI elements
     ui: {

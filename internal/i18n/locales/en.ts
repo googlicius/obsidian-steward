@@ -428,9 +428,10 @@ const en = {
     },
     preference: {
       continue: 'Continue',
-      selectOptionFirst: 'Select an option first.',
-      updateFailed: 'Could not save your selection. Please try again.',
-      buttonsHint: 'type your own answer in the chat if none of these fit.',
+      selectOptionFirst: 'Answer all questions first.',
+      updateFailed: 'Could not save your answers. Please try again.',
+      buttonsHint: 'or type to skip',
+      customAnswerPlaceholder: 'Or type your own answer...',
     },
     // UI elements
     ui: {

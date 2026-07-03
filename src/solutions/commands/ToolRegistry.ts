@@ -67,9 +67,10 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.ASK_USER_PREFERENCE]: {
     name: ToolName.ASK_USER_PREFERENCE,
     description:
-      'Present 2–6 options and ask the user to pick a preference before continuing.',
+      'Present one or more questions, each with 2–6 options, and ask the user to pick a preference for each before continuing.',
     guidelines: [
       `Use ${ToolName.ASK_USER_PREFERENCE} when the user must choose one of a few specific options (format, scope, target, etc.).`,
+      `If you need to ask several such choices at once, group them into a single ${ToolName.ASK_USER_PREFERENCE} call with multiple questions instead of calling it repeatedly.`,
       `For open-ended clarification, ask in plain text instead of using this tool.`,
       `Keep ${ToolName.CONFIRMATION} for proceed/cancel before performing an action.`,
     ],

@@ -623,10 +623,28 @@ code[class*='language-stw-hidden-from-user'] {
 }
 
 .stw-preference-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+
+  .stw-preference-question {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-2-1);
+  }
+
+  .stw-preference-question-text {
+    font-weight: var(--font-medium);
+  }
+
   .stw-preference-options {
     display: flex;
     flex-direction: column;
     gap: var(--size-2-1);
+  }
+
+  .stw-preference-custom-input {
+    width: 100%;
   }
 
   .stw-preference-option {

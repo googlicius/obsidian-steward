@@ -374,9 +374,10 @@ const ja = {
     },
     preference: {
       continue: '続行',
-      selectOptionFirst: '先にオプションを選択してください。',
-      updateFailed: '選択を保存できませんでした。もう一度お試しください。',
-      buttonsHint: 'どれも当てはまらない場合は、チャットに自分の回答を入力してください。',
+      selectOptionFirst: 'すべての質問に回答してください。',
+      updateFailed: '回答を保存できませんでした。もう一度お試しください。',
+      buttonsHint: 'またはスキップするには入力してください',
+      customAnswerPlaceholder: 'または自分の回答を入力...',
     },
     // UI elements
     ui: {

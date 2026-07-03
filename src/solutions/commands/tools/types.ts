@@ -50,10 +50,15 @@ export interface ConfirmationInput {
   [key: string]: unknown;
 }
 
-/** Input shape for ask_user_preference. */
-export interface AskUserPreferenceInput {
+/** A single question within an ask_user_preference call. */
+export interface UserPreferenceQuestion {
   question: string;
   options: string[];
+}
+
+/** Input shape for ask_user_preference. */
+export interface AskUserPreferenceInput {
+  questions: UserPreferenceQuestion[];
   [key: string]: unknown;
 }
 

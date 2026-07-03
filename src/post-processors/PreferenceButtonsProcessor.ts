@@ -1,9 +1,9 @@
 import { MarkdownPostProcessor, Notice } from 'obsidian';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
-import { PREFERENCE_BUTTONS_PATTERN } from 'src/constants';
+import { PREFERENCE_BUTTONS_PATTERN, USER_PREFERENCE_WAITING_PLACEHOLDER } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import type { ToolCallPart } from 'src/solutions/commands/tools/types';
+import type { ToolCallPart, UserPreferenceQuestion } from 'src/solutions/commands/tools/types';
 import { logger } from 'src/utils/logger';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -63,19 +63,27 @@ async function continueConversationAfterPreference(params: {
   );
 }
 
-function getPreferenceOptions(
+function isValidPreferenceQuestion(value: unknown): value is UserPreferenceQuestion {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const question = value as UserPreferenceQuestion;
+  return typeof question.question === 'string' && Array.isArray(question.options);
+}
+
+function getPreferenceQuestions(
   invocations: NonNullable<
     Awaited<
       ReturnType<StewardPlugin['conversationRenderer']['deserializeToolInvocations']>
     >
   >
-): string[] {
+): UserPreferenceQuestion[] {
   for (let i = 0; i < invocations.length; i++) {
     const part = invocations[i];
     if (part.type === 'tool-call') {
-      const options = part.input.options;
-      if (Array.isArray(options)) {
-        return options.filter((item): item is string => typeof item === 'string');
+      const questions = part.input.questions;
+      if (Array.isArray(questions)) {
+        return questions.filter(isValidPreferenceQuestion);
       }
     }
   }
@@ -85,8 +93,8 @@ function getPreferenceOptions(
       continue;
     }
     const input = (part as unknown as ToolCallPart).input;
-    if (input && Array.isArray(input.options)) {
-      return input.options.filter((item): item is string => typeof item === 'string');
+    if (input && Array.isArray(input.questions)) {
+      return input.questions.filter(isValidPreferenceQuestion);
     }
   }
   return [];
@@ -177,13 +185,13 @@ export function createPreferenceButtonsProcessor(plugin: StewardPlugin): Markdow
           continue;
         }
 
-        if (getToolResultText(invocations) !== 'waiting_for_user_answer') {
+        if (!getToolResultText(invocations)?.includes(USER_PREFERENCE_WAITING_PLACEHOLDER)) {
           lastIndex = match.index + match[0].length;
           continue;
         }
 
-        const options = getPreferenceOptions(invocations);
-        if (options.length < 2) {
+        const questions = getPreferenceQuestions(invocations);
+        if (questions.length === 0 || questions.some(q => q.options.length < 2)) {
           replacementElements.push(activeDocument.createTextNode(match[0]));
           lastIndex = match.index + match[0].length;
           continue;
@@ -193,25 +201,56 @@ export function createPreferenceButtonsProcessor(plugin: StewardPlugin): Markdow
         container.classList.add('stw-preference-buttons');
         container.dataset.stwPreferenceBound = '1';
 
-        const optionsList = container.createDiv({ cls: 'stw-preference-options' });
-        let selectedIndex = -1;
+        const selectedIndexes: number[] = new Array(questions.length).fill(-1);
+        const customValues: string[] = new Array(questions.length).fill('');
 
-        for (let optionIndex = 0; optionIndex < options.length; optionIndex++) {
-          const optionRow = optionsList.createDiv({
-            cls: 'stw-preference-option',
-            text: `${optionIndex + 1}. ${options[optionIndex]}`,
+        const updateContinueState = () => {
+          const allAnswered = questions.every(
+            (_, i) => selectedIndexes[i] >= 0 || customValues[i].trim().length > 0
+          );
+          continueButton.disabled = !allAnswered;
+        };
+
+        questions.forEach((preferenceQuestion, questionIndex) => {
+          const questionBlock = container.createDiv({ cls: 'stw-preference-question' });
+          questionBlock.createDiv({
+            cls: 'stw-preference-question-text',
+            text: preferenceQuestion.question,
           });
-          optionRow.addEventListener('click', (event: MouseEvent) => {
-            event.preventDefault();
-            event.stopPropagation();
-            selectedIndex = optionIndex;
-            const optionRows = optionsList.querySelectorAll('.stw-preference-option');
-            for (let i = 0; i < optionRows.length; i++) {
-              optionRows[i].classList.toggle('is-selected', i === optionIndex);
+
+          const optionsList = questionBlock.createDiv({ cls: 'stw-preference-options' });
+          const optionRows: HTMLElement[] = [];
+
+          preferenceQuestion.options.forEach((option, optionIndex) => {
+            const optionRow = optionsList.createDiv({
+              cls: 'stw-preference-option',
+              text: `${optionIndex + 1}. ${option}`,
+            });
+            optionRows.push(optionRow);
+            optionRow.addEventListener('click', (event: MouseEvent) => {
+              event.preventDefault();
+              event.stopPropagation();
+              selectedIndexes[questionIndex] = optionIndex;
+              customValues[questionIndex] = '';
+              customInput.value = '';
+              optionRows.forEach((row, i) => row.classList.toggle('is-selected', i === optionIndex));
+              updateContinueState();
+            });
+          });
+
+          const customInput = questionBlock.createEl('input', {
+            cls: 'stw-preference-custom-input',
+            attr: { type: 'text', placeholder: String(t('preference.customAnswerPlaceholder')) },
+          });
+          customInput.addEventListener('input', () => {
+            customValues[questionIndex] = customInput.value;
+            if (customInput.value.trim().length > 0) {
+              selectedIndexes[questionIndex] = -1;
+              optionRows.forEach(row => row.classList.remove('is-selected'));
             }
-            continueButton.disabled = false;
+            updateContinueState();
           });
-        }
+        });
 
         const actionsRow = container.createDiv({ cls: 'stw-preference-actions' });
 
@@ -223,10 +262,23 @@ export function createPreferenceButtonsProcessor(plugin: StewardPlugin): Markdow
         continueButton.addEventListener('click', (event: MouseEvent) => {
           event.preventDefault();
           event.stopPropagation();
-          if (selectedIndex < 0) {
+
+          const unanswered = questions.some(
+            (_, i) => selectedIndexes[i] < 0 && customValues[i].trim().length === 0
+          );
+          if (unanswered) {
             new Notice(t('preference.selectOptionFirst'));
             return;
           }
+
+          const answers = questions.map((preferenceQuestion, i) => ({
+            question: preferenceQuestion.question,
+            optionIndex: selectedIndexes[i],
+            text:
+              selectedIndexes[i] >= 0
+                ? preferenceQuestion.options[selectedIndexes[i]]
+                : customValues[i].trim(),
+          }));
 
           void handlePreferenceContinue({
             plugin,
@@ -234,15 +286,14 @@ export function createPreferenceButtonsProcessor(plugin: StewardPlugin): Markdow
             messageId,
             handlerId: toolMessage.handlerId,
             step: toolMessage.step,
-            selectedIndex,
-            selectedOption: options[selectedIndex],
+            answers,
             lang,
           });
         });
 
         actionsRow.createEl('span', {
           cls: 'hint',
-          text: `or ${t('preference.buttonsHint')}`,
+          text: t('preference.buttonsHint'),
         });
 
         replacementElements.push(container);
@@ -269,16 +320,19 @@ async function handlePreferenceContinue(params: {
   messageId: string;
   handlerId?: string;
   step?: number;
-  selectedIndex: number;
-  selectedOption: string;
+  answers: { question: string; optionIndex: number; text: string }[];
   lang?: string | null;
 }): Promise<void> {
   const t = getTranslation(params.lang);
-  const outputValue = `The user selected option ${params.selectedIndex + 1}: ${params.selectedOption}`;
+  const outputValues = params.answers.map((answer, i) =>
+    answer.optionIndex >= 0
+      ? `Q${i + 1}: The user selected option ${answer.optionIndex + 1}: ${answer.text}`
+      : `Q${i + 1}: The user answered: ${answer.text}`
+  );
 
-  const updated = await params.plugin.conversationRenderer.replaceWaitingForUserAnswer(
+  const updated = await params.plugin.conversationRenderer.replaceWaitingForUserAnswers(
     params.conversationTitle,
-    outputValue
+    outputValues
   );
   if (!updated) {
     new Notice(t('preference.updateFailed'));
@@ -287,9 +341,13 @@ async function handlePreferenceContinue(params: {
 
   await params.plugin.conversationRenderer.removePreferenceButtons(params.conversationTitle);
 
+  const displayText = params.answers
+    .map(answer => `**${answer.question}**\n*${answer.text}*`)
+    .join('\n\n');
+
   await params.plugin.conversationRenderer.updateConversationNote({
     path: params.conversationTitle,
-    newContent: `*${params.selectedOption}*`,
+    newContent: displayText,
     includeHistory: false,
     handlerId: params.handlerId,
     step: params.step,

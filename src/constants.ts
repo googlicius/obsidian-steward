@@ -81,6 +81,12 @@ export const PREFERENCE_BUTTONS_PATTERN =
   '\\{\\{stw-preference-buttons title:([^,]+),messageId:([^}]+)\\}\\}';
 
 /**
+ * Placeholder token embedded in a tool-result output while an ask_user_preference
+ * question is unanswered. One occurrence per question, in order.
+ */
+export const USER_PREFERENCE_WAITING_PLACEHOLDER = 'waiting_for_user_answer';
+
+/**
  * Pattern to match any wikilink
  */
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';

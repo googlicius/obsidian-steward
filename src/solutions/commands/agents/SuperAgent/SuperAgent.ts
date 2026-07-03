@@ -618,11 +618,13 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       return;
     }
 
+    const t = getTranslation(ctx.lang);
+
     await this.renderer.replaceWaitingForUserAnswer(
       ctx.title,
       'User provided their own input'
     );
-    await this.renderer.removePreferenceButtons(ctx.title);
+    await this.renderer.removePreferenceButtons(ctx.title, t('common.skipped'));
   }
 
   private async getSuperAgentTools(
