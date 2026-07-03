@@ -53,6 +53,9 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
         startShellProcess: jest.fn().mockResolvedValue({ ok: true }),
         getSession: jest.fn().mockReturnValue(undefined),
         resolveWorkingDirectoryFromTranscriptCdHistory: jest.fn().mockResolvedValue(undefined),
+        shellOutputArchive: {
+          archiveMessageOutput: jest.fn().mockResolvedValue(null),
+        },
       },
       userDefinedCommandService: {
         getCommandCli: jest.fn().mockReturnValue(undefined),

@@ -35,7 +35,7 @@ export const WIDGET_ASSET_REQUEST_TIMEOUT_MS = 30000;
 /** Injected global holding the persisted state envelope (or null) */
 export const WIDGET_STATE_GLOBAL = '__STW_STATE__';
 
-/** Injected global holding read-only actors roster from Widget.md (or null) */
+/** Injected global holding read-only actors roster from Definition.md (or null) */
 export const WIDGET_ACTORS_GLOBAL = '__STW_ACTORS__';
 
 /** Debounce delay (ms) before posting state saves to the parent */

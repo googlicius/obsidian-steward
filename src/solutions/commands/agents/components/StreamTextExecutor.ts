@@ -184,10 +184,6 @@ export class StreamTextExecutor {
 
     const { streamText, NoSuchToolError } = await getBundledLib('ai');
 
-    console.log('LLMCONFIG', {
-      llmConfig,
-    });
-
     const streamTextResult = streamText({
       model: llmConfig.model,
       ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),

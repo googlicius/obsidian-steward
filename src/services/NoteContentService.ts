@@ -4,12 +4,10 @@ import {
   STW_SOURCE_PATTERN,
   STW_SOURCE_METADATA_PATTERN,
 } from 'src/constants';
-import { normalizePath, parseYaml } from 'obsidian';
+import { normalizePath, parseYaml, TFile } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
-import type { ImagePart } from 'ai';
-import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { Change } from 'src/solutions/artifact/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
@@ -213,8 +211,7 @@ export class NoteContentService {
       let contentToInsert = noteContent;
 
       if (anchor) {
-        // Extract content under the specified heading
-        contentToInsert = this.extractContentUnderHeading(noteContent, anchor);
+        contentToInsert = await this.extractContentUnderHeading(file.path, anchor);
       }
 
       // Extract and process any wikilinks in the content
@@ -228,12 +225,65 @@ export class NoteContentService {
   }
 
   /**
-   * Extract content under a specific heading
-   * @param content The full content to search in
+   * Extract content under a specific heading using Obsidian section cache.
+   * @param filePath Vault-relative path to the note
    * @param headingText The heading text to find
    * @returns The content under the heading
    */
-  public extractContentUnderHeading(content: string, headingText: string): string {
+  public async extractContentUnderHeading(filePath: string, headingText: string): Promise<string> {
+    const file = this.plugin.app.vault.getFileByPath(filePath);
+    if (!file) {
+      return '';
+    }
+
+    const content = await this.plugin.app.vault.cachedRead(file);
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    if (!cache?.sections) {
+      return this.extractContentUnderHeadingFromContent(content, headingText);
+    }
+
+    const lines = content.split('\n');
+    let targetSectionIndex = -1;
+    let targetLevel = 0;
+
+    for (let i = 0; i < cache.sections.length; i++) {
+      const section = cache.sections[i];
+      if (section.type !== 'heading') {
+        continue;
+      }
+
+      const heading = this.parseHeadingLine(lines[section.position.start.line]);
+      if (!heading || heading.text !== headingText) {
+        continue;
+      }
+
+      targetSectionIndex = i;
+      targetLevel = heading.level;
+      break;
+    }
+
+    if (targetSectionIndex === -1) {
+      return '';
+    }
+
+    const contentParts: string[] = [];
+    for (let i = targetSectionIndex + 1; i < cache.sections.length; i++) {
+      const section = cache.sections[i];
+      if (section.type === 'heading') {
+        const heading = this.parseHeadingLine(lines[section.position.start.line]);
+        if (heading && heading.level <= targetLevel) {
+          break;
+        }
+      }
+
+      const sectionLines = lines.slice(section.position.start.line, section.position.end.line + 1);
+      contentParts.push(sectionLines.join('\n'));
+    }
+
+    return contentParts.join('\n').trim();
+  }
+
+  private extractContentUnderHeadingFromContent(content: string, headingText: string): string {
     const result: string[] = [];
     const headingMatch = this.findHeadingLine(content, headingText);
     if (!headingMatch) {
@@ -294,6 +344,29 @@ export class NoteContentService {
     return null;
   }
 
+  private async headingExistsInFile(file: TFile, headingText: string): Promise<boolean> {
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    if (cache?.sections) {
+      const content = await this.plugin.app.vault.cachedRead(file);
+      const lines = content.split('\n');
+      for (let i = 0; i < cache.sections.length; i++) {
+        const section = cache.sections[i];
+        if (section.type !== 'heading') {
+          continue;
+        }
+
+        const heading = this.parseHeadingLine(lines[section.position.start.line]);
+        if (heading?.text === headingText) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    const content = await this.plugin.app.vault.cachedRead(file);
+    return this.findHeadingLine(content, headingText) !== null;
+  }
+
   /**
    * Process wikilinks in content and either append their content at the end or replace the wikilinks
    * @param content The content containing wikilinks
@@ -339,7 +412,7 @@ export class NoteContentService {
 
       if (anchorParts.length > 1) {
         const headingName = anchorParts[1];
-        if (!this.findHeadingLine(linkedContent, headingName)) {
+        if (!(await this.headingExistsInFile(file, headingName))) {
           throw new Error(
             i18next.t('vault.wikilinkHeadingNotFound', {
               wikilink,
@@ -349,8 +422,7 @@ export class NoteContentService {
           );
         }
 
-        // Extract content under the specified heading
-        extractedContent = this.extractContentUnderHeading(linkedContent, headingName);
+        extractedContent = await this.extractContentUnderHeading(file.path, headingName);
       }
 
       // Process nested wikilinks if depth > 1

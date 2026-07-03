@@ -2,9 +2,9 @@
 name: interactive-widget
 description: >-
   Expose model-callable widget actions and configure turn-based play via
-  Widget.md (actions, actors, agent blocks). Read after stateful-widget when
+  Definition.md (actions, actors, agent blocks). Read after stateful-widget when
   humans and models take turns.
-version: 24
+version: 25
 tools:
   - show_widget
 ---
@@ -17,14 +17,14 @@ Use this skill **after** the **stateful-widget** skill when a widget should acce
 
 - User wants **turn-ordered** interaction with one or more **model** actors.
 - The widget already persists state (`getState` / `setState`) — see **stateful-widget** first.
-- You need **host-dispatchable actions** (`registerAction`) documented in `Widget.md`.
+- You need **host-dispatchable actions** (`registerAction`) documented in `Definition.md`.
 
 Skip for static widgets, user-only interactivity with no model turns, or SVG `code` mode.
 
 ## Prerequisite workflow
 
 1. Read **stateful-widget** → `show_widget` + working project with `setState`.
-2. Then use this skill → interactive `window.stw` APIs in `main.js` + `actions` / `actors` / `agent` YAML fences in `Widget.md` (below the manifest block).
+2. Then use this skill → interactive `window.stw` APIs in `main.js` + `actions` / `actors` / `agent` YAML fences in `Definition.md` (below the manifest block).
 
 ---
 
@@ -37,10 +37,10 @@ This skill adds **turn-based** APIs:
 | API                                        | Description                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `window.stw.getSession()`                  | Read-only. Returns a session object or `null` when no interactive session is active. Fields: `actor` (current turn id), `turnIndex`, `phase`, optional `moveLog`, optional `conversationTitle`. `phase` is `awaiting_input` (human or idle), `thinking` (model turn running), or `ended`. Use in `render()` for turn status (e.g. "O is thinking…"). Never write session — the host advances it. |
-| `window.stw.getActors()`                   | Read-only. Returns `{ mode, turnOrder, actors }` from `Widget.md` or `null` when the project is not interactive. Use to derive who opens (e.g. map `turnOrder[0]` to your game's first player token). Injected at mount — not stored in `data`. |
+| `window.stw.getActors()`                   | Read-only. Returns `{ mode, turnOrder, actors }` from `Definition.md` or `null` when the project is not interactive. Use to derive who opens (e.g. map `turnOrder[0]` to your game's first player token). Injected at mount — not stored in `data`. |
 | `window.stw.setState(data, options?)`      | Saves **data** (debounced ~400ms). Optional **`options.intent`**: `'reset'` (clear session), `'start'` (begin play; model-first when `turnOrder[0]` is model), `'reset_and_start'` (both). **Never triggers model on mount.** Options are host-only — never stored in `data`.                                                                                                                                                                      |
-| `window.stw.registerAction(name, fn)`      | Register a handler the **host** dispatches during **model** turns. `name` must match a key under `actions` in `Widget.md`. Not called on human clicks.                                                                                                                                                                                                                                           |
-| `window.stw.registerQuery(name, fn)`       | Register a **read-only** handler for model **`widget_query`** calls. `name` must match a key under `queries` in `Widget.md` (except **`get_state`**, which the host serves from persisted `data`). Must **not** call `setState`.                                                                                                                                                                                                                                        |
+| `window.stw.registerAction(name, fn)`      | Register a handler the **host** dispatches during **model** turns. `name` must match a key under `actions` in `Definition.md`. Not called on human clicks.                                                                                                                                                                                                                                           |
+| `window.stw.registerQuery(name, fn)`       | Register a **read-only** handler for model **`widget_query`** calls. `name` must match a key under `queries` in `Definition.md` (except **`get_state`**, which the host serves from persisted `data`). Must **not** call `setState`.                                                                                                                                                                                                                                        |
 | `window.stw.dispatchAction(name, params)`  | Runs a registered action handler inside the iframe (host `applyAction` bridge). Human clicks should call the shared action function directly instead.                                                                                                                                                                                                                                                   |
 | `window.stw.dispatchQuery(name, params)`   | Runs a registered query handler inside the iframe (host `dispatchQuery` bridge). For local debugging only — model turns use the host `widget_query` tool.                                                                                                                                                                                                                                         |
 
@@ -55,7 +55,7 @@ This skill adds **turn-based** APIs:
 | **Reset session only**        | **Edit `{projectPath}/state.json`** — remove the `session` key   | **No**                             | **Yes**           |
 
 - **Reset only** → **`setState(freshData, { intent: 'reset' })`** — use when a separate **Start** button calls `{ intent: 'start' }`.
-- **Reset + model opens** → **`setState(freshData, { intent: 'reset_and_start' })`** — one **New game** button when the model moves first per `Widget.md`.
+- **Reset + model opens** → **`setState(freshData, { intent: 'reset_and_start' })`** — one **New game** button when the model moves first per `Definition.md`.
 - **Start without reset** → **`setState(data, { intent: 'start' })`** — after the user already reset board data locally or on a fresh board.
 - Normal gameplay moves → **`setState(data)`** with no options.
 - Widget code only writes **`data`** via `setState`. Session is host-owned in `state.json`.
@@ -69,7 +69,7 @@ This skill adds **turn-based** APIs:
 
 Rules:
 
-- `fn` receives `params` validated against the action's `params` spec in `Widget.md`.
+- `fn` receives `params` validated against the action's `params` spec in `Definition.md`.
 - **Human clicks call the shared action function inside the iframe** — not the host, not `registerAction`.
 - **`registerAction` is for model turns only** — after the LLM calls `widget_action`, the host dispatches via `applyAction` → `dispatchAction`.
 - Every successful move must call **`setState`** (see **Human move → model turn**).
@@ -84,7 +84,7 @@ Rules:
 
 Rules:
 
-- `fn` receives `params` validated against the query's `params` spec in `Widget.md`.
+- `fn` receives `params` validated against the query's `params` spec in `Definition.md`.
 - **`registerQuery` is for model turns only** — after the LLM calls `widget_query`, the host dispatches via `dispatchQuery` → iframe `dispatchQuery`.
 - Query handlers must be **pure reads** — no `setState`, no turn advancement, no session changes.
 - The model may call `widget_query` **zero or more times** per turn, then commits with **`widget_action` exactly once**.
@@ -161,7 +161,7 @@ Model turn flow:
 Model turn prompts are **lean**: they list available queries and allowed actions, not embedded state. The model calls **`widget_query`** to read data before committing a move.
 
 1. **`get_state`** — built-in default query. Returns current public `data` as JSON. Omit `query` on `widget_query` to use it.
-2. **Custom queries** — add a `name: queries` block in `Widget.md` and `registerQuery` handlers in `main.js` for read-only probes (e.g. `text_representation`, `getLegalMoves`).
+2. **Custom queries** — add a `name: queries` block in `Definition.md` and `registerQuery` handlers in `main.js` for read-only probes (e.g. `text_representation`, `getLegalMoves`).
 3. List custom queries on each `agent` block under `queries` so the actor may call them.
 
 Example text view via query (`text_representation.js`):
@@ -197,7 +197,7 @@ window.stw.registerQuery('text_representation', function () {
 ```
 
 ```yaml
-# Widget.md excerpt
+# Definition.md excerpt
 name: queries
 queries:
   text_representation:
@@ -212,11 +212,11 @@ queries:
 
 ---
 
-## `Widget.md` (interactive blocks)
+## `Definition.md` (interactive blocks)
 
 Project path, manifest fence, editable area, and editing workflow are defined in **stateful-widget**.
 
-Note-level frontmatter `status` and `enabled` on `Widget.md` are **host-maintained** validation markers (do not hand-author unless missing). Add interactive YAML fences **below** the manifest block. After save, re-read `status` and fix errors before expecting model turns.
+Note-level frontmatter `status` and `enabled` on `Definition.md` are **host-maintained** validation markers (do not hand-author unless missing). Add interactive YAML fences **below** the manifest block. After save, re-read `status` and fix errors before expecting model turns.
 
 ---
 
@@ -297,7 +297,7 @@ One fence **per model actor**. Repeat the block for each `kind: model` entry in 
 | -------------- | ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`         | `agent`          | **Yes**  | Block type literal.                                                                                                                                                                                                                       |
 | `id`           | string           | **Yes**  | Must match an `actors` key with `kind: model`.                                                                                                                                                                                           |
-| `instructions` | array of strings | **Yes**  | System prompts for this actor (plain text or wikilinks). Prefer one internal heading in this `Widget.md` — e.g. `[[#Actor instructions]]` — that holds rules, examples, and any inline skill notes in a single section. Heading-only links resolve against this file. |
+| `instructions` | array of strings | **Yes**  | System prompts for this actor (plain text or wikilinks). Prefer one internal heading in this `Definition.md` — e.g. `[[#Actor instructions]]` — that holds rules, examples, and any inline skill notes in a single section. Heading-only links resolve against this file. |
 | `actions`      | array of strings | **Yes**  | Subset of action names from the `actions` catalog this actor may call.                                                                                                                                                                    |
 | `queries`      | array of strings | No       | Subset of query names from the `queries` catalog this actor may call via `widget_query`.                                                                                                                                                |
 | `tools`        | array of strings | No       | Steward tools for this actor. `widget_action` and `widget_query` are always included (listing them is optional). The host injects detailed per-tool guidelines automatically.                     |
@@ -322,7 +322,7 @@ On save, the host checks (including the host-maintained `manifest` block):
 
 Fix `status` errors before expecting model turns to run.
 
-### Recommended: one instruction section in `Widget.md`
+### Recommended: one instruction section in `Definition.md`
 
 Below your YAML fences, add **one** markdown heading that bundles rules, examples, and any inline skill guidance. Link it from the `agent` block `instructions`:
 
@@ -474,7 +474,7 @@ Model turns → **`widget_query`** (optional, read-only) → **`widget_action`**
 1. **stateful-widget** → working widget with `setState`.
 2. Interactive APIs + shared action functions + **`registerAction`** + click handlers in `main.js`.
 3. For board games, add `text_representation` (or similar) via **`registerQuery`** when JSON alone is hard to read.
-4. `edit` `Widget.md`: add `name: actions` (see **stateful-widget** for manifest and editing).
+4. `edit` `Definition.md`: add `name: actions` (see **stateful-widget** for manifest and editing).
 5. For complex games, add `name: queries` + extra `registerQuery` handlers so models can probe before moving.
 6. For model play: add `name: actors` + `name: agent` fence(s); confirm `status` valid.
 6. Open note → widget mounts → **no `session` yet**; human **`setState`** triggers first model turn and session creation.
@@ -491,7 +491,7 @@ Model turns → **`widget_query`** (optional, read-only) → **`widget_action`**
 - **Playground link** — no widget footer link; tell the user in your final response with `[[Steward/Playground.md]]` (adjust path if `{stewardFolder}` is not `Steward`).
 - **Model turns** — lean turn prompts list queries and actions; models call `widget_query` (`get_state` by default) before `widget_action`.
 - **Queries** — optional `name: queries` block + `registerQuery` for read-only model probes via `widget_query`; does not advance turns or mutate state.
-- Manifest placement, editable area, and `Widget.md` editing: **stateful-widget**.
+- Manifest placement, editable area, and `Definition.md` editing: **stateful-widget**.
 - Add `agent` / `actors` only after `actions` works in `main.js` via `registerAction`.
 - Human move does not trigger the model unless the action calls **`setState`** with changed `data` (forward gameplay, not a board clear).
 - Expecting the host to call `playCell` on human click — only **`setState`** crosses to the host for human moves; `registerAction` is for model dispatch.
@@ -500,4 +500,4 @@ Model turns → **`widget_query`** (optional, read-only) → **`widget_action`**
 - `kind: human` actor given an `agent` block.
 - Registering UI-only actions (reset) instead of local handlers + **`setState`**.
 - Storing turn/session info in `data` — use `getSession()`; keep `data` game-only.
-- **`edit` `Widget.md`** to add **`actions`**, **`actors`**, and **`agent`** is a MUST to complete interactive widget.
+- **`edit` `Definition.md`** to add **`actions`**, **`actors`**, and **`agent`** is a MUST to complete interactive widget.

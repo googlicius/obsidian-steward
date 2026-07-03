@@ -42,7 +42,7 @@ interface WidgetDefinitionValidationResult {
 }
 
 /**
- * All logic for the widget project definition note (`Widget.md`): read blocks, validate, frontmatter status.
+ * All logic for the widget project definition note (`Definition.md`): read blocks, validate, frontmatter status.
  */
 export class WidgetDefinitionService {
   private static instance: WidgetDefinitionService | null = null;
@@ -57,7 +57,7 @@ export class WidgetDefinitionService {
     return WidgetDefinitionService.instance;
   }
 
-  /** Registers metadata cache listeners for Widget.md validation. */
+  /** Registers metadata cache listeners for Definition.md validation. */
   public initialize(): void {
     if (this.initialized) {
       return;
@@ -88,10 +88,10 @@ export class WidgetDefinitionService {
     return i18next.t('common.statusInvalid', { errors: combinedErrors });
   }
 
-  /** Whether a vault path is the Widget.md definition file inside a widget project. */
+  /** Whether a vault path is the Definition.md definition file inside a widget project. */
   private isWidgetDefinitionPath(filePath: string): boolean {
     const normalized = normalizePath(filePath);
-    if (!normalized.endsWith('/Widget.md')) {
+    if (!normalized.endsWith('/Definition.md')) {
       return false;
     }
 
@@ -106,7 +106,7 @@ export class WidgetDefinitionService {
   }
 
   /**
-   * Reads frontmatter validation status for edited Widget.md paths (no validation trigger).
+   * Reads frontmatter validation status for edited Definition.md paths (no validation trigger).
    * May be stale if the metadata cache handler has not run yet.
    */
   public readEditedDefinitionStatusFromFrontmatter(filePaths: string[]): string | undefined {
@@ -156,7 +156,7 @@ export class WidgetDefinitionService {
     return validation;
   }
 
-  /** Reads manifest, actions, actors, and agent blocks from Widget.md in one vault read. */
+  /** Reads manifest, actions, actors, and agent blocks from Definition.md in one vault read. */
   public async getWidgetDefinition(projectPath: string): Promise<WidgetDefinition> {
     const file = this.getDefinitionFile(projectPath);
     if (!file) {
@@ -173,7 +173,7 @@ export class WidgetDefinitionService {
     }
   }
 
-  /** Read-only actors roster from Widget.md for iframe injection via window.stw.getActors(). */
+  /** Read-only actors roster from Definition.md for iframe injection via window.stw.getActors(). */
   public async getIframeActorsConfig(projectPath: string): Promise<WidgetIframeActorsConfig | null> {
     const definition = await this.getWidgetDefinition(projectPath);
     const actors = definition.actors;
@@ -202,7 +202,7 @@ export class WidgetDefinitionService {
   }
 
   private getDefinitionFile(projectPath: string): TFile | null {
-    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
+    const definitionPath = normalizePath(`${projectPath}/Definition.md`);
     return this.plugin.app.vault.getFileByPath(definitionPath);
   }
 
@@ -387,7 +387,7 @@ export class WidgetDefinitionService {
     const statusMessage = this.buildStatusMessage(valid, valid ? undefined : errors);
 
     if (!valid && params.file) {
-      logger.warn(`Invalid Widget.md definition at ${params.file.path}:`, errors);
+      logger.warn(`Invalid Definition.md definition at ${params.file.path}:`, errors);
     }
 
     return {
@@ -423,7 +423,7 @@ export class WidgetDefinitionService {
         }
       });
     } catch (error) {
-      logger.error(`Failed to update Widget.md frontmatter for ${file.path}`, error);
+      logger.error(`Failed to update Definition.md frontmatter for ${file.path}`, error);
     }
   }
 

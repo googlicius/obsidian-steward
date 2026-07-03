@@ -184,6 +184,34 @@ export class ToolSerialization {
                   value: `Message not found: ${messageId}`,
                 };
               }
+            } else if (resolvedOutput.value.startsWith('headingRef:')) {
+              const payload = resolvedOutput.value.substring('headingRef:'.length);
+              const sep = payload.indexOf('|');
+              if (sep === -1) {
+                logger.error(`Invalid headingRef format: ${payload}`);
+                resolvedOutput = { type: 'error-text', value: `Invalid headingRef: ${payload}` };
+              } else {
+                const filePath = payload.slice(0, sep);
+                const headingText = payload.slice(sep + 1);
+                const file = this.plugin.app.vault.getFileByPath(filePath);
+                if (!file) {
+                  logger.error(`headingRef file not found: ${filePath}`);
+                  resolvedOutput = {
+                    type: 'error-text',
+                    value: `headingRef file not found: ${filePath}`,
+                  };
+                } else {
+                  const section =
+                    await this.plugin.cliSessionService.shellOutputArchive.readSection(
+                      filePath,
+                      headingText
+                    );
+                  resolvedOutput = {
+                    type: 'text',
+                    value: section || '(No output)',
+                  };
+                }
+              }
             }
           }
 

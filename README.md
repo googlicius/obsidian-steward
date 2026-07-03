@@ -118,7 +118,7 @@ For modes, installers, built-in interactive programs, and settings, see the **[S
 
 Steward can render **inline HTML and SVG widgets** directly in the conversation-animations, interactive demos, diagrams, and even simple games. Ask in natural language and the agent uses the built-in widget tool to create and display them in a **sandboxed iframe** inside your chat note.
 
-**HTML project widgets** are stored under `Steward/Widgets/{widgetId}/` as multi-file projects (`index.html`, `style.css`, `main.js`, `Widget.md`, etc.). They persist across conversations, hot-reload when you edit project files, and can reference vault assets (images, audio) bundled at render time. **Stateful widgets** (counters, quizzes, games) save runtime state via `state.json`; **interactive widgets** support turn-based play with AI actors.
+**HTML project widgets** are stored under `Steward/Widgets/{widgetId}/` as multi-file projects (`index.html`, `style.css`, `main.js`, `Definition.md`, etc.). They persist across conversations, hot-reload when you edit project files, and can reference vault assets (images, audio) bundled at render time. **Stateful widgets** (counters, quizzes, games) save runtime state via `state.json`; **interactive widgets** support turn-based play with AI actors.
 
 **SVG widgets** are self-contained vector graphics rendered inline without a project folder.
 
@@ -173,7 +173,7 @@ Steward/
 ├── Release notes/  # Release notes of Steward
 ├── Rules/          # Guardrails rules (one file per rule)
 ├── Skills/         # Agent skills for domain-specific knowledge
-├── Widgets/        # HTML widget projects (index.html, main.js, Widget.md, state.json)
+├── Widgets/        # HTML widget projects (index.html, main.js, Definition.md, state.json)
 ├── Artifacts/      # Saved artifacts (.art notes; open in reading view)
 ├── Trash/          # Stores deleted files
 ├── install-node-pty-runtime.sh   # Downloads node-pty prebuilt (macOS, Linux, Git Bash)

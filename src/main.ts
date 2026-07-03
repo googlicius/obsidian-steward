@@ -543,7 +543,7 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
 
-    this.registerMarkdownPostProcessor(createCollapsibleBlockPostProcessor());
+    this.registerMarkdownPostProcessor(createCollapsibleBlockPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
 

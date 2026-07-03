@@ -36,6 +36,10 @@ export class HistoryViewBuilder implements ViewBuilder {
         if (cache?.frontmatter?.parent || cache?.frontmatter?.host_conversation) {
           return false;
         }
+        // Exclude shell output archive files
+        if (file.basename.endsWith('__shell')) {
+          return false;
+        }
         return true;
       })
       .sort((a, b) => {

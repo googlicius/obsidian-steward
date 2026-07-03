@@ -125,7 +125,7 @@ function createOrchestratorHarness(options: {
   const plugin = {
     app: {
       vault: {
-        getFileByPath: () => ({ path: `${projectPath}/Widget.md` }),
+        getFileByPath: () => ({ path: `${projectPath}/Definition.md` }),
       },
       metadataCache: {
         getFileCache: () => ({ frontmatter: { enabled: true, status: 'Valid' } }),

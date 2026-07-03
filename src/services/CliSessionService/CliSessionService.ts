@@ -1,4 +1,5 @@
 import { FileSystemAdapter, Platform } from 'obsidian';
+// eslint-disable-next-line import/no-nodejs-modules
 import type { ChildProcessWithoutNullStreams } from 'child_process';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
@@ -11,6 +12,7 @@ import {
 } from 'src/solutions/pty-companion/client';
 import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/resolveVaultPtyNativePath';
 import { CLI_STREAM_MARKER, CLI_XTERM_MARKER, getCliStreamMarkerPlaceholder } from './constants';
+import { ShellOutputArchiveService } from './ShellOutputArchiveService';
 import { AbortOperationKeys } from 'src/constants';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 
@@ -135,6 +137,8 @@ export interface CliSession {
     cols: number;
     rows: number;
   };
+  /** Transcript-only: messageId of the current (most recent) transcript segment for archiving. */
+  currentTranscriptMessageId?: string;
 }
 
 function sanitizeFenceContent(text: string): string {
@@ -143,8 +147,11 @@ function sanitizeFenceContent(text: string): string {
 
 export class CliSessionService {
   private sessions: Map<string, CliSession> = new Map();
+  public readonly shellOutputArchive: ShellOutputArchiveService;
 
-  constructor(private readonly plugin: StewardPlugin) {}
+  constructor(private readonly plugin: StewardPlugin) {
+    this.shellOutputArchive = new ShellOutputArchiveService(plugin);
+  }
 
   private refreshCommandInputDecorations(): void {
     this.plugin.commandInputService.notifyCliSessionDecorationRefresh();
@@ -160,8 +167,8 @@ export class CliSessionService {
   private async updateStreamMarkerInNote(params: {
     conversationTitle: string;
     /**
-     * Hide: Hide stream marker, still allow the output flushed into the current segment
-     * Remove: New output will be flushed to a new segment.
+     * Hide: Hide stream marker, still allow the output flushed into the current segment.
+     * Remove: Strip marker only. The archive stub (callout-only) owns the stw-shell callout.
      */
     action: 'remove' | 'hide';
   }): Promise<void> {
@@ -180,27 +187,8 @@ export class CliSessionService {
             getCliStreamMarkerPlaceholder({ hidden: true })
           );
         }
-        content = content.replace(streamMarkerRegex, '');
-
-        const regex = /```cli-model\n[\s\S]*?\n```\n/g;
-
-        let lastMatch: RegExpExecArray | null = null;
-        let match: RegExpExecArray | null;
-
-        while ((match = regex.exec(content)) !== null) {
-          lastMatch = match;
-        }
-
-        if (lastMatch && typeof lastMatch.index === 'number') {
-          const end = lastMatch.index + lastMatch[0].length;
-
-          content =
-            content.slice(0, end) +
-            `>[!stw-shell] <a class="stw-toggle-block">${i18next.t('common.commandOutput')}</a>\n` +
-            content.slice(end);
-        }
-
-        return content;
+        // 'remove': strip marker only (archive stub already provides the stw-shell callout)
+        return content.replace(streamMarkerRegex, '');
       });
     } catch (error) {
       logger.error('CliSessionService updateStreamMarkerInNote failed:', error);
@@ -625,7 +613,13 @@ export class CliSessionService {
           ? i18next.t('cli.processEndedSignal', { signal: String(signal) })
           : i18next.t('cli.processEndedCode', { code: String(code) });
       this.appendOutput(session.conversationTitle, `\n${exitNote}\n`, false);
-      void this.flushOutput(current, true).then(() => {
+      void this.flushOutput(current, true).then(async () => {
+        if (current.currentTranscriptMessageId) {
+          await this.shellOutputArchive.archiveMessageOutput({
+            conversationTitle: current.conversationTitle,
+            messageId: current.currentTranscriptMessageId,
+          });
+        }
         void this.endSession({
           conversationTitle: session.conversationTitle,
           killProcess: false,

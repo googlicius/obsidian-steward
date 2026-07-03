@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+﻿import { TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { MarkdownDefinitionService } from '../MarkdownDefinitionService';
 import { WidgetDefinitionService } from './WidgetDefinitionService';
@@ -41,7 +41,7 @@ function buildMarkdownSections(content: string) {
   return sections;
 }
 
-function buildValidWidgetMd(): string {
+function buildValidDefinition(): string {
   return [
     '```yaml',
     'name: manifest',
@@ -128,15 +128,15 @@ function bindPrivateMethods(service: WidgetDefinitionService) {
 }
 
 describe('WidgetDefinitionService', () => {
-  const file = { path: 'Steward/Widgets/Tic-Tac-Toe-abc/Widget.md' } as TFile;
+  const file = { path: 'Steward/Widgets/Tic-Tac-Toe-abc/Definition.md' } as TFile;
 
   beforeEach(() => {
     (WidgetDefinitionService as unknown as { instance: WidgetDefinitionService | null }).instance =
       null;
   });
 
-  it('accepts a complete valid Widget.md definition', () => {
-    const content = buildValidWidgetMd();
+  it('accepts a complete valid Definition.md definition', () => {
+    const content = buildValidDefinition();
     const plugin = createValidatorPlugin(content);
     const { validateContent } = bindPrivateMethods(WidgetDefinitionService.getInstance(plugin));
     const result = validateContent({ content, file });
@@ -179,7 +179,7 @@ describe('WidgetDefinitionService', () => {
   });
 
   it('updates frontmatter status on validateAndUpdateFrontmatter', async () => {
-    const content = buildValidWidgetMd();
+    const content = buildValidDefinition();
     const plugin = createValidatorPlugin(content);
     const processFrontMatter = jest.fn(async (_file, mutator) => {
       const fm: Record<string, unknown> = {};
@@ -199,7 +199,7 @@ describe('WidgetDefinitionService', () => {
   });
 
   it('getWidgetDefinition reads all blocks in a single vault read', async () => {
-    const content = buildValidWidgetMd();
+    const content = buildValidDefinition();
     const plugin = createValidatorPlugin(content);
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc';
     plugin.app.vault.getFileByPath = jest.fn().mockReturnValue(file);
@@ -264,10 +264,10 @@ describe('WidgetDefinitionService', () => {
   });
 
   it('readEditedDefinitionStatusFromFrontmatter returns invalid status only', () => {
-    const content = buildValidWidgetMd();
+    const content = buildValidDefinition();
     const plugin = createValidatorPlugin(content);
     plugin.app.metadataCache.getFileCache = jest.fn().mockImplementation((f: TFile) => {
-      if (f.path.endsWith('Widget.md')) {
+      if (f.path.endsWith('Definition.md')) {
         return {
           sections: buildMarkdownSections(content),
           frontmatter: { status: 'Invalid: bad agent' },

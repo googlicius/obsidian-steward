@@ -275,6 +275,15 @@ export class CliHandler {
     }
     this.cliSessionService.cancelFlushTimer(session);
     await this.cliSessionService.flushOutputForConversation(conversationTitle, true);
+
+    // Archive previous segment before mutating the note further
+    if (session.currentTranscriptMessageId) {
+      await this.cliSessionService.shellOutputArchive.archiveMessageOutput({
+        conversationTitle,
+        messageId: session.currentTranscriptMessageId,
+      });
+    }
+
     try {
       const file = this.agent.renderer.getConversationFileByName(conversationTitle);
       await this.agent.app.vault.process(file, content => {
@@ -289,30 +298,34 @@ export class CliHandler {
     }
     const fenceLang = isModelCall ? 'cli-model' : 'cli-transcript';
     const fenced = `\n\n\`\`\`${fenceLang}\n${initialContent}\n\`\`\`\n`;
-    return this.agent.renderer.updateConversationNote({
+    const newMessageId = await this.agent.renderer.updateConversationNote({
       path: conversationTitle,
       newContent: fenced,
       command: 'cli',
       includeHistory: false,
     });
+
+    session.currentTranscriptMessageId = newMessageId;
+    return newMessageId;
   }
 
   /**
    * Waits for the CLI stream marker to be removed from the message, indicating
    * the shell command has finished and all output has been flushed.
    *
-   * Uses a progress-aware idle timeout: each retry window is 15s. If new output
+   * Uses a progress-aware idle timeout: each retry window is 120s. If new output
    * was flushed during that window (content changed), a fresh window starts.
    * The wait only stops when the marker is removed (success) or no progress was
-   * observed for a full idle window (15s of silence).
+   * observed for a full idle window (120s of silence).
    */
+  private static readonly IDLE_POLL_MS = 250;
+  private static readonly IDLE_WINDOW_MS = 120_000;
+  private static readonly IDLE_WINDOW_RETRIES = CliHandler.IDLE_WINDOW_MS / CliHandler.IDLE_POLL_MS; // 480
+
   private async waitForShellOutputFlushed(params: {
     conversationTitle: string;
     messageId: string;
   }): Promise<void> {
-    const IDLE_WINDOW_RETRIES = 60;
-    const POLL_INTERVAL_MS = 250;
-
     let lastContent: string | undefined;
 
     while (true) {
@@ -346,9 +359,9 @@ export class CliHandler {
             throw new Error(`CLI output is still streaming: ${params.messageId}`);
           },
           {
-            maxRetries: IDLE_WINDOW_RETRIES,
-            initialDelay: POLL_INTERVAL_MS,
-            minDelay: POLL_INTERVAL_MS,
+            maxRetries: CliHandler.IDLE_WINDOW_RETRIES,
+            initialDelay: CliHandler.IDLE_POLL_MS,
+            minDelay: CliHandler.IDLE_POLL_MS,
             useExponentialBackoff: false,
           }
         );
@@ -494,6 +507,9 @@ export class CliHandler {
         command: 'cli',
         includeHistory: false,
       });
+      if (session) {
+        session.currentTranscriptMessageId = messageId;
+      }
     }
 
     if (params.argsLine.length > 0 && session && !session.child.stdin.writableEnded) {
@@ -636,14 +652,24 @@ export class CliHandler {
     const runResult = await this.runShellSession(ctx, toolCall, true);
 
     if (runResult) {
+      let headingRef: { path: string; headingText: string } | null = null;
+      if (runResult.messageId) {
+        headingRef = await this.cliSessionService.shellOutputArchive.archiveMessageOutput({
+          conversationTitle: ctx.title,
+          messageId: runResult.messageId,
+        });
+      }
+
       await ctx.serializeInvocation({
         command: ToolName.SHELL,
         toolCall,
         result: {
           type: 'text',
-          value: runResult.messageId
-            ? `messageRef:${runResult.messageId}`
-            : 'Shell command was executed.',
+          value: headingRef
+            ? `headingRef:${headingRef.path}|${headingRef.headingText}`
+            : runResult.messageId
+              ? `messageRef:${runResult.messageId}`
+              : 'Shell command was executed.',
         },
       });
 

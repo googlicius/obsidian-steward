@@ -4,7 +4,7 @@ description: >-
   Build interactive HTML project widgets with persisted runtime state (games,
   counters, forms). Read before show_widget when user actions must survive
   reopening the note.
-version: 10
+version: 11
 tools:
   - show_widget
 ---
@@ -23,7 +23,7 @@ Skip this pattern for static animations, one-shot diagrams, or SVG-only widgets 
 
 ## How a widget is rendered
 
-- **Create (`show_widget`)**: Writes project files under `{stewardFolder}/Widgets/{widgetId}/` (`index.html`, `main.js`, `style.css`, `Widget.md`, etc.). `widgetId` = slugified `widgetName` + short unique suffix. Appends a `stw-widget-project` fence to the conversation note:
+- **Create (`show_widget`)**: Writes project files under `{stewardFolder}/Widgets/{widgetId}/` (`index.html`, `main.js`, `style.css`, `Definition.md`, etc.). `widgetId` = slugified `widgetName` + short unique suffix. Appends a `stw-widget-project` fence to the conversation note:
 
   ```stw-widget-project
   <widgetId>
@@ -69,7 +69,7 @@ Only vault paths listed in the manifest `assets` array may be loaded. The host i
 
 `window.stw.getAsset(id)` is **async** (`Promise<string | null>`). The iframe asks the host for file bytes, then creates a **local** blob URL inside the iframe. Results are cached per id for the session.
 
-Add a new image by editing **only** `Widget.md` manifest `assets` (then save). Hot-reload rebuilds the registry — no `main.js` map update if you already look up by stem.
+Add a new image by editing **only** `Definition.md` manifest `assets` (then save). Hot-reload rebuilds the registry — no `main.js` map update if you already look up by stem.
 
 **Static markup:** `asset:…` in HTML attributes (`src`, `href`, `poster`) and CSS `url(asset:…)` is auto-hydrated on load. You can still author:
 
@@ -155,9 +155,9 @@ Rules:
 - Never store `asset:` paths, vault paths, or blob URLs in state — persist stem ids (or full vault paths) and use `await stw.getAsset` (see above).
 - Use one object as source of truth; re-render from it.
 
-## `Widget.md` — `name: manifest` block (host-maintained)
+## `Definition.md` — `name: manifest` block (host-maintained)
 
-`show_widget` creates `{projectPath}/Widget.md` with a single `yaml` fence at the **top** of the note body. The host writes it on create — **do not** remove or replace the block. You may **edit** it later to add or update `assets` and `maxAssetSize` (e.g. for large audio).
+`show_widget` creates `{projectPath}/Definition.md` with a single `yaml` fence at the **top** of the note body. The host writes it on create — **do not** remove or replace the block. You may **edit** it later to add or update `assets` and `maxAssetSize` (e.g. for large audio).
 
 | Field          | Type             | Required | Description                                                                                                                                                                                                                                              |
 | -------------- | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -182,19 +182,19 @@ assets:
   - Images/sprite.png
 ```
 
-Large assets: if an asset exceeds `maxAssetSize`, the host refuses the request (`asset_too_large`, logged in the developer console). If a path is missing from the vault, you will see `asset_not_found`. Use `edit` on `Widget.md` to add paths to `assets` or increase `maxAssetSize` when media fails to load.
+Large assets: if an asset exceeds `maxAssetSize`, the host refuses the request (`asset_too_large`, logged in the developer console). If a path is missing from the vault, you will see `asset_not_found`. Use `edit` on `Definition.md` to add paths to `assets` or increase `maxAssetSize` when media fails to load.
 
 ## Project layout checklist
 
 - `index.html` — entry; list all `<link>` / `<script src>` in dependency order.
 - `main.js` — bootstrap: hydrate/save + initial render (last script).
 - Other `.js` / `.css` — optional splits when files get large (project root only).
-- `Widget.md` — host-created; **manifest** fence at top (see above). Do not edit the manifest block.
+- `Definition.md` — host-created; **manifest** fence at top (see above). Do not edit the manifest block.
 - `state.json` — auto-created on first `setState`; do not include in `show_widget` `files`.
 
 ## Notes
 
-- The **editable area** of `Widget.md` is everything **below** the host-maintained `manifest` fence — never insert or change content above or inside that fence.
+- The **editable area** of `Definition.md` is everything **below** the host-maintained `manifest` fence — never insert or change content above or inside that fence.
 - Game logic updates variables/DOM but never calls `window.stw.setState` → no persistence.
 - Using `code` single-blob mode for a game → no `window.stw` / `state.json`.
 - Putting state only in closure variables with no serializable snapshot.

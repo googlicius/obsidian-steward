@@ -1,4 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
+import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { setupAutoScroll } from 'src/utils/scrollUtils';
@@ -11,8 +12,9 @@ const SUPPORTED_BLOCKS = ['stw-thinking', 'cli-model'];
  * Handles:
  * - Auto-scrolling streamed blocks
  * - Toggle visibility for collapsible streamed blocks
+ * - Lazy-load archived shell output from `__shell.md` files
  */
-export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
+export function createCollapsibleBlockPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   return (el, ctx) => {
     // Support all configured language blocks
     const selector = SUPPORTED_BLOCKS.map(lang => `pre > code.language-${lang}`).join(',');
@@ -57,6 +59,14 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
 
     if (!toggleLink) return;
 
+    // Check for archived shell callout (lazy-load path)
+    const callout: HTMLElement | null = toggleLink.closest('[data-callout="stw-shell"]');
+
+    if (callout?.dataset['output_file'] && callout?.dataset['output_anchor']) {
+      handleArchivedShellToggle(plugin, toggleLink as HTMLAnchorElement, callout, el);
+      return;
+    }
+
     // Wait until rendered so sibling structure exists
     window.setTimeout(() => {
       const prevDivSibling = el.previousElementSibling as HTMLElement | null;
@@ -87,6 +97,70 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
       });
     });
   };
+}
+
+/**
+ * Set up click handler for archived shell output: fetch content from
+ * the `__shell.md` file and inject it into a dynamically-created pre/code element.
+ */
+function handleArchivedShellToggle(
+  plugin: StewardPlugin,
+  toggleLink: HTMLAnchorElement,
+  callout: HTMLElement,
+  container: HTMLElement
+): void {
+  toggleLink.addEventListener('click', event => {
+    event.preventDefault();
+
+    void (async () => {
+      if (callout.dataset['stwShellLoaded'] === 'true') {
+        // Content already loaded — just toggle
+        const pre = callout.previousElementSibling as HTMLElement | null;
+        if (pre) {
+          pre.classList.remove('hidden');
+          container.classList.add('block');
+          container.classList.remove('hidden');
+          callout.classList.add('hidden');
+        }
+        return;
+      }
+
+      const filePath = callout.dataset['output_file']!;
+      const headingText = callout.dataset['output_anchor']!;
+
+      try {
+        const content = await plugin.cliSessionService.shellOutputArchive.readSection(
+          filePath,
+          headingText
+        );
+
+        if (!content) {
+          return;
+        }
+
+        // Create pre > code element with the fetched content
+        const code = activeDocument.createElement('code');
+        code.className = 'language-cli-model';
+        code.textContent = content;
+
+        const pre = activeDocument.createElement('pre');
+        pre.appendChild(code);
+        pre.dataset.streaming = 'false';
+
+        // Insert before the callout
+        callout.parentElement?.insertBefore(pre, callout);
+
+        callout.dataset['stwShellLoaded'] = 'true';
+
+        // Show the pre, hide the callout
+        container.classList.add('block');
+        container.classList.remove('hidden');
+        callout.classList.add('hidden');
+      } catch (error) {
+        logger.error('Error loading archived shell output:', error);
+      }
+    })();
+  });
 }
 
 /**

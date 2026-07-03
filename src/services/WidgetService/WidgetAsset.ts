@@ -23,7 +23,7 @@ export class WidgetAsset {
   /** Default per-asset cap when manifest omits `maxAssetSize`. */
   static readonly DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 
-  /** Default `maxAssetSize` written into Widget.md manifest on project create. */
+  /** Default `maxAssetSize` written into Definition.md manifest on project create. */
   static readonly DEFAULT_MAX_SIZE_MANIFEST = '5 MB';
 
   private static readonly SIZE_UNIT_MULTIPLIERS: Record<string, number> = {

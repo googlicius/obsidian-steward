@@ -931,6 +931,38 @@ export class ConversationRenderer {
   }
 
   /**
+   * Replace the body of a specific message in a conversation note,
+   * preserving the STW comment metadata line.
+   */
+  public async replaceMessageContent(
+    conversationTitle: string,
+    messageId: string,
+    newBody: string
+  ): Promise<void> {
+    const file = this.getConversationFileByName(conversationTitle);
+    await this.plugin.app.vault.process(file, content => {
+      const idPattern = `ID:${messageId}`;
+      const commentRegex = new RegExp(`(<!--STW ${idPattern}[^>]*-->)`, 'gi');
+      const commentMatch = commentRegex.exec(content);
+
+      if (!commentMatch) {
+        return content;
+      }
+
+      const commentEnd = (commentMatch.index ?? 0) + commentMatch[0].length;
+
+      const nextCommentRegex = /<!--STW ID:[^>]*-->/gi;
+      nextCommentRegex.lastIndex = commentEnd;
+      const nextMatch = nextCommentRegex.exec(content);
+      const msgEnd = nextMatch
+        ? (nextMatch.index ?? content.length)
+        : content.length;
+
+      return content.substring(0, commentEnd) + '\n' + newBody + content.substring(msgEnd);
+    });
+  }
+
+  /**
    * Converts a single ConversationMessage to model parts for building ModelMessages.
    * Used by convertMessageToModelFormat and extractConversationHistory.
    */

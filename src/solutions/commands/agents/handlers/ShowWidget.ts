@@ -87,7 +87,7 @@ export const showWidgetSchema = z
       .optional()
       .describe(
         [
-          'Vault files to bundle as base64 at render time. Reference each path with the asset: prefix in HTML, CSS, or JS (e.g. src="asset:Images/photo.png"). Manifest defaults to maxAssetSize 5MB; edit Widget.md to raise it for larger files.',
+          'Vault files to bundle as base64 at render time. Reference each path with the asset: prefix in HTML, CSS, or JS (e.g. src="asset:Images/photo.png"). Manifest defaults to maxAssetSize 5MB; edit Definition.md to raise it for larger files.',
           'IMPORTANT: Assets is required if any path in project files is prefixed with `asset:`',
         ].join('\n')
       ),
@@ -384,8 +384,8 @@ export class ShowWidget {
     message += `\nDo not call ${ToolName.SHOW_WIDGET} again for updates.`;
 
     if (params.missingAssets.length > 0) {
-      const definitionPath = `${params.projectPath}/Widget.md`;
-      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in project files but are not listed in the Widget.md manifest assets. Use ${ToolName.EDIT} to add them to the "assets" array in the \`name: manifest\` YAML block in ${definitionPath}. The widget refreshes automatically when Widget.md is saved.`;
+      const definitionPath = `${params.projectPath}/Definition.md`;
+      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in project files but are not listed in the Definition.md manifest assets. Use ${ToolName.EDIT} to add them to the "assets" array in the \`name: manifest\` YAML block in ${definitionPath}. The widget refreshes automatically when Definition.md is saved.`;
     }
 
     return message;

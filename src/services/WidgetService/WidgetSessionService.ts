@@ -493,7 +493,7 @@ export class WidgetSessionService {
     systemPrompts: string[];
     extraCorePromptSections: ExtraCorePromptSection[];
   }> {
-    const definitionPath = normalizePath(`${params.projectPath}/Widget.md`);
+    const definitionPath = normalizePath(`${params.projectPath}/Definition.md`);
     const rawPrompts = params.agent.instructions;
 
     const transformed: string[] = [];
@@ -608,7 +608,7 @@ export class WidgetSessionService {
       return { ok: false, actors: null };
     }
 
-    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
+    const definitionPath = normalizePath(`${projectPath}/Definition.md`);
     const file = this.plugin.app.vault.getFileByPath(definitionPath);
     if (!(file instanceof TFile)) {
       return { ok: false, actors: null };

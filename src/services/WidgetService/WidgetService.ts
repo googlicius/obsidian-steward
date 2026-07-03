@@ -110,7 +110,7 @@ export class WidgetService {
     this._orchestrator = WidgetOrchestrator.getInstance(plugin);
   }
 
-  /** Widget.md definition read, validate, and frontmatter logic. */
+  /** Definition.md definition read, validate, and frontmatter logic. */
   public get definitionService(): WidgetDefinitionService {
     return this._definitionService;
   }
@@ -329,7 +329,7 @@ export class WidgetService {
   }): string {
     const projectPath = this.getProjectPath({ widgetId: data.widgetId });
     const body = this.formatProjectFenceBody({ widgetId: data.widgetId, lang: data.lang });
-    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${body}\n\`\`\`\n<small>*ID: ${data.widgetId} - Definition: [[${projectPath}/Widget.md|${data.widgetName}]]*</small>`;
+    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${body}\n\`\`\`\n<small>*ID: ${data.widgetId} - Definition: [[${projectPath}/Definition.md|${data.widgetName}]]*</small>`;
   }
 
   /** Serializes stw-widget-project fence body (widgetId, lang, …). */
@@ -503,7 +503,7 @@ export class WidgetService {
   }
 
   /**
-   * Writes project files and Widget.md manifest under the widget project folder.
+   * Writes project files and Definition.md manifest under the widget project folder.
    */
   public async createProject(params: {
     widgetId: string;
@@ -559,7 +559,7 @@ export class WidgetService {
       }
     }
 
-    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
+    const definitionPath = normalizePath(`${projectPath}/Definition.md`);
     const definitionContent = this.plugin.markdownDefinitionService.buildYamlFence(
       stringifyYamlFence(manifestYamlData)
     );
@@ -876,7 +876,7 @@ export class WidgetService {
 
   /**
    * Dispatches a registered widget action into the mounted iframe.
-   * Validates against Widget.md before dispatch; persistence uses the iframe setState path.
+   * Validates against Definition.md before dispatch; persistence uses the iframe setState path.
    */
   public async applyAction(params: {
     projectPath: string;
@@ -941,7 +941,7 @@ export class WidgetService {
 
   /**
    * Dispatches a registered read-only widget query into the mounted iframe.
-   * Validates against Widget.md before dispatch; does not persist state.
+   * Validates against Definition.md before dispatch; does not persist state.
    */
   public async dispatchQuery(params: {
     projectPath: string;
@@ -1028,7 +1028,7 @@ export class WidgetService {
 
   /**
    * Reads a manifest-listed asset for an iframe asset request.
-   * Only assets declared in Widget.md manifest are allowed.
+   * Only assets declared in Definition.md manifest are allowed.
    */
   public async provideAsset(params: {
     projectPath: string;
@@ -1179,7 +1179,7 @@ export class WidgetService {
       const actionName = catalogActions[i];
       if (!registeredActions.includes(actionName)) {
         logger.warn(
-          `Widget action "${actionName}" is listed in Widget.md but not registered in main.js`,
+          `Widget action "${actionName}" is listed in Definition.md but not registered in main.js`,
           { projectPath }
         );
       }

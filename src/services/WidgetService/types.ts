@@ -141,7 +141,7 @@ export const widgetActorsSchema = z.object({
 
 export type WidgetActors = z.infer<typeof widgetActorsSchema>;
 
-/** Read-only actors roster injected into interactive widget iframes (from Widget.md). */
+/** Read-only actors roster injected into interactive widget iframes (from Definition.md). */
 export type WidgetIframeActorsConfig = {
   mode: WidgetActors['mode'];
   turnOrder: string[];

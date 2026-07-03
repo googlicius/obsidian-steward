@@ -75,6 +75,7 @@ Business logic for Steward. Services do not wire conversation UI directly (excep
 | Service | Path | Role |
 |---------|------|------|
 | CliSessionService | `CliSessionService/` | Interactive/transcript CLI sessions via PTY or remote companion |
+| ShellOutputArchiveService | `CliSessionService/ShellOutputArchiveService.ts` | Archives completed shell output to `{title}__shell.md`; provides `headingRef:` resolution |
 | PtyCompanionService | `PtyCompanionService/` | Localhost PTY companion server for desktop shell sessions |
 | NodePtyInstallerScriptService | `NodePtyInstallerScriptService/` | Syncs node-pty installer scripts into the vault |
 

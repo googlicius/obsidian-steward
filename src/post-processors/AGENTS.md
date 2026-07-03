@@ -26,7 +26,7 @@ createUserMessageButtonsProcessor(this)
 createConversationIndicatorProcessor(this)
 createStewardConversationProcessor(this)
 createStwSourcePostProcessor(this)
-createCollapsibleBlockPostProcessor()
+createCollapsibleBlockPostProcessor(this)
 createCliTranscriptPostProcessor()
 createCliXtermPostProcessor(this)
 createWidgetPostProcessor(this)
@@ -47,7 +47,7 @@ createRunPostProcessor(this)
 | `ConversationIndicatorProcessor.ts` | Yes | “Generating…” overlay on embedded conversations; listens to `CONVERSATION_INDICATOR_CHANGED` |
 | `StewardConversationProcessor.ts` | Yes | Decorates conversation embeds: title sync, squeeze/close buttons, `stw-conversation` class |
 | `StwSourcePostProcessor.ts` | Yes | Replaces `{{stw-source ...}}` with `@filename` chips in preview |
-| `CollapsibleBlockPostProcessor.ts` | No | Auto-scroll + toggle for `stw-thinking` / `cli-model` fences and `a.stw-toggle-block` |
+| `CollapsibleBlockPostProcessor.ts` | Yes | Auto-scroll + toggle for `stw-thinking` / `cli-model` fences; lazy-load archived shell output from `__shell.md` on click |
 | `CliTranscriptPostProcessor.ts` | No | Strips stream markers; blinking cursor on active `cli-transcript` / `cli-model` blocks |
 | `CliXtermPostProcessor.ts` | Yes | Mounts live xterm.js + PTY for `cli-xterm` fenced blocks |
 | `WidgetPostProcessor.ts` | Yes | Mounts widget iframes from widget fence languages; bridges to `WidgetService` |

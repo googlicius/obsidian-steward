@@ -556,7 +556,7 @@ export class WidgetOrchestrator {
   }
 
   private async isDefinitionEnabled(projectPath: string): Promise<boolean> {
-    const definitionPath = `${projectPath}/Widget.md`;
+    const definitionPath = `${projectPath}/Definition.md`;
     const file = this.plugin.app.vault.getFileByPath(definitionPath);
     if (!file) {
       return false;

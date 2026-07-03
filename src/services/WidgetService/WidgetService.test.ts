@@ -1,4 +1,4 @@
-import { TAbstractFile, TFile, TFolder, parseYaml } from 'obsidian';
+﻿import { TAbstractFile, TFile, TFolder, parseYaml } from 'obsidian';
 import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
 import { MarkdownDefinitionService } from '../MarkdownDefinitionService';
@@ -46,10 +46,10 @@ function buildMarkdownSections(content: string) {
   return sections;
 }
 
-function parseWidgetMdManifest(content: string): Record<string, unknown> {
+function parseDefinitionManifest(content: string): Record<string, unknown> {
   const match = content.match(/```yaml\s*\n([\s\S]*?)\n```/);
   if (!match) {
-    throw new Error('Widget.md manifest fence not found');
+    throw new Error('Definition.md manifest fence not found');
   }
   const parsed = parseYaml(match[1]);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -140,8 +140,8 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     name: 'index.html',
   });
   const definitionFile = getInstance(TFile, {
-    path: 'Steward/Widgets/Tic-Tac-Toe-abc12/Widget.md',
-    name: 'Widget.md',
+    path: 'Steward/Widgets/Tic-Tac-Toe-abc12/Definition.md',
+    name: 'Definition.md',
   });
   const projectFolder = getInstance(TFolder, {
     path: 'Steward/Widgets/Tic-Tac-Toe-abc12',
@@ -291,7 +291,7 @@ describe('WidgetService', () => {
   });
 
   describe('buildProjectFence', () => {
-    it('embeds widgetId only in the fence and links Widget.md below', () => {
+    it('embeds widgetId only in the fence and links Definition.md below', () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
@@ -302,7 +302,7 @@ describe('WidgetService', () => {
       });
 
       expect(fence).toBe(
-        '```stw-widget-project\nwidgetId: Tic-Tac-Toe-abc12\nlang: en\n```\n<small>*ID: Tic-Tac-Toe-abc12 - Definition: [[Steward/Widgets/Tic-Tac-Toe-abc12/Widget.md|Tic Tac Toe]]*</small>'
+        '```stw-widget-project\nwidgetId: Tic-Tac-Toe-abc12\nlang: en\n```\n<small>*ID: Tic-Tac-Toe-abc12 - Definition: [[Steward/Widgets/Tic-Tac-Toe-abc12/Definition.md|Tic Tac Toe]]*</small>'
       );
     });
   });
@@ -333,7 +333,7 @@ describe('WidgetService', () => {
         expect.objectContaining({ path: projectPath }),
         { recursive: true }
       );
-      expect(files).toEqual(['Widget.md', 'index.html']);
+      expect(files).toEqual(['Definition.md', 'index.html']);
     });
 
     it('strips the project folder prefix from full vault paths', async () => {
@@ -380,7 +380,7 @@ describe('WidgetService', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
     const widgetName = 'Tic Tac Toe';
 
-    it('creates project folder, files, and Widget.md manifest for a new project', async () => {
+    it('creates project folder, files, and Definition.md manifest for a new project', async () => {
       const { plugin, files } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
@@ -399,7 +399,7 @@ describe('WidgetService', () => {
         '<p>Hello</p>'
       );
       expect(files.get(`${projectPath}/index.html`)).toBe('<p>Hello</p>');
-      expect(parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '')).toEqual({
+      expect(parseDefinitionManifest(files.get(`${projectPath}/Definition.md`) ?? '')).toEqual({
         name: 'manifest',
         entry: 'index.html',
         type: 'html',
@@ -424,7 +424,7 @@ describe('WidgetService', () => {
 
       expect(result).toEqual({ projectPath, entry: 'app.html' });
       expect(plugin.app.vault.create).toHaveBeenCalledWith(`${projectPath}/app.html`, '<p>App</p>');
-      expect(parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '')).toEqual({
+      expect(parseDefinitionManifest(files.get(`${projectPath}/Definition.md`) ?? '')).toEqual({
         name: 'manifest',
         entry: 'app.html',
         type: 'html',
@@ -475,7 +475,7 @@ describe('WidgetService', () => {
       const { plugin, files } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Old</p>',
-          [`${projectPath}/Widget.md`]:
+          [`${projectPath}/Definition.md`]:
             '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
@@ -529,7 +529,7 @@ describe('WidgetService', () => {
         assets: ['asset:Images/logo.png', 'Docs/bg.png'],
       });
 
-      expect(parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '')).toEqual({
+      expect(parseDefinitionManifest(files.get(`${projectPath}/Definition.md`) ?? '')).toEqual({
         name: 'manifest',
         entry: 'index.html',
         type: 'html',
@@ -552,7 +552,7 @@ describe('WidgetService', () => {
         },
       });
 
-      const manifest = parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '');
+      const manifest = parseDefinitionManifest(files.get(`${projectPath}/Definition.md`) ?? '');
       expect(manifest).toEqual({
         name: 'manifest',
         entry: 'index.html',
@@ -569,7 +569,7 @@ describe('WidgetService', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
 
     it('returns the validated manifest schema data', async () => {
-      const widgetMd = [
+      const definitionMd = [
         '```yaml',
         'name: manifest',
         'entry: index.html',
@@ -580,7 +580,7 @@ describe('WidgetService', () => {
       ].join('\n');
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: widgetMd,
+          [`${projectPath}/Definition.md`]: definitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -596,7 +596,7 @@ describe('WidgetService', () => {
       });
     });
 
-    it('returns null when Widget.md is missing', async () => {
+    it('returns null when Definition.md is missing', async () => {
       const { plugin } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
@@ -610,7 +610,7 @@ describe('WidgetService', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
     const noopDispatchQuery = () => {};
 
-    const actionsWidgetMd = [
+    const actionsDefinitionMd = [
       '```yaml',
       'name: manifest',
       'entry: index.html',
@@ -630,10 +630,10 @@ describe('WidgetService', () => {
       '```',
     ].join('\n');
 
-    it('reads the actions catalog from Widget.md', async () => {
+    it('reads the actions catalog from Definition.md', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -647,7 +647,7 @@ describe('WidgetService', () => {
       });
     });
 
-    it('returns actions_catalog_missing when Widget.md has no actions block', async () => {
+    it('returns actions_catalog_missing when Definition.md has no actions block', async () => {
       const { plugin } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
@@ -663,7 +663,7 @@ describe('WidgetService', () => {
     it('returns widget_not_mounted when no iframe bridge is registered', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -680,7 +680,7 @@ describe('WidgetService', () => {
     it('dispatches validated actions through the mounted iframe bridge', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -723,7 +723,7 @@ describe('WidgetService', () => {
     it('rejects invalid action params before dispatch', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -750,7 +750,7 @@ describe('WidgetService', () => {
     it('rejects unknown actions before dispatch', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -768,7 +768,7 @@ describe('WidgetService', () => {
     it('rejects missing required params before dispatch', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -786,7 +786,7 @@ describe('WidgetService', () => {
     it('keeps other bridges when one mount unregisters', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+          [`${projectPath}/Definition.md`]: actionsDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -838,7 +838,7 @@ describe('WidgetService', () => {
     const projectPath = 'Steward/Widgets/Chess-abc12';
     const noopDispatchQuery = () => {};
 
-    const queriesWidgetMd = [
+    const queriesDefinitionMd = [
       '```yaml',
       'name: manifest',
       'entry: index.html',
@@ -860,10 +860,10 @@ describe('WidgetService', () => {
       '```',
     ].join('\n');
 
-    it('reads the queries catalog from Widget.md', async () => {
+    it('reads the queries catalog from Definition.md', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+          [`${projectPath}/Definition.md`]: queriesDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -878,7 +878,7 @@ describe('WidgetService', () => {
       const statePath = `${projectPath}/state.json`;
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+          [`${projectPath}/Definition.md`]: queriesDefinitionMd,
           [statePath]: JSON.stringify({
             version: 1,
             updatedAt: '2026-01-01T00:00:00.000Z',
@@ -899,7 +899,7 @@ describe('WidgetService', () => {
     });
 
     it('allows optional query params when required is false', async () => {
-      const optionalQueryWidgetMd = [
+      const optionalQueryDefinitionMd = [
         '```yaml',
         'name: manifest',
         'entry: index.html',
@@ -922,7 +922,7 @@ describe('WidgetService', () => {
       ].join('\n');
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: optionalQueryWidgetMd,
+          [`${projectPath}/Definition.md`]: optionalQueryDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -957,7 +957,7 @@ describe('WidgetService', () => {
     it('dispatches validated queries through the mounted iframe bridge', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+          [`${projectPath}/Definition.md`]: queriesDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -1003,7 +1003,7 @@ describe('WidgetService', () => {
     it('rejects unknown queries before dispatch', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: queriesWidgetMd,
+          [`${projectPath}/Definition.md`]: queriesDefinitionMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -1115,7 +1115,7 @@ describe('WidgetService', () => {
     it('creates and updates the widget reading note under the project folder', async () => {
       const { plugin, files } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/Widget.md`]: [
+          [`${projectPath}/Definition.md`]: [
             '```yaml',
             'name: manifest',
             'entry: index.html',
@@ -1232,7 +1232,7 @@ describe('WidgetService', () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Hi</p>',
-          [`${projectPath}/Widget.md`]:
+          [`${projectPath}/Definition.md`]:
             '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
@@ -1269,7 +1269,7 @@ describe('WidgetService', () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Hi</p>',
-          [`${projectPath}/Widget.md`]:
+          [`${projectPath}/Definition.md`]:
             '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });

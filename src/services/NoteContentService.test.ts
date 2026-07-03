@@ -1,8 +1,29 @@
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { NoteContentService } from './NoteContentService';
-import { TFile } from 'obsidian';
+import { SectionCache, TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
+
+function sectionPosition(line: number): SectionCache['position'] {
+  return {
+    start: { line, col: 0, offset: 0 },
+    end: { line, col: 0, offset: 0 },
+  };
+}
+
+function setupNoteFile(
+  mockPlugin: jest.Mocked<StewardPlugin>,
+  mockFile: TFile,
+  content: string,
+  sections?: SectionCache[]
+): void {
+  mockFile.path = 'test-file.md';
+  (mockPlugin.app.vault.getFileByPath as jest.Mock).mockReturnValue(mockFile);
+  (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
+  (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue(
+    sections ? { sections } : null
+  );
+}
 
 // Mock Plugin for testing
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
@@ -10,10 +31,12 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     app: {
       metadataCache: {
         getFirstLinkpathDest: jest.fn(),
+        getFileCache: jest.fn(),
       },
       vault: {
         read: jest.fn(),
         cachedRead: jest.fn(),
+        getFileByPath: jest.fn(),
       },
     },
     settings: {
@@ -86,23 +109,22 @@ Is the image above a lake, pond, reservoir, or sea?`;
     it('rewrites heading-only wikilinks to include the file path', () => {
       const result = noteContentService.transformHeadingOnlyWikilinks(
         'See [[#Rules]] for details.',
-        'Steward/Widgets/game/Widget.md'
+        'Steward/Widgets/game/Definition.md'
       );
-      expect(result).toBe('See [[Steward/Widgets/game/Widget#Rules]] for details.');
+      expect(result).toBe('See [[Steward/Widgets/game/Definition#Rules]] for details.');
     });
 
     it('leaves full wikilinks unchanged', () => {
       const result = noteContentService.transformHeadingOnlyWikilinks(
         '[[Other Note]]',
-        'Steward/Widgets/game/Widget.md'
+        'Steward/Widgets/game/Definition.md'
       );
       expect(result).toBe('[[Other Note]]');
     });
   });
 
   describe('extractContentUnderHeading', () => {
-    it('should extract content under heading directly', () => {
-      // Test the extractContentUnderHeading method directly
+    it('should extract content under heading directly', async () => {
       const testContent = `# Main Title
 
 ## Introduction
@@ -117,30 +139,34 @@ This is a sub-section.
 
 This is the conclusion.`;
 
-      // Extract content under the Introduction heading
-      const result = noteContentService.extractContentUnderHeading(testContent, 'Introduction');
+      setupNoteFile(mockPlugin, mockFile, testContent);
 
-      // Verify
+      const result = await noteContentService.extractContentUnderHeading(
+        mockFile.path,
+        'Introduction'
+      );
+
       expect(result).toBe('This is the introduction.\n\n### Sub-section\n\nThis is a sub-section.');
     });
 
-    it('should return empty string when heading is not found', () => {
+    it('should return empty string when heading is not found', async () => {
       const testContent = `# Main Title
 
 ## Introduction
 
 This is the introduction.`;
 
-      const result = noteContentService.extractContentUnderHeading(
-        testContent,
+      setupNoteFile(mockPlugin, mockFile, testContent);
+
+      const result = await noteContentService.extractContentUnderHeading(
+        mockFile.path,
         'NonExistentHeading'
       );
 
       expect(result).toBe('');
     });
 
-    it('should handle nested headings correctly', () => {
-      // Setup
+    it('should handle nested headings correctly', async () => {
       const testContent = `# Main Title
 
 ## Introduction
@@ -159,13 +185,53 @@ This is deeply nested.
 
 These are the details.`;
 
-      // Execute
-      const result = noteContentService.extractContentUnderHeading(testContent, 'Introduction');
+      setupNoteFile(mockPlugin, mockFile, testContent);
 
-      // The result should contain all content under Introduction including nested sections
+      const result = await noteContentService.extractContentUnderHeading(
+        mockFile.path,
+        'Introduction'
+      );
+
       const expectedOutput =
         'This is the introduction.\n\n### Sub-section\n\nThis is a sub-section under Introduction.\n\n#### Deep nested section\n\nThis is deeply nested.';
       expect(result).toBe(expectedOutput);
+    });
+
+    it('should keep markdown headings inside a fenced code section', async () => {
+      const testContent = `---
+conversation_title: test
+---
+
+## msg-headings
+
+\`\`\`cli-model
+## Section title
+# Top level
+body
+\`\`\`
+
+## msg2
+
+\`\`\`cli-model
+other
+\`\`\``;
+
+      const sections: SectionCache[] = [
+        { type: 'yaml', position: sectionPosition(0) },
+        { type: 'heading', position: sectionPosition(4) },
+        { type: 'code', position: { start: { line: 6, col: 0, offset: 0 }, end: { line: 10, col: 3, offset: 0 } } },
+        { type: 'heading', position: sectionPosition(12) },
+        { type: 'code', position: { start: { line: 14, col: 0, offset: 0 }, end: { line: 16, col: 3, offset: 0 } } },
+      ];
+
+      setupNoteFile(mockPlugin, mockFile, testContent, sections);
+
+      const result = await noteContentService.extractContentUnderHeading(
+        mockFile.path,
+        'msg-headings'
+      );
+
+      expect(result).toBe('```cli-model\n## Section title\n# Top level\nbody\n```');
     });
   });
 
@@ -209,6 +275,7 @@ This is the conclusion.`;
 
       mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
       mockPlugin.app.vault.read = jest.fn().mockResolvedValue(testContent);
+      setupNoteFile(mockPlugin, mockFile, testContent);
 
       // Execute
       const result = await noteContentService.getContentByPath('test-file#Introduction');
@@ -265,6 +332,7 @@ This is the conclusion.`;
 
       mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
       mockPlugin.app.vault.read = jest.fn().mockResolvedValue(testContent);
+      setupNoteFile(mockPlugin, mockFile, testContent);
 
       // Execute
       const result = await noteContentService.getContentByPath(
@@ -608,6 +676,7 @@ More content.`;
       // Mock the app methods
       mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
       mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
+      setupNoteFile(mockPlugin, mockFile, linkedContent);
 
       // Execute and verify
       await expect(noteContentService.processWikilinksInContent(content)).rejects.toThrow(
