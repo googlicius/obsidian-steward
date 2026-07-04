@@ -249,6 +249,9 @@ class StewardSettingTab extends PluginSettingTab {
           });
       });
 
+    // Scan for locally-running AI gateways (9Router, OmniRoute) as a quick way to connect
+    this.createLocalGatewayScanSetting(providerSettingGroup.settingItems);
+
     providerSettingGroup.settingGroup.createEl('div', {
       text: `${t('settings.note')}:`,
       cls: 'setting-item-description',

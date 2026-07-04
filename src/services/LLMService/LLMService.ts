@@ -21,7 +21,7 @@ import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
 import { ModelRegistry } from 'src/services/ModelRegistry';
-import type { TemperaturePolicy, TestModelInput } from 'src/types/models';
+import type { TestModelInput } from 'src/types/models';
 import { ReasoningService } from 'src/services/LLMService/ReasoningService';
 
 /** When model id is unknown / unmatched — compaction threshold denominator fallback */
@@ -241,10 +241,7 @@ export class LLMService {
     let temperature: number | undefined;
     if (input.temperaturePolicy === 'omit') {
       temperature = undefined;
-    } else if (
-      input.temperaturePolicy === 'configurable' &&
-      input.temperature !== undefined
-    ) {
+    } else if (input.temperaturePolicy === 'configurable' && input.temperature !== undefined) {
       temperature = input.temperature;
     } else if (input.temperature !== undefined) {
       temperature = input.temperature;
@@ -443,10 +440,7 @@ export class LLMService {
   ) {
     const { generateType = 'object', overrideModel, disableReasoning = false } = options;
 
-    const {
-      model: defaultModel,
-      maxGenerationTokens,
-    } = {
+    const { model: defaultModel, maxGenerationTokens } = {
       model: this.plugin.settings.llm.chat.model,
       maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
     };

@@ -6,6 +6,8 @@ import { capitalizeString } from 'src/utils/capitalizeString';
 import { createFragmentFromText } from 'src/utils/htmlElementUtils';
 import type StewardSettingTab from 'src/settings';
 import { getBundledInternal } from 'src/utils/bundledInternals';
+import { getBundledLib } from 'src/utils/bundledLibs';
+import { LOCAL_GATEWAYS, scanForLocalGateways } from 'src/services/LocalGatewayDetector';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -80,6 +82,18 @@ const POPULAR_PROVIDER_PRESETS: Record<
     baseUrl: 'https://api.z.ai/api/paas/v4',
     description:
       '01.AI Yi models, OpenAI-compatible.\nModels: https://docs.z.ai/guides/llm\nAPI keys: https://z.ai/manage-apikey/apikey-list',
+  },
+  '9router': {
+    compatibility: 'openai',
+    baseUrl: LOCAL_GATEWAYS.find(gateway => gateway.id === '9router')?.baseUrl ?? '',
+    description:
+      'Local multi-provider AI gateway with auto-fallback.\nDashboard: http://localhost:20128',
+  },
+  omniroute: {
+    compatibility: 'openai',
+    baseUrl: LOCAL_GATEWAYS.find(gateway => gateway.id === 'omniroute')?.baseUrl ?? '',
+    description:
+      'Local multi-provider AI gateway with auto-fallback.\nDashboard: http://localhost:20128\nAPI: http://localhost:20128/v1',
   },
 };
 
@@ -670,5 +684,92 @@ export class ProviderSetting {
     }
 
     row.classList.add('stw-provider-highlight');
+  }
+
+  /**
+   * Create a "Scan for local AI gateways" setting that pings known local
+   * proxy servers (9Router, OmniRoute) on demand and offers a one-click
+   * "Connect" button that adds the detected gateway as a custom provider.
+   */
+  public createLocalGatewayScanSetting(this: StewardSettingTab, containerEl: HTMLElement): void {
+    const setting = new Setting(containerEl)
+      .setName(t('settings.scanLocalGateways'))
+      .setDesc(t('settings.scanLocalGatewaysDesc'));
+
+    let resultsEl: HTMLElement | null = null;
+
+    const clearResults = () => {
+      if (resultsEl) {
+        resultsEl.remove();
+        resultsEl = null;
+      }
+    };
+
+    const connectToGateway = async (gateway: (typeof LOCAL_GATEWAYS)[number]) => {
+      const { generateId } = await getBundledLib('ai');
+      let providerKey: string;
+      do {
+        providerKey = `provider-${generateId()}`;
+      } while (this.plugin.settings.providers[providerKey]);
+
+      this.plugin.settings.providers[providerKey] = {
+        apiKey: '',
+        isCustom: true,
+        compatibility: 'openai',
+        baseUrl: gateway.baseUrl,
+        name: gateway.displayName,
+        description: POPULAR_PROVIDER_PRESETS[gateway.id]?.description,
+      };
+
+      await this.plugin.saveSettings();
+      await this.refreshSettingTab(200);
+      this.highlightProviderSetting(providerKey);
+    };
+
+    const renderResults = (matches: { gateway: (typeof LOCAL_GATEWAYS)[number] }[]) => {
+      clearResults();
+      resultsEl = setting.controlEl.createEl('div', {
+        cls: 'stw-setting-wrapper',
+      });
+
+      if (matches.length === 0) {
+        resultsEl.createEl('div', {
+          text: t('settings.noLocalGatewayFound'),
+          cls: 'stw-no-models',
+        });
+        return;
+      }
+
+      for (const { gateway } of matches) {
+        const row = resultsEl.createEl('div', {
+          cls: 'stw-custom-model-item',
+        });
+        row.createEl('span', {
+          text: t('settings.localGatewayDetected', { name: gateway.displayName }),
+        });
+        const connectButton = row.createEl('button', {
+          text: t('settings.connectToGateway'),
+        });
+        connectButton.addEventListener('click', () => {
+          void connectToGateway(gateway);
+        });
+      }
+    };
+
+    setting.addButton(button => {
+      button.setButtonText(t('settings.scanLocalGateways')).onClick(() => {
+        void (async () => {
+          button.setDisabled(true);
+          button.setButtonText(t('settings.scanningLocalGateways'));
+          try {
+            const matches = await scanForLocalGateways();
+            renderResults(matches);
+          } finally {
+            button.setDisabled(false);
+            button.setButtonText(t('settings.scanLocalGateways'));
+          }
+        })();
+      });
+    });
   }
 }

@@ -568,6 +568,13 @@ const en = {
       providerNamePlaceholder: 'Enter provider name (no spaces)',
       providerNameNoSpaces: 'Provider name cannot contain spaces',
       providerCompatibility: 'Provider compatibility',
+      scanLocalGateways: 'Scan for local AI gateways',
+      scanLocalGatewaysDesc:
+        'Detect a running local multi-provider gateway (9Router, OmniRoute) and connect to it as a custom provider.',
+      scanningLocalGateways: 'Scanning...',
+      noLocalGatewayFound: 'No local AI gateway detected.',
+      localGatewayDetected: '{{name}} detected',
+      connectToGateway: 'Connect',
       note: 'Note',
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
