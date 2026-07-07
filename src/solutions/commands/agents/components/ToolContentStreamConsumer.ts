@@ -42,6 +42,13 @@ function asHost(instance: ToolContentStreamConsumer): ToolContentStreamConsumerH
 const STREAM_CONTENT_FENCE_OPEN = '````\n';
 const STREAM_CONTENT_FENCE_CLOSE = '\n````';
 
+/**
+ * Minimum time between temp-file writes. Deltas arriving faster than this are
+ * coalesced into a single write so a fast/bursty response isn't throttled down
+ * to the pace of individual vault.process calls.
+ */
+const TOOL_CONTENT_FLUSH_INTERVAL_MS = 40;
+
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class ToolContentStreamConsumer {
   public [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
@@ -107,6 +114,16 @@ export class ToolContentStreamConsumer {
 
     try {
       let info: ToolContentStreamInfo | undefined;
+      let buffer = '';
+      let lastFlushTime = 0;
+
+      const flush = async () => {
+        if (!info || !buffer) return;
+        const toWrite = buffer;
+        buffer = '';
+        lastFlushTime = Date.now();
+        await this.appendToTempFile(info.tempFilePath, toWrite);
+      };
 
       for await (const delta of toolContentStream) {
         if (!info) {
@@ -128,10 +145,18 @@ export class ToolContentStreamConsumer {
             includeHistory: false,
             lang,
           });
+
+          lastFlushTime = Date.now();
         }
 
-        await this.appendToTempFile(info.tempFilePath, delta.contentDelta);
+        buffer += delta.contentDelta;
+
+        if (Date.now() - lastFlushTime >= TOOL_CONTENT_FLUSH_INTERVAL_MS) {
+          await flush();
+        }
       }
+
+      await flush();
 
       if (info) {
         await this.appendToTempFile(info.tempFilePath, STREAM_CONTENT_FENCE_CLOSE);

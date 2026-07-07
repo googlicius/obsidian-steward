@@ -310,9 +310,13 @@ export function createLLMStream(
       }
 
       const isTextReasoning = isTextOrReasoningChunk(chunkWithType.type);
+      const isToolInputStart = chunkWithType.type === 'tool-input-start';
 
-      // Signal done when we transition from text/reasoning to other chunk types
-      if (hasStartedTextOrReasoning && !isTextReasoning && !hasSignaledDone) {
+      // Signal done when we transition from text/reasoning to other chunk types,
+      // or as soon as a tool call starts even if no text/reasoning preceded it
+      // (otherwise textDone would only resolve after the whole fullStream drains,
+      // delaying tool content streaming until everything has already arrived).
+      if (!hasSignaledDone && (isToolInputStart || (hasStartedTextOrReasoning && !isTextReasoning))) {
         if (reasoningStarted && !reasoningEnded) {
           reasoningEnded = true;
           yield REASONING_END_TAG;

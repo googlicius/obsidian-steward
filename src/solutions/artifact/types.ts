@@ -289,7 +289,7 @@ export abstract class ArtifactSerializer {
    * @param artifact The artifact to serialize
    * @returns The serialized artifact as a string wrapped in stw-artifact block
    */
-  abstract serialize(artifact: unknown | string): string | unknown;
+  abstract serialize(artifact: unknown): unknown;
 
   /**
    * Deserialize a string to an artifact
