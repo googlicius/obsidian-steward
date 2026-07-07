@@ -278,6 +278,28 @@ describe('LLMService', () => {
     });
   });
 
+  describe('getModelPromptCacheTtlMs', () => {
+    it('returns 5 minutes for anthropic/claude models', () => {
+      expect(llmService.getModelPromptCacheTtlMs('anthropic:claude-sonnet-4')).toBe(5 * 60_000);
+    });
+
+    it('returns 5 minutes for openai/gpt models', () => {
+      expect(llmService.getModelPromptCacheTtlMs('openai:gpt-4o')).toBe(5 * 60_000);
+    });
+
+    it('returns 3 minutes for gemini/google models', () => {
+      expect(llmService.getModelPromptCacheTtlMs('google:gemini-2.0-flash')).toBe(3 * 60_000);
+    });
+
+    it('uses fallback for unknown providers', () => {
+      expect(llmService.getModelPromptCacheTtlMs('custom:unknown-model-xyz')).toBe(5 * 60_000);
+    });
+
+    it('uses fallback when model empty', () => {
+      expect(llmService.getModelPromptCacheTtlMs('')).toBe(5 * 60_000);
+    });
+  });
+
   describe('supportsVision', () => {
     it('recognizes OpenAI GPT-5 and o-series models', () => {
       expect(llmService.supportsVision('openai:gpt-5.4')).toBe(true);

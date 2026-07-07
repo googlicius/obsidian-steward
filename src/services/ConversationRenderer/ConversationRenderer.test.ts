@@ -62,6 +62,9 @@ function createMockPlugin(
         getArtifactById: jest.fn().mockResolvedValue(null),
       }),
     },
+    llmService: {
+      getModelPromptCacheTtlMs: jest.fn().mockReturnValue(5 * 60_000),
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 
   // Initialize services with the mock plugin
@@ -402,6 +405,196 @@ describe('ConversationRenderer', () => {
 
       // Use snapshot testing
       expect(history).toMatchSnapshot();
+    });
+
+    it('keeps full create tool-call content when the message is recent (per-message requestAt)', async () => {
+      const originalContent = 'This is the full note content the model just wrote';
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${Date.now()}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_create_1',
+            type: 'tool-call',
+            input: { newFiles: [{ filePath: 'notes/note.md', content: originalContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (assistantMessage?.content as Array<{ type: string; input?: unknown }>)
+        ?.find(p => p.type === 'tool-call');
+
+      expect((toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content).toBe(
+        originalContent
+      );
+    });
+
+    it('reduces create tool-call content once the message itself has aged past the TTL', async () => {
+      const originalContent = 'This is the full note content the model just wrote';
+      const staleRequestAt = Date.now() - 10 * 60_000;
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${staleRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_create_1',
+            type: 'tool-call',
+            input: { newFiles: [{ filePath: 'notes/note.md', content: originalContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (assistantMessage?.content as Array<{ type: string; input?: unknown }>)
+        ?.find(p => p.type === 'tool-call');
+
+      expect(
+        (toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content
+      ).toContain('content_reading');
+    });
+
+    it('does not resend full content for an already-stale tool call just because the conversation is active again', async () => {
+      // Regression test: a single conversation-wide "last request" timestamp would flip ALL
+      // tool calls back to full whenever a new request comes in soon after a previous one —
+      // even for messages that were already correctly judged stale long ago. Per-message
+      // requestAt must keep the old message reduced while a genuinely fresh one stays full,
+      // in the very same history build.
+      const staleContent = 'Old note content written a long time ago';
+      const freshContent = 'Brand new note content just written this turn';
+      const staleRequestAt = Date.now() - 10 * 60_000;
+      const freshRequestAt = Date.now();
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        `<!--STW ID:old_tool,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,HANDLER_ID:h1,STEP:1,REQUEST_AT:${staleRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_old',
+            type: 'tool-call',
+            input: { newFiles: [{ filePath: 'notes/old.md', content: staleContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/old.md'] } },
+          },
+        ]),
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:user,COMMAND:vault_create-->',
+        '/create another note',
+        '',
+        `<!--STW ID:new_tool,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,HANDLER_ID:h2,STEP:1,REQUEST_AT:${freshRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_new',
+            type: 'tool-call',
+            input: { newFiles: [{ filePath: 'notes/new.md', content: freshContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/new.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+      });
+
+      const toolCallParts = history.messages
+        .filter(m => m.role === 'assistant')
+        .flatMap(m => m.content as Array<{ type: string; input?: unknown }>)
+        .filter(p => p.type === 'tool-call');
+
+      const oldPart = toolCallParts.find(
+        p => (p.input as { newFiles: { filePath: string }[] }).newFiles[0].filePath === 'notes/old.md'
+      );
+      const newPart = toolCallParts.find(
+        p => (p.input as { newFiles: { filePath: string }[] }).newFiles[0].filePath === 'notes/new.md'
+      );
+
+      expect((oldPart?.input as { newFiles: { content: string }[] }).newFiles[0].content).toContain(
+        'content_reading'
+      );
+      expect((newPart?.input as { newFiles: { content: string }[] }).newFiles[0].content).toBe(
+        freshContent
+      );
+    });
+
+    it('reduces stale shell tool-result output over 100 lines, leaving the tool-call input intact', async () => {
+      const longOutput = Array.from({ length: 150 }, (_, i) => `line ${i}`).join('\n');
+      const staleRequestAt = Date.now() - 10 * 60_000;
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:shell-->',
+        '/> ls -la',
+        '',
+        `<!--STW ID:shell_msg,ROLE:steward,COMMAND:shell,TYPE:tool-invocation,REQUEST_AT:${staleRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'shell',
+            toolCallId: 'call_shell_1',
+            type: 'tool-call',
+            input: { argsLine: 'ls -la' },
+            output: { type: 'text', value: longOutput },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (assistantMessage?.content as Array<{ type: string; input?: unknown }>)
+        ?.find(p => p.type === 'tool-call');
+      expect((toolCallPart?.input as { argsLine: string }).argsLine).toBe('ls -la');
+
+      const toolMessage = history.messages.find(m => m.role === 'tool');
+      const toolResultPart = (toolMessage?.content as Array<{ type: string; output?: unknown }>)?.find(
+        p => p.type === 'tool-result'
+      );
+      const output = toolResultPart?.output as { type: string; value: string };
+      expect(output.value).toContain('recall_compacted_context');
+      expect(output.value).toContain('msg-shell_msg');
     });
 
     it('should preserve visible text from reasoning blocks when reasoning is omitted from history', async () => {

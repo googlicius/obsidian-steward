@@ -49,6 +49,11 @@ export interface ConversationMessage {
    * Step number for grouping messages in one invocation or one AI function call.
    */
   step?: number;
+  /**
+   * Epoch ms this message's tool invocation was serialized. Used to judge, per message, whether
+   * the provider's prompt cache is likely still warm for it (see ConversationRenderer.isToolCallStale).
+   */
+  requestAt?: number;
 }
 
 export interface ExtractedConversationMessages {

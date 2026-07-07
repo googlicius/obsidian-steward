@@ -239,8 +239,6 @@ const vi = {
       confirmPrompt: 'Bạn có muốn tiếp tục không?',
       errors: 'Lỗi:',
       noTargets: 'Không có đường dẫn thư mục hoặc đường dẫn tập tin nào được chỉ định để tạo.',
-      contentOmitted:
-        'Nội dung đã được lược bỏ để tiết kiệm token. Sử dụng công cụ {{toolName}} để kiểm tra nếu cần.',
     },
     list: {
       listInFolder: 'Liệt kê {{count}} mục trong {{folder}}',

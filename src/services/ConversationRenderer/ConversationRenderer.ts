@@ -19,6 +19,7 @@ import { ToolSerialization } from './ToolSerialization';
 import { UserPreferenceSerialization } from './UserPreferenceSerialization';
 import { Frontmatter } from './Frontmatter';
 import { Events } from 'src/types/events';
+import { ToolCallReducerRegistry } from './toolCallReducers';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -532,6 +533,12 @@ export class ConversationRenderer {
       artifactType?: ArtifactType;
       handlerId?: string;
       step?: number;
+      /**
+       * Epoch ms this message was serialized, for per-message prompt-cache freshness checks
+       * (see isToolCallStale). Only meaningful for tool-invocation messages — pass explicitly
+       * from serializeToolInvocation; other message kinds omit it.
+       */
+      requestAt?: number;
     } = {}
   ) {
     const {
@@ -542,6 +549,7 @@ export class ConversationRenderer {
       includeHistory,
       handlerId,
       step,
+      requestAt,
     } = options;
 
     const metadata: { [x: string]: string | number } = {
@@ -567,6 +575,9 @@ export class ConversationRenderer {
       }),
       ...(step !== undefined && {
         STEP: step,
+      }),
+      ...(requestAt !== undefined && {
+        REQUEST_AT: requestAt,
       }),
     };
 
@@ -923,6 +934,9 @@ export class ConversationRenderer {
         ...(metadata.STEP !== undefined && {
           step: parseInt(metadata.STEP, 10),
         }),
+        ...(metadata.REQUEST_AT !== undefined && {
+          requestAt: parseInt(metadata.REQUEST_AT, 10),
+        }),
       };
     } catch (error) {
       logger.error('Error getting message by ID:', error);
@@ -963,12 +977,40 @@ export class ConversationRenderer {
   }
 
   /**
+   * Whether `message`'s own prompt-cache freshness (its `requestAt`, stamped once at
+   * serialization time and never rewritten) has aged past `model`'s TTL. Deciding per message
+   * — rather than from a single conversation-wide "last request" timestamp — is what makes this
+   * a one-way ratchet: elapsed time since a fixed `requestAt` only grows, so a message judged
+   * stale stays stale on every later history build, even if the conversation becomes active
+   * again. A missing `requestAt` (message written before this feature, or a non-tool-invocation
+   * message) is treated as NOT stale — fail-safe toward full-fidelity content.
+   */
+  private isToolCallStale(message: ConversationMessage, model: string): boolean {
+    if (typeof message.requestAt !== 'number' || !Number.isFinite(message.requestAt)) {
+      return false;
+    }
+    const ttlMs = this.plugin.llmService.getModelPromptCacheTtlMs(model);
+    return Date.now() - message.requestAt >= ttlMs;
+  }
+
+  /**
    * Converts a single ConversationMessage to model parts for building ModelMessages.
    * Used by convertMessageToModelFormat and extractConversationHistory.
+   *
+   * `reduceCtx`, when provided, reduces a tool-call and/or tool-result part via the registered
+   * per-tool reducer (see toolCallReducers/) — but only for messages whose OWN `requestAt` is stale relative to
+   * `reduceCtx.model` (see isToolCallStale). Freshness is judged per message, not globally: a
+   * conversation becoming active again must not resurrect full content for tool calls that were
+   * already judged stale earlier — their `requestAt` never changes, so once stale, always stale.
+   * Only `extractConversationHistory` (via `convertConversationMessagesToModelMessages`) ever
+   * passes this — `convertMessageToModelFormat` (the recall_compacted_context tool's "get me the
+   * real content back" path) and `getMessagesForCompaction` (CompactionTokenService's permanent
+   * one-way compaction) must always see full-fidelity content, so they never pass it.
    */
   private async convertMessageToParts(
     conversationTitle: string,
-    message: ConversationMessage
+    message: ConversationMessage,
+    reduceCtx?: { registry: ToolCallReducerRegistry; model: string }
   ): Promise<
     | { role: 'user'; content: string; handlerId?: string }
     | {
@@ -1022,11 +1064,29 @@ export class ConversationRenderer {
       const toolResultParts: ToolResultPart[] = [];
       const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
 
+      const shouldReduce = reduceCtx ? this.isToolCallStale(message, reduceCtx.model) : false;
+
       for (const part of toolInvocations) {
         if (part.type === 'tool-call') {
-          assistantParts.push(part);
+          assistantParts.push(
+            shouldReduce
+              ? reduceCtx!.registry.reduceToolCallIfRegistered({
+                  toolCall: part,
+                  messageId: message.id,
+                  lang: message.lang,
+                })
+              : part
+          );
         } else if (part.type === 'tool-result') {
-          toolResultParts.push(part);
+          toolResultParts.push(
+            shouldReduce
+              ? reduceCtx!.registry.reduceToolResultIfRegistered({
+                  toolResult: part,
+                  messageId: message.id,
+                  lang: message.lang,
+                })
+              : part
+          );
         } else if (part.type === 'text' || part.type === 'file' || part.type === 'image') {
           additionalUserParts.push(part);
         }
@@ -1096,7 +1156,8 @@ export class ConversationRenderer {
    */
   private async convertConversationMessagesToModelMessages(
     conversationTitle: string,
-    groupedMessages: ConversationMessage[][]
+    groupedMessages: ConversationMessage[][],
+    reduceCtx?: { registry: ToolCallReducerRegistry; model: string }
   ): Promise<ModelMessage[]> {
     const modelMessages: ModelMessage[] = [];
     const lastUserGroupIndex = groupedMessages.findLastIndex(group => group[0].role === 'user');
@@ -1108,7 +1169,11 @@ export class ConversationRenderer {
 
       // User messages are not grouped by step, process individually
       if (firstMessage.role === 'user') {
-        const userParts = await this.convertMessageToParts(conversationTitle, firstMessage);
+        const userParts = await this.convertMessageToParts(
+          conversationTitle,
+          firstMessage,
+          reduceCtx
+        );
         if (userParts && userParts.role === 'user') {
           modelMessages.push({
             role: 'user',
@@ -1129,7 +1194,7 @@ export class ConversationRenderer {
           continue;
         }
 
-        const parts = await this.convertMessageToParts(conversationTitle, message);
+        const parts = await this.convertMessageToParts(conversationTitle, message, reduceCtx);
         if (!parts || parts.role === 'user') {
           continue;
         }
@@ -1509,6 +1574,9 @@ export class ConversationRenderer {
           ...(metadata.STEP !== undefined && {
             step: parseInt(metadata.STEP, 10),
           }),
+          ...(metadata.REQUEST_AT !== undefined && {
+            requestAt: parseInt(metadata.REQUEST_AT, 10),
+          }),
         };
 
         if (metadata.TYPE === 'reasoning') {
@@ -1563,6 +1631,12 @@ export class ConversationRenderer {
     options?: {
       maxMessages?: number | null;
       includeCompactedMessage?: boolean;
+      /**
+       * Model about to be called. When provided, each tool-call message's own `requestAt` is
+       * checked against this model's prompt-cache TTL (see isToolCallStale) and reduced (see
+       * toolCallReducers/) only if stale — full content is otherwise kept to preserve the cache.
+       */
+      model?: string;
     }
   ): Promise<{ messages: ModelMessage[]; hasCompactionContext: boolean }> {
     const messagesToInclude = await this.extractConversationMessagesForHistory(
@@ -1577,7 +1651,8 @@ export class ConversationRenderer {
     const groupedMessages = this.groupMessagesByStep(messagesToInclude);
     const messages = await this.convertConversationMessagesToModelMessages(
       conversationTitle,
-      groupedMessages
+      groupedMessages,
+      options?.model ? { registry: new ToolCallReducerRegistry(), model: options.model } : undefined
     );
     return { messages, hasCompactionContext };
   }

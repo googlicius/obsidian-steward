@@ -54,6 +54,7 @@ export class ToolSerialization {
         type: 'tool-invocation',
         handlerId: params.handlerId,
         step: params.step,
+        requestAt: Date.now(),
       });
 
       await this.plugin.app.vault.process(file, currentContent => {

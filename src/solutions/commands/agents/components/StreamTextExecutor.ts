@@ -54,6 +54,7 @@ export class StreamTextExecutor {
       params.title,
       {
         maxMessages: params.intent.maxHistoryMessages ?? null,
+        model: modelForStream,
       }
     );
 

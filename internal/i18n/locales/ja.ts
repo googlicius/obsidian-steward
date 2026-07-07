@@ -247,8 +247,6 @@ const ja = {
       confirmPrompt: '続行しますか？',
       errors: 'エラー:',
       noTargets: '作成するフォルダパスまたはファイルパスが指定されていません。',
-      contentOmitted:
-        'トークン節約のため内容は省略されています。必要に応じて{{toolName}}ツールで確認してください。',
     },
     list: {
       listInFolder: '{{folder}} の {{count}} 件を一覧表示',

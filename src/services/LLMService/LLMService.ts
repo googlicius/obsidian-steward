@@ -28,6 +28,23 @@ import { ReasoningService } from 'src/services/LLMService/ReasoningService';
 const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
 const MODEL_CONTEXT_LENGTH_DEBUG = null;
 
+/**
+ * When provider/model is unknown or has no documented prompt-cache TTL — conservative
+ * 5-minute default (matches Anthropic's documented ephemeral cache TTL). Biased short:
+ * reducing tool-call content too early recreates the "tampered" bug this guards against,
+ * while reducing too late only wastes some tokens.
+ */
+const DEFAULT_PROMPT_CACHE_TTL_MS = 5 * 60_000;
+
+const PROMPT_CACHE_TTL_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> = [
+  ['claude', 5 * 60_000],
+  ['anthropic', 5 * 60_000],
+  ['gpt', 5 * 60_000],
+  ['openai', 5 * 60_000],
+  ['gemini', 3 * 60_000],
+  ['google', 3 * 60_000],
+];
+
 const MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> = [
   ['gpt-5.5', 1_050_000],
   ['gpt-5.4-nano', 400_000],
@@ -69,6 +86,11 @@ export class LLMService {
   private static readonly SORTED_MODEL_CONTEXT_DEFAULTS = [...MODEL_CONTEXT_DEFAULT_ENTRIES].sort(
     (a, b) => b[0].length - a[0].length
   );
+
+  /** Sorting descending by key length enforces “specific-first, generic-last” matching, same as SORTED_MODEL_CONTEXT_DEFAULTS. */
+  private static readonly SORTED_PROMPT_CACHE_TTL_DEFAULTS = [
+    ...PROMPT_CACHE_TTL_DEFAULT_ENTRIES,
+  ].sort((a, b) => b[0].length - a[0].length);
 
   /** Resolves model reasoning levels into provider-specific AI SDK call extras. */
   public readonly reasoningService: ReasoningService;
@@ -191,6 +213,29 @@ export class LLMService {
     }
 
     return DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
+  }
+
+  /**
+   * Conservative estimate of the provider's prompt-cache TTL in ms for `model` (`provider:modelId`).
+   * Used to decide whether a conversation's prompt cache is still likely warm since the last
+   * request, so tool-call content reduction can be deferred until the cache would be cold anyway.
+   */
+  public getModelPromptCacheTtlMs(model: string): number {
+    const trimmed = model?.trim() ?? '';
+    if (!trimmed) {
+      return DEFAULT_PROMPT_CACHE_TTL_MS;
+    }
+
+    const { provider, modelId } = this.parseModel(trimmed);
+    const haystack = `${trimmed} ${modelId} ${provider}`.toLowerCase();
+
+    for (const [pattern, ttlMs] of LLMService.SORTED_PROMPT_CACHE_TTL_DEFAULTS) {
+      if (haystack.includes(pattern.toLowerCase())) {
+        return ttlMs;
+      }
+    }
+
+    return DEFAULT_PROMPT_CACHE_TTL_MS;
   }
 
   /**

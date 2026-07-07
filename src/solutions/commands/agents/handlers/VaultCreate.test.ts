@@ -147,13 +147,14 @@ describe('VaultCreate', () => {
       vaultCreate = new VaultCreate(mockAgent);
     });
 
-    it('should replace file content with omitted message in serialized tool invocation', async () => {
+    it('should serialize the tool invocation with the full, unmodified file content', async () => {
+      const originalContent = 'This is a long note content that should NOT be omitted';
       const toolCall = createToolCall({
         newFolders: [],
         newFiles: [
           {
             filePath: 'notes/note1.md',
-            content: 'This is a long note content that should be omitted',
+            content: originalContent,
           },
         ],
       });
@@ -175,10 +176,13 @@ describe('VaultCreate', () => {
       const serializedArgs = serializeCall.mock.calls[0][0];
       const toolInvocation = serializedArgs.toolInvocations[0];
 
+      // Content reduction (if any) now happens later, at LLM history-build time, based on
+      // prompt-cache freshness — see ConversationRenderer.isPromptCacheStale and
+      // toolCallReducers/CreateContentReducer. The note itself must always keep full content.
       expect(toolInvocation.input.newFiles).toMatchObject([
         {
           filePath: 'notes/note1.md',
-          content: 'translated_create.contentOmitted',
+          content: originalContent,
         },
       ]);
     });
@@ -201,12 +205,9 @@ describe('VaultCreate', () => {
       const serializedArgs = serializeCall.mock.calls[0][0];
       const toolInvocation = serializedArgs.toolInvocations[0];
 
-      expect(toolInvocation.input.newFiles).toMatchObject([
-        {
-          filePath: 'notes/empty.md',
-          content: undefined,
-        },
-      ]);
+      expect(toolInvocation.input.newFiles).toHaveLength(1);
+      expect(toolInvocation.input.newFiles[0].filePath).toBe('notes/empty.md');
+      expect(toolInvocation.input.newFiles[0].content).toBeUndefined();
     });
 
     it('should handle mixed files with and without content', async () => {
@@ -239,11 +240,17 @@ describe('VaultCreate', () => {
       const toolInvocation = serializedArgs.toolInvocations[0];
       const serializedFiles = toolInvocation.input.newFiles;
 
-      expect(serializedFiles).toMatchObject([
-        { filePath: 'project/readme.md', content: 'translated_create.contentOmitted' },
-        { filePath: 'project/empty.md', content: undefined },
-        { filePath: 'project/config.base', content: 'translated_create.contentOmitted' },
-      ]);
+      expect(serializedFiles).toHaveLength(3);
+      expect(serializedFiles[0]).toMatchObject({
+        filePath: 'project/readme.md',
+        content: '# Project\nLong description here...',
+      });
+      expect(serializedFiles[1].filePath).toBe('project/empty.md');
+      expect(serializedFiles[1].content).toBeUndefined();
+      expect(serializedFiles[2]).toMatchObject({
+        filePath: 'project/config.base',
+        content: 'key: value',
+      });
     });
 
     it('should preserve the original toolCall input without mutating it', async () => {

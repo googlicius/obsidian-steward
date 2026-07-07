@@ -357,7 +357,30 @@ describe('StreamTextExecutor', () => {
       await testAgent.executeForTest(params);
 
       expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
-        'test-conversation'
+        'test-conversation',
+        expect.objectContaining({ maxMessages: null })
+      );
+    });
+
+    it('passes the resolved model into extractConversationHistory', async () => {
+      const historyMessages = [{ role: 'user', content: 'previous query' }];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: false });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      await testAgent.executeForTest(params);
+
+      expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
+        'test-conversation',
+        expect.objectContaining({ model: 'mock-model' })
       );
     });
   });

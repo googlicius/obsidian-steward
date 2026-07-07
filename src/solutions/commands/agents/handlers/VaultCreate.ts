@@ -3,7 +3,6 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
-import { ToolName } from 'src/solutions/commands/toolNames';
 import { ToolCallPart } from '../../tools/types';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -415,27 +414,13 @@ export class VaultCreate {
       command: 'vault_create',
     });
 
-    // Replace file content with a short message to reduce token usage in serialized history
-    const summarizedToolCall = {
-      ...toolCall,
-      input: {
-        ...toolCall.input,
-        newFiles: (toolCall.input.newFiles ?? []).map(file => ({
-          ...file,
-          content: file.content
-            ? t('create.contentOmitted', { toolName: ToolName.CONTENT_READING })
-            : undefined,
-        })),
-      },
-    };
-
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'vault_create',
       handlerId,
       toolInvocations: [
         {
-          ...summarizedToolCall,
+          ...toolCall,
           type: 'tool-result',
           output: {
             type: 'json',

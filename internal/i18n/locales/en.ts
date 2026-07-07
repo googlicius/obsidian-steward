@@ -275,8 +275,6 @@ const en = {
       confirmPrompt: 'Do you want to proceed?',
       errors: 'Errors:',
       noTargets: 'No folder paths or file paths were specified for creation.',
-      contentOmitted:
-        'Content was omitted to save tokens. Use the {{toolName}} tool to inspect it if needed.',
     },
     list: {
       listInFolder_one: 'List {{count}} item in {{folder}}',
