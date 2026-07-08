@@ -87,6 +87,8 @@ export class AgentRunner {
   ): Promise<void> {
     const { title, intents } = payload;
 
+    this.plugin.abortService.clearStopRequest(title);
+
     this.pendingIntents.set(title, {
       intents: intents,
       currentIndex: 0,

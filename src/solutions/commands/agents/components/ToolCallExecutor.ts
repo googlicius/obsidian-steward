@@ -48,6 +48,10 @@ export class ToolCallExecutor {
     });
 
     for (let index = params.startIndex; index < params.toolCalls.length; index += 1) {
+      if (agent.plugin.abortService.isStopRequested(params.title)) {
+        return { status: IntentResultStatus.STOP_PROCESSING };
+      }
+
       const toolCall = params.toolCalls[index];
       let toolCallResult: AgentResult | undefined;
       const continueProcessingFromNextTool = async (): Promise<AgentResult> => {

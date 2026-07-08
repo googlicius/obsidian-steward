@@ -44,4 +44,39 @@ describe('AbortService', () => {
     service.createAbortController('conv');
     expect(service.getActiveOperationsCount('conv')).toBe(2);
   });
+
+  it('abortConversation sets stopRequested flag', () => {
+    expect(service.isStopRequested('conv-a')).toBe(false);
+    service.abortConversation('conv-a');
+    expect(service.isStopRequested('conv-a')).toBe(true);
+  });
+
+  it('clearStopRequest removes the stop flag', () => {
+    service.abortConversation('conv-a');
+    expect(service.isStopRequested('conv-a')).toBe(true);
+    service.clearStopRequest('conv-a');
+    expect(service.isStopRequested('conv-a')).toBe(false);
+  });
+
+  it('unregisterOperation removes entry without aborting', () => {
+    const signal = service.createAbortController('conv-a', AbortOperationKeys.SUPER_AGENT);
+    expect(service.getActiveOperationsCount('conv-a')).toBe(1);
+    expect(signal.aborted).toBe(false);
+
+    service.unregisterOperation('conv-a', AbortOperationKeys.SUPER_AGENT);
+    expect(service.getActiveOperationsCount('conv-a')).toBe(0);
+    expect(signal.aborted).toBe(false);
+  });
+
+  it('unregisterOperation keeps accurate counts after normal completion', () => {
+    service.createAbortController('conv-a', AbortOperationKeys.SUPER_AGENT);
+    service.createAbortController('conv-a', AbortOperationKeys.COMPACTION_SUMMARY);
+    expect(service.getActiveOperationsCount('conv-a')).toBe(2);
+
+    service.unregisterOperation('conv-a', AbortOperationKeys.SUPER_AGENT);
+    expect(service.getActiveOperationsCount('conv-a')).toBe(1);
+
+    service.unregisterOperation('conv-a', AbortOperationKeys.COMPACTION_SUMMARY);
+    expect(service.getActiveOperationsCount('conv-a')).toBe(0);
+  });
 });

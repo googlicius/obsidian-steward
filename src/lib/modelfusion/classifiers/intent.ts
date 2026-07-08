@@ -62,7 +62,7 @@ export async function getIntentClassifier(): Promise<PersistentEmbeddingSimilari
       },
       {
         name: 'stop' as const,
-        values: ['stop', 'abort'],
+        values: ['stop', 'abort', 'stop it', 'please stop', 'cancel', 'halt'],
       },
       {
         name: 'thank_you' as const,

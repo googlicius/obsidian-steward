@@ -54,7 +54,7 @@ export class Stop {
       responseMessage = t('stop.noActiveOperations');
     }
 
-    await delay(800);
+    await delay(300);
 
     await ctx.updateConversationNote({
       newContent: responseMessage,

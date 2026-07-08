@@ -117,10 +117,16 @@ export class StreamTextExecutor {
       messages.push({ role: 'user', content: params.intent.query });
     }
 
+    if (agent.plugin.abortService.isStopRequested(params.title)) {
+      throw new DOMException('Request aborted', 'AbortError');
+    }
+
     const abortSignal = agent.plugin.abortService.createAbortController(
       params.title,
       AbortOperationKeys.SUPER_AGENT
     );
+
+    try {
 
     let rejectStreamError: (error: Error) => void;
     let resolveSettleStream: (toolCalls: TToolCalls) => void;
@@ -259,6 +265,7 @@ export class StreamTextExecutor {
           targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
           createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
         },
+        abortSignal,
       }
     );
 
@@ -267,6 +274,7 @@ export class StreamTextExecutor {
       stream: textStream,
       handlerId: params.handlerId,
       step: params.invocationCount,
+      abortSignal,
     });
 
     await Promise.race([textDone, settleStreamPromise]);
@@ -276,6 +284,7 @@ export class StreamTextExecutor {
       toolContentStream,
       handlerId: params.handlerId,
       lang: params.lang,
+      abortSignal,
     });
 
     const toolCalls = (await Promise.race([
@@ -313,6 +322,9 @@ export class StreamTextExecutor {
       usage,
       totalUsage,
     };
+    } finally {
+      agent.plugin.abortService.unregisterOperation(params.title, AbortOperationKeys.SUPER_AGENT);
+    }
   }
 }
 

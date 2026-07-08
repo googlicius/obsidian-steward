@@ -430,6 +430,7 @@ export class ConversationRenderer {
      * Should be params.invocationCount + 1 when called from handlers.
      */
     step?: number;
+    abortSignal?: AbortSignal;
   }): Promise<string | undefined> {
     const folderPath = params.folderPath || `${this.plugin.settings.stewardFolder}/Conversations`;
 
@@ -488,7 +489,7 @@ export class ConversationRenderer {
       });
 
       // Stream the content
-      await this.streamFile(file, streamWithFirstChunk);
+      await this.streamFile(file, streamWithFirstChunk, params.abortSignal);
 
       // Return the message ID for referencing
       return messageId;
@@ -498,12 +499,15 @@ export class ConversationRenderer {
     }
   }
 
-  public async streamFile(file: TFile, stream: AsyncIterable<string>) {
+  public async streamFile(file: TFile, stream: AsyncIterable<string>, abortSignal?: AbortSignal) {
     // Mark file as streaming
     this.streamingFiles.add(file.path);
 
     try {
       for await (const chunk of stream) {
+        if (abortSignal?.aborted) {
+          break;
+        }
         await this.plugin.app.vault.process(file, currentContent => {
           return currentContent + chunk;
         });

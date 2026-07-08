@@ -4,6 +4,7 @@ import type StewardPlugin from '../../main';
 import { NoteContentService } from '../NoteContentService';
 import { UserMessageService } from '../UserMessageService';
 import { uniqueID } from '../../utils/uniqueID';
+import { createMockStreamResponse } from '../../utils/textStreamer';
 import { ReadContentArtifactImpl } from '../../solutions/artifact/implements';
 import { ArtifactType } from '../../solutions/artifact/types';
 import { ConversationMessage } from '../../types/types';
@@ -2329,6 +2330,34 @@ describe('ConversationRenderer', () => {
       const result = await conversationRenderer.deleteMessageById('missing-conversation', 'abc123');
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('streamFile', () => {
+    it('stops writing when abortSignal is triggered mid-stream', async () => {
+      const mockPlugin = createMockPlugin('');
+      const mockFile = new TFile();
+      mockFile.path = 'Steward/Conversations/test.md';
+
+      let writtenContent = '';
+      mockPlugin.app.vault.process = jest.fn().mockImplementation(async (_file, cb) => {
+        writtenContent = cb(writtenContent);
+        return writtenContent;
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const fullText = 'abcdefghijklmnopqrstuvwxyz';
+      const stream = createMockStreamResponse(fullText, { chunkSize: 1, delayMs: 20 });
+      const controller = new AbortController();
+      const streamPromise = conversationRenderer.streamFile(mockFile, stream, controller.signal);
+
+      setTimeout(() => controller.abort(), 50);
+
+      await streamPromise;
+
+      expect(writtenContent.length).toBeLessThan(fullText.length);
+      expect(writtenContent.length).toBeGreaterThan(0);
     });
   });
 });

@@ -282,6 +282,7 @@ export function createLLMStream(
   fullStream: AsyncIterable<unknown>,
   options?: {
     toolContentStreaming?: ToolContentStreamingConfig;
+    abortSignal?: AbortSignal;
   }
 ): LLMStreamResult {
   let resolveTextDone: () => void;
@@ -291,6 +292,7 @@ export function createLLMStream(
 
   const toolContentQueue = new AsyncQueue<ToolContentDelta>();
   const streamingConfig = options?.toolContentStreaming;
+  const abortSignal = options?.abortSignal;
 
   // Per-tool-call extractors keyed by toolCallId
   const extractors = new Map<string, { feed: (delta: string) => string; toolName: string }>();
@@ -302,118 +304,127 @@ export function createLLMStream(
     let reasoningStarted = false;
     let reasoningEnded = false;
 
-    for await (const chunk of fullStream) {
-      const chunkWithType = chunk as StreamChunk;
-
-      if (!chunkWithType.type) {
-        continue;
-      }
-
-      const isTextReasoning = isTextOrReasoningChunk(chunkWithType.type);
-      const isToolInputStart = chunkWithType.type === 'tool-input-start';
-
-      // Signal done when we transition from text/reasoning to other chunk types,
-      // or as soon as a tool call starts even if no text/reasoning preceded it
-      // (otherwise textDone would only resolve after the whole fullStream drains,
-      // delaying tool content streaming until everything has already arrived).
-      if (!hasSignaledDone && (isToolInputStart || (hasStartedTextOrReasoning && !isTextReasoning))) {
-        if (reasoningStarted && !reasoningEnded) {
-          reasoningEnded = true;
-          yield REASONING_END_TAG;
-        }
-        hasSignaledDone = true;
-        resolveTextDone();
-      }
-
-      switch (chunkWithType.type) {
-        case 'reasoning-delta':
-        case 'reasoning': {
-          hasStartedTextOrReasoning = true;
-
-          if (!reasoningStarted) {
-            reasoningStarted = true;
-            yield REASONING_START_TAG;
-          }
-
-          const reasoningText =
-            chunkWithType.text || chunkWithType.reasoningText || chunkWithType.textDelta || '';
-
-          if (reasoningText) {
-            yield escapeTripleBackticks(reasoningText);
-          }
+    try {
+      for await (const chunk of fullStream) {
+        if (abortSignal?.aborted) {
           break;
         }
 
-        case 'text-delta':
-        case 'text': {
-          hasStartedTextOrReasoning = true;
+        const chunkWithType = chunk as StreamChunk;
 
+        if (!chunkWithType.type) {
+          continue;
+        }
+
+        const isTextReasoning = isTextOrReasoningChunk(chunkWithType.type);
+        const isToolInputStart = chunkWithType.type === 'tool-input-start';
+
+        // Signal done when we transition from text/reasoning to other chunk types,
+        // or as soon as a tool call starts even if no text/reasoning preceded it
+        // (otherwise textDone would only resolve after the whole fullStream drains,
+        // delaying tool content streaming until everything has already arrived).
+        if (
+          !hasSignaledDone &&
+          (isToolInputStart || (hasStartedTextOrReasoning && !isTextReasoning))
+        ) {
           if (reasoningStarted && !reasoningEnded) {
             reasoningEnded = true;
             yield REASONING_END_TAG;
           }
-
-          const textContent = chunkWithType.textDelta || chunkWithType.text || '';
-          if (textContent) {
-            yield textContent;
-          }
-          break;
+          hasSignaledDone = true;
+          resolveTextDone();
         }
 
-        case 'tool-input-start': {
-          if (!streamingConfig) break;
+        switch (chunkWithType.type) {
+          case 'reasoning-delta':
+          case 'reasoning': {
+            hasStartedTextOrReasoning = true;
 
-          const { toolName, id: toolCallId } = chunkWithType;
-
-          if (toolName && toolCallId && streamingConfig.targetTools.has(toolName)) {
-            const extractor = streamingConfig.createExtractor(toolName);
-            extractors.set(toolCallId, { feed: extractor.feed.bind(extractor), toolName });
-          }
-          break;
-        }
-
-        case 'tool-input-delta': {
-          const { id: toolCallId, delta: inputTextDelta } = chunkWithType;
-          const entry = toolCallId ? extractors.get(toolCallId) : undefined;
-
-          if (entry && inputTextDelta) {
-            const contentDelta = entry.feed(inputTextDelta);
-            if (contentDelta) {
-              toolContentQueue.push({
-                toolCallId,
-                toolName: entry.toolName,
-                contentDelta,
-              });
+            if (!reasoningStarted) {
+              reasoningStarted = true;
+              yield REASONING_START_TAG;
             }
-          }
-          break;
-        }
 
-        case 'tool-input-end': {
-          const { id: endToolCallId } = chunkWithType;
-          if (endToolCallId) {
-            extractors.delete(endToolCallId);
-          }
-          break;
-        }
+            const reasoningText =
+              chunkWithType.text || chunkWithType.reasoningText || chunkWithType.textDelta || '';
 
-        // tool-call, finish, etc. - no special handling needed
-        default:
-          break;
+            if (reasoningText) {
+              yield escapeTripleBackticks(reasoningText);
+            }
+            break;
+          }
+
+          case 'text-delta':
+          case 'text': {
+            hasStartedTextOrReasoning = true;
+
+            if (reasoningStarted && !reasoningEnded) {
+              reasoningEnded = true;
+              yield REASONING_END_TAG;
+            }
+
+            const textContent = chunkWithType.textDelta || chunkWithType.text || '';
+            if (textContent) {
+              yield textContent;
+            }
+            break;
+          }
+
+          case 'tool-input-start': {
+            if (!streamingConfig) break;
+
+            const { toolName, id: toolCallId } = chunkWithType;
+
+            if (toolName && toolCallId && streamingConfig.targetTools.has(toolName)) {
+              const extractor = streamingConfig.createExtractor(toolName);
+              extractors.set(toolCallId, { feed: extractor.feed.bind(extractor), toolName });
+            }
+            break;
+          }
+
+          case 'tool-input-delta': {
+            const { id: toolCallId, delta: inputTextDelta } = chunkWithType;
+            const entry = toolCallId ? extractors.get(toolCallId) : undefined;
+
+            if (entry && inputTextDelta) {
+              const contentDelta = entry.feed(inputTextDelta);
+              if (contentDelta) {
+                toolContentQueue.push({
+                  toolCallId,
+                  toolName: entry.toolName,
+                  contentDelta,
+                });
+              }
+            }
+            break;
+          }
+
+          case 'tool-input-end': {
+            const { id: endToolCallId } = chunkWithType;
+            if (endToolCallId) {
+              extractors.delete(endToolCallId);
+            }
+            break;
+          }
+
+          // tool-call, finish, etc. - no special handling needed
+          default:
+            break;
+        }
       }
-    }
 
-    // If reasoning started but never ended, close it
-    if (reasoningStarted && !reasoningEnded) {
-      yield REASONING_END_TAG;
-    }
+      // If reasoning started but never ended, close it
+      if (reasoningStarted && !reasoningEnded) {
+        yield REASONING_END_TAG;
+      }
 
-    if (!hasSignaledDone) {
-      resolveTextDone();
+      if (!hasSignaledDone) {
+        resolveTextDone();
+      }
+    } finally {
+      // Signal the tool content queue that no more items will be pushed
+      toolContentQueue.close();
     }
-
-    // Signal the tool content queue that no more items will be pushed
-    toolContentQueue.close();
   }
 
   return {

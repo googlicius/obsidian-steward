@@ -243,6 +243,10 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     const remainingSteps =
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
+    if ((params.invocationCount ?? 0) > 0 && this.plugin.abortService.isStopRequested(title)) {
+      return { status: IntentResultStatus.STOP_PROCESSING };
+    }
+
     const activeTools = await this.loadActiveTools(title, params.activeTools);
     const chatModel = intent.model ?? this.plugin.settings.llm.chat.model;
     const tools = await this.getSuperAgentTools(title, chatModel);
@@ -273,6 +277,14 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       );
       classifiedTasks = classificationResult.tasks;
       classificationMatchType = classificationResult.matchType;
+    }
+
+    if (
+      !params.invocationCount &&
+      classificationMatchType === 'static' &&
+      classifiedTasks.includes('stop')
+    ) {
+      this.plugin.abortService.abortConversation(title);
     }
 
     if (!classifiedTasks.length && activeTools.length > 0) {
@@ -341,6 +353,15 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
             lang,
             classificationMatchType,
           });
+
+    console.log('MANUAL TOOL CALL', {
+      manualToolCall,
+      isResumingToolCalls,
+      commandSyntaxToolCalls,
+      query: intent.query,
+      classifiedTasks,
+      intent,
+    });
 
     let toolCalls: ToolCalls;
     // let text = '';
@@ -620,10 +641,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
 
     const t = getTranslation(ctx.lang);
 
-    await this.renderer.replaceWaitingForUserAnswer(
-      ctx.title,
-      'User provided their own input'
-    );
+    await this.renderer.replaceWaitingForUserAnswer(ctx.title, 'User provided their own input');
     await this.renderer.removePreferenceButtons(ctx.title, t('common.skipped'));
   }
 

@@ -126,6 +126,18 @@ export abstract class Agent {
 
       return result;
     } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        const t = getTranslation(params.lang);
+        await this.renderer.updateConversationNote({
+          path: params.title,
+          newContent: `*${t('stop.stopped')}*`,
+          lang: params.lang,
+          includeHistory: false,
+          handlerId: params.handlerId,
+        });
+        return { status: IntentResultStatus.STOP_PROCESSING };
+      }
+
       const errorMessage = getCaughtErrorMessage(error);
       logger.error(`Error in ${params.intent.type || 'Super'} agent handler:`, error);
 

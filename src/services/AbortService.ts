@@ -9,6 +9,8 @@ export class AbortService {
   private static instance: AbortService;
   /** conversationTitle → operationKey → controller */
   private readonly byConversation = new Map<string, Map<string, AbortController>>();
+  /** Conversations where the user requested stop (Ctrl-C or stop command). */
+  private readonly stopRequested = new Set<string>();
 
   private generateOperationId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -69,6 +71,29 @@ export class AbortService {
     return this.byConversation.get(conversationTitle)?.get(operationKey)?.signal;
   }
 
+  public isStopRequested(conversationTitle: string): boolean {
+    return this.stopRequested.has(conversationTitle);
+  }
+
+  public clearStopRequest(conversationTitle: string): void {
+    this.stopRequested.delete(conversationTitle);
+  }
+
+  /**
+   * Remove a registered operation without aborting (normal completion).
+   */
+  public unregisterOperation(conversationTitle: string, operationKey: string): void {
+    const inner = this.byConversation.get(conversationTitle);
+    if (!inner) {
+      return;
+    }
+
+    inner.delete(operationKey);
+    if (inner.size === 0) {
+      this.byConversation.delete(conversationTitle);
+    }
+  }
+
   /**
    * Abort one `(conversationTitle, operationKey)`. Removes the controller from the registry.
    */
@@ -98,6 +123,8 @@ export class AbortService {
    * @returns Number of controllers that were aborted
    */
   public abortConversation(conversationTitle: string): number {
+    this.stopRequested.add(conversationTitle);
+
     const inner = this.byConversation.get(conversationTitle);
     if (!inner || inner.size === 0) {
       return 0;
@@ -120,5 +147,6 @@ export class AbortService {
     for (const conversationTitle of titles) {
       this.abortConversation(conversationTitle);
     }
+    this.stopRequested.clear();
   }
 }

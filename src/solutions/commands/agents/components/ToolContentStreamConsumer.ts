@@ -108,8 +108,9 @@ export class ToolContentStreamConsumer {
     toolContentStream: AsyncGenerator<ToolContentDelta, void, unknown>;
     handlerId?: string;
     lang?: string | null;
+    abortSignal?: AbortSignal;
   }): Promise<ToolContentStreamInfo | undefined> {
-    const { title, toolContentStream, handlerId, lang } = params;
+    const { title, toolContentStream, handlerId, lang, abortSignal } = params;
     const host = asHost(this);
 
     try {
@@ -126,6 +127,10 @@ export class ToolContentStreamConsumer {
       };
 
       for await (const delta of toolContentStream) {
+        if (abortSignal?.aborted) {
+          break;
+        }
+
         if (!info) {
           const tempFilePath = await this.createTempStreamFile(delta.toolCallId);
           info = {
