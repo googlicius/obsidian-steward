@@ -7,6 +7,7 @@
     "dev": "npm run build:community-manifest & npm run build:standard-skills & npm run build:sub-agents & npm run dev:css & node esbuild.config.mjs",
     "dev:css": "postcss src/styles.css -o styles.css --watch",
     "build:bundled-libs": "node scripts/build-bundled-libs.mjs",
+    "build:models-metadata": "node scripts/build-models-metadata.mjs",
     "build:community-manifest": "node scripts/build-community-udc-manifest.mjs",
     "build:standard-skills": "node scripts/build-standard-skills.mjs",
     "build:sub-agents": "node scripts/build-sub-agents.mjs",

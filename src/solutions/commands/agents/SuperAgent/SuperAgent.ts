@@ -354,15 +354,6 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
             classificationMatchType,
           });
 
-    console.log('MANUAL TOOL CALL', {
-      manualToolCall,
-      isResumingToolCalls,
-      commandSyntaxToolCalls,
-      query: intent.query,
-      classifiedTasks,
-      intent,
-    });
-
     let toolCalls: ToolCalls;
     // let text = '';
     let conversationHistory: ModelMessage[] = [];

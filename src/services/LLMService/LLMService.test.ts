@@ -264,12 +264,12 @@ describe('LLMService', () => {
       expect(llmService.getModelContextLengthTokens('openai:gpt-4-turbo-preview')).toBe(999);
     });
 
-    it('matches longest substring first for gpt-4-turbo vs gpt-4', () => {
+    it('uses metadata when no override is set', () => {
       expect(llmService.getModelContextLengthTokens('openai:gpt-4-turbo-preview')).toBe(128_000);
       expect(llmService.getModelContextLengthTokens('openai:gpt-4o')).toBe(128_000);
     });
 
-    it('uses hardcoded fallback when no pattern matches', () => {
+    it('uses fallback when metadata is unknown', () => {
       expect(llmService.getModelContextLengthTokens('custom:unknown-model-xyz')).toBe(128_000);
     });
 

@@ -1,6 +1,7 @@
 import { EMBEDDING_MODELS, IMAGE_MODELS, SPEECH_MODELS } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { LLM_MODELS } from 'src/services/LLMService/models';
+import { getModelMetadata } from 'src/services/LLMService/modelMetadata';
 import type {
   ModelKind,
   ModelListItem,
@@ -51,6 +52,11 @@ export function inferTemperaturePolicyFromModelId(modelId: string): TemperatureP
 
   const provider = trimmed.slice(0, colonIndex);
   const modelPart = trimmed.slice(colonIndex + 1);
+
+  const metadata = getModelMetadata(trimmed);
+  if (metadata?.temperature === false) {
+    return 'omit';
+  }
 
   if (provider === 'openai' && /^o[13](-|$)/.test(modelPart)) {
     return 'omit';

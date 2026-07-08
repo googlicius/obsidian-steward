@@ -23,6 +23,7 @@ import type { OllamaProvider } from 'ollama-ai-provider-v2';
 import { ModelRegistry } from 'src/services/ModelRegistry';
 import type { TestModelInput } from 'src/types/models';
 import { ReasoningService } from 'src/services/LLMService/ReasoningService';
+import { getModelMetadata } from 'src/services/LLMService/modelMetadata';
 
 /** When model id is unknown / unmatched — compaction threshold denominator fallback */
 const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
@@ -45,47 +46,11 @@ const PROMPT_CACHE_TTL_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]>
   ['google', 3 * 60_000],
 ];
 
-const MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> = [
-  ['gpt-5.5', 1_050_000],
-  ['gpt-5.4-nano', 400_000],
-  ['gpt-5.4-mini', 400_000],
-  ['gpt-5.4', 1_050_000],
-  ['gpt-5.1-chat', 128_000],
-  ['gpt-5', 400_000],
-  ['gpt-4.1', 1_047_576],
-  ['gpt-4-turbo', 128_000],
-  ['gpt-4o-mini', 128_000],
-  ['gpt-4o', 128_000],
-  ['gpt-4', 128_000],
-  ['gpt-3.5-turbo', 16_385],
-  ['gpt-3.5', 16_385],
-  ['claude-opus-4', 200_000],
-  ['claude-sonnet-4', 200_000],
-  ['claude-3', 200_000],
-  ['claude', 200_000],
-  ['gemini-2', 1_048_576],
-  ['gemini-1.5', 1_048_576],
-  ['gemini', 1_048_576],
-  ['deepseek-reasoner', 128_000],
-  ['deepseek-chat', 128_000],
-  ['deepseek', 128_000],
-  ['llama3', 131_072],
-  ['llama', 131_072],
-  ['gemma4', 128_000],
-  ['gemma', 128_000],
-  ['qwen', 131_072],
-];
-
 /**
  * Service for managing LLM models and configurations using the AI package
  */
 export class LLMService {
   private static instance: LLMService | null = null;
-
-  /** Sorting descending by key length enforces “specific-first, generic-last” matching and avoids wrong context-length resolution. */
-  private static readonly SORTED_MODEL_CONTEXT_DEFAULTS = [...MODEL_CONTEXT_DEFAULT_ENTRIES].sort(
-    (a, b) => b[0].length - a[0].length
-  );
 
   /** Sorting descending by key length enforces “specific-first, generic-last” matching, same as SORTED_MODEL_CONTEXT_DEFAULTS. */
   private static readonly SORTED_PROMPT_CACHE_TTL_DEFAULTS = [
@@ -203,13 +168,9 @@ export class LLMService {
       return Math.floor(override);
     }
 
-    const { provider, modelId } = this.parseModel(trimmed);
-    const haystack = `${trimmed} ${modelId} ${provider}`.toLowerCase();
-
-    for (const [pattern, tokens] of LLMService.SORTED_MODEL_CONTEXT_DEFAULTS) {
-      if (haystack.includes(pattern.toLowerCase())) {
-        return tokens;
-      }
+    const metadataContext = getModelMetadata(trimmed)?.context;
+    if (typeof metadataContext === 'number' && metadataContext > 0 && Number.isFinite(metadataContext)) {
+      return Math.floor(metadataContext);
     }
 
     return DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
@@ -618,54 +579,6 @@ export class LLMService {
    * Check if a model/provider supports vision/image inputs
    */
   public supportsVision(model: string): boolean {
-    const { provider: providerName, modelId } = this.parseModel(model);
-    if (!providerName) {
-      return false;
-    }
-    return this.modelSupportsVision(providerName, modelId);
-  }
-
-  private modelSupportsVision(providerName: string, modelId: string): boolean {
-    const modelIdLower = modelId.toLowerCase();
-
-    switch (providerName) {
-      case 'openai':
-        return (
-          modelIdLower.startsWith('gpt-5') ||
-          /^o\d/.test(modelIdLower) ||
-          modelIdLower.includes('gpt-4.1') ||
-          modelIdLower.includes('gpt-4o') ||
-          modelIdLower.includes('gpt-4-turbo') ||
-          modelIdLower.includes('gpt-4-vision') ||
-          modelIdLower.includes('gpt-4-0125') ||
-          modelIdLower.includes('gpt-4-1106')
-        );
-
-      case 'google':
-        // Gemini models generally support vision
-        return modelIdLower.includes('gemini');
-
-      case 'anthropic':
-        // Claude 3+ models support vision
-        return (
-          modelIdLower.includes('claude-3') ||
-          modelIdLower.includes('claude-sonnet-4') ||
-          modelIdLower.includes('claude-opus') ||
-          modelIdLower.includes('claude-haiku')
-        );
-
-      case 'deepseek':
-        // DeepSeek-V2 and newer support vision
-        return modelIdLower.includes('deepseek-v2');
-
-      case 'groq':
-      case 'ollama':
-        // These providers depend on the specific model, but many don't support vision
-        // We'll be conservative and return false unless explicitly known
-        return false;
-
-      default:
-        return false;
-    }
+    return getModelMetadata(model)?.input.includes('image') ?? false;
   }
 }

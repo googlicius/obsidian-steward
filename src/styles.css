@@ -574,6 +574,31 @@ code[class*='language-stw-hidden-from-user'] {
   display: none;
 }
 
+.stw-model-metadata-panel {
+  margin-top: var(--size-4-2);
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background-color: var(--background-secondary);
+
+  .stw-model-metadata-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--size-4-2);
+    padding: var(--size-2-1) 0;
+    font-size: var(--font-ui-small);
+  }
+
+  .stw-model-metadata-label {
+    color: var(--text-muted);
+  }
+
+  .stw-model-metadata-value {
+    color: var(--text-normal);
+    text-align: right;
+  }
+}
+
 .stw-extraction-details-link {
   font-size: 0.9em;
 }

@@ -53,6 +53,8 @@ const vi = {
       artifactSaved: 'Đã lưu artifact "{{name}}"',
       dismiss: 'Đóng',
       neverAskAgain: 'Không hiện lại',
+      conversationCompacted:
+        'Các tin nhắn cũ đã được nén để giải phóng ngữ cảnh (Nén #{{compactIndex}}).',
     },
     widget: {
       newTabRefreshNotify: 'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới view này.',
@@ -593,6 +595,14 @@ const vi = {
       confirmDelete: 'Xác nhận xóa',
       invalidModelFormat:
         'Định dạng mô hình không hợp lệ. Vui lòng sử dụng định dạng provider:modelId (ví dụ: openai:tts-1)',
+      modelMetadata: {
+        toolUse: 'Sử dụng công cụ',
+        temperature: 'Nhiệt độ',
+        contextLength: 'Độ dài ngữ cảnh',
+        modalities: 'Phương thức',
+        supported: 'Có',
+        notSupported: 'Không',
+      },
       voiceId: 'ID giọng nói',
       voiceIdDesc: 'Nhập ID giọng nói cho mô hình đã chọn',
       searchSettings: 'Tìm kiếm',

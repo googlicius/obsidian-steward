@@ -57,6 +57,8 @@ const en = {
       artifactSaved: 'Saved artifact "{{name}}"',
       dismiss: 'Dismiss',
       neverAskAgain: "Don't show again",
+      conversationCompacted:
+        'Older messages were compacted to free context space (Compact #{{compactIndex}}).',
     },
     widget: {
       newTabRefreshNotify:
@@ -664,6 +666,14 @@ const en = {
       confirmDelete: 'Confirm delete',
       invalidModelFormat:
         'Invalid model format. Please use provider:modelId format (e.g., openai:tts-1)',
+      modelMetadata: {
+        toolUse: 'Tool use',
+        temperature: 'Temperature',
+        contextLength: 'Context length',
+        modalities: 'Modalities',
+        supported: 'Yes',
+        notSupported: 'No',
+      },
       voiceId: 'Voice ID',
       voiceIdDesc: 'Enter the voice ID for the selected text-to-speech model',
       searchSettings: 'Search',

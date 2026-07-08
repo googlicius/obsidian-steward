@@ -17,6 +17,10 @@ import type {
   TestModelInput,
 } from 'src/types/models';
 import type { ReasoningUiMode } from 'src/services/LLMService/reasoningTypes';
+import {
+  formatContextLengthTokens,
+  getModelMetadata,
+} from 'src/services/LLMService/modelMetadata';
 
 const { getTranslation } = getBundledInternal('i18n');
 const lang = getLanguage();
@@ -163,14 +167,107 @@ export class ModelSetting {
       textInput.focus();
 
       let useTemperature = options.showTemperatureControls !== false;
+      let userTouchedTemperature = false;
       let modelTemperature = this.plugin.settings.llm.temperature;
+      let temperatureToggleComponent: { setValue: (value: boolean) => void } | null = null;
+      let temperatureSliderSettingEl: HTMLElement | null = null;
+
+      const metadataPanel = wrapper.createEl('div', {
+        cls: 'stw-model-metadata-panel hidden',
+      });
+
+      const metadataRows = {
+        toolUse: metadataPanel.createEl('div', { cls: 'stw-model-metadata-row' }),
+        temperature: metadataPanel.createEl('div', { cls: 'stw-model-metadata-row' }),
+        contextLength: metadataPanel.createEl('div', { cls: 'stw-model-metadata-row' }),
+        modalities: metadataPanel.createEl('div', { cls: 'stw-model-metadata-row' }),
+      };
+
+      const setMetadataPanelVisible = (visible: boolean) => {
+        if (visible) {
+          metadataPanel.removeClass('hidden');
+        } else {
+          metadataPanel.addClass('hidden');
+        }
+      };
+
+      const setMetadataRow = (row: HTMLElement, label: string, value: string) => {
+        row.empty();
+        row.createEl('span', {
+          cls: 'stw-model-metadata-label',
+          text: label,
+        });
+        row.createEl('span', {
+          cls: 'stw-model-metadata-value',
+          text: value,
+        });
+      };
+
+      const syncTemperatureControls = () => {
+        if (!temperatureToggleComponent || !temperatureSliderSettingEl) {
+          return;
+        }
+        temperatureToggleComponent.setValue(useTemperature);
+        temperatureSliderSettingEl.style.display = useTemperature ? '' : 'none';
+      };
+
+      const syncModelMetadata = (modelId: string) => {
+        const trimmed = modelId.trim();
+        if (!trimmed || !validateModelFormat(trimmed)) {
+          setMetadataPanelVisible(false);
+          return;
+        }
+
+        const metadata = getModelMetadata(trimmed);
+        if (!metadata) {
+          setMetadataPanelVisible(false);
+          return;
+        }
+
+        setMetadataRow(
+          metadataRows.toolUse,
+          t('settings.modelMetadata.toolUse'),
+          metadata.toolCall ? t('settings.modelMetadata.supported') : t('settings.modelMetadata.notSupported')
+        );
+        setMetadataRow(
+          metadataRows.temperature,
+          t('settings.modelMetadata.temperature'),
+          metadata.temperature
+            ? t('settings.modelMetadata.supported')
+            : t('settings.modelMetadata.notSupported')
+        );
+        setMetadataRow(
+          metadataRows.contextLength,
+          t('settings.modelMetadata.contextLength'),
+          typeof metadata.context === 'number'
+            ? formatContextLengthTokens(metadata.context)
+            : t('settings.modelMetadata.notSupported')
+        );
+        setMetadataRow(
+          metadataRows.modalities,
+          t('settings.modelMetadata.modalities'),
+          metadata.input.length > 0 ? metadata.input.join(', ') : t('settings.modelMetadata.notSupported')
+        );
+        setMetadataPanelVisible(true);
+
+        if (
+          options.showTemperatureControls !== false &&
+          !userTouchedTemperature &&
+          metadata.temperature === false
+        ) {
+          useTemperature = false;
+          syncTemperatureControls();
+        }
+      };
 
       if (options.showTemperatureControls !== false) {
         const temperatureToggleSetting = new Setting(wrapper)
           .setName(t('settings.useTemperature'))
           .setDesc(t('settings.useTemperatureDesc'))
           .addToggle(toggle => {
+            temperatureToggleComponent = toggle;
             toggle.setValue(useTemperature).onChange(value => {
+              userTouchedTemperature = true;
               useTemperature = value;
               temperatureSliderSetting.settingEl.style.display = value ? '' : 'none';
             });
@@ -189,6 +286,7 @@ export class ModelSetting {
               });
           });
 
+        temperatureSliderSettingEl = temperatureSliderSetting.settingEl;
         temperatureSliderSetting.settingEl.style.display = useTemperature ? '' : 'none';
         temperatureToggleSetting.settingEl.addClass('stw-model-temperature-toggle');
         temperatureSliderSetting.settingEl.addClass('stw-model-temperature-slider');
@@ -272,10 +370,12 @@ export class ModelSetting {
 
         if (value && !validateModelFormat(value)) {
           target.addClass('stw-is-invalid');
+          setMetadataPanelVisible(false);
           return;
         }
         target.removeClass('stw-is-invalid');
         syncReasoningControl(value);
+        syncModelMetadata(value);
       });
 
       const actionsRow = wrapper.createEl('div', {

@@ -14,6 +14,11 @@ interface MockPluginShape {
 }
 
 describe('inferTemperaturePolicyFromModelId', () => {
+  it('returns omit when models.dev marks temperature unsupported', () => {
+    expect(inferTemperaturePolicyFromModelId('openai:o3')).toBe('omit');
+    expect(inferTemperaturePolicyFromModelId('openai:gpt-5.2-pro')).toBe('omit');
+  });
+
   it('returns omit for OpenAI o1/o3 reasoning models', () => {
     expect(inferTemperaturePolicyFromModelId('openai:o1-preview')).toBe('omit');
     expect(inferTemperaturePolicyFromModelId('openai:o3-mini')).toBe('omit');

@@ -12,6 +12,7 @@ standard-skills/**/SKILL.md →  build-standard-skills         →  standardSkil
 agents/Sub Agents.md      →    build-sub-agents              →  subAgents.ts
 src/bundled-*-entry.ts    →    build-bundled-libs (manual)   →  bundled*Payload.ts (×4)
 internal/bundled-internals-entry.ts
+src/generated/modelsMetadata.ts  ←  build-models-metadata.mjs (manual)
 
 All generated TS under src/generated/  →  imported by src/  →  esbuild.config.mjs  →  main.js
 ```
@@ -24,6 +25,7 @@ All generated TS under src/generated/  →  imported by src/  →  esbuild.confi
 | `build-community-udc-manifest.mjs` | `build:community-manifest` | `community-UDCs/**/*.md` | `communityUdcManifest.ts` | `src/views/view-builders/CommandsViewBuilder.ts` |
 | `build-standard-skills.mjs` | `build:standard-skills` | `standard-skills/**/SKILL.md` | `standardSkills.ts` | `src/services/SkillService/SkillService.ts` |
 | `build-sub-agents.mjs` | `build:sub-agents` | `agents/Sub Agents.md` | `subAgents.ts` | `src/services/SubAgent/SubAgentDefinitionService.ts` |
+| `build-models-metadata.mjs` | `build:models-metadata` | `https://models.dev/api.json` (allowlisted providers) | `modelsMetadata.ts` | `src/services/LLMService/modelMetadata.ts`, `LLMService.ts`, `ModelRegistry.ts`, `ModelSetting.ts` |
 
 ## build-bundled-libs.mjs
 
@@ -61,6 +63,18 @@ Bundles default sub-agent definitions for vault seeding/upgrades.
 - Reads `agents/Sub Agents.md`
 - YAML frontmatter with `version`; body preserved
 - Exports `BUNDLED_SUB_AGENTS: { version, content }`
+
+## build-models-metadata.mjs
+
+Snapshots model capability metadata from [models.dev](https://models.dev/api.json) for allowlisted providers.
+
+- **Manual run only** (needs network). Output is committed — not part of `dev` or `build`.
+- Fetches `https://models.dev/api.json`, filters to `PROVIDER_ALLOWLIST` in the script (`openai`, `anthropic`, `google`, `deepseek`, `groq`, `ollama`, `openrouter`, `mistral`, `xai`, `togetherai`, `fireworks-ai`, `deepinfra`, `cerebras`, `perplexity`). Providers absent from the API are skipped without failing.
+- Strips each model to `context`, `output`, `toolCall`, `temperature`, `reasoning`, and `input` modalities.
+- Exports `MODELS_METADATA: Record<provider, Record<modelId, BundledModelMetadata>>`.
+- **Fails hard** on fetch or JSON parse errors (does not overwrite the committed snapshot with junk).
+
+**Refresh procedure:** `npm run build:models-metadata` → review diff in `src/generated/modelsMetadata.ts` → commit.
 
 ## Integration with npm Scripts
 

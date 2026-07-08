@@ -28,6 +28,9 @@ import {
 } from './compactors';
 import { measureSerializedOutputSize } from './compactors/outputMetrics';
 import type { CompactionBatchContext } from './types';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export const COMPACTION_PROMPT_THRESHOLD_PERCENT = 0.8;
 const SUMMARY_WORD_THRESHOLD = 50;
@@ -133,11 +136,25 @@ export class CompactionTokenService {
       return false;
     }
     const contextLength = this.plugin.llmService.getModelContextLengthTokens(payload.model);
-    return this.shouldTriggerCompactionByTokens({
+    const thresholdPercent = COMPACTION_PROMPT_THRESHOLD_PERCENT;
+    const shouldRun = this.shouldTriggerCompactionByTokens({
       promptTokens,
       contextLength,
-      thresholdPercent: COMPACTION_PROMPT_THRESHOLD_PERCENT,
+      thresholdPercent,
     });
+    if (shouldRun) {
+      const pct = Math.min(1, Math.max(0, thresholdPercent));
+      const threshold = contextLength * pct;
+      logger.log('CompactionTokenService: compaction triggered', {
+        model: payload.model,
+        promptTokens,
+        contextLength,
+        thresholdPercent,
+        threshold,
+        reason: `prompt tokens (${promptTokens}) reached ${pct * 100}% of model context (${contextLength})`,
+      });
+    }
+    return shouldRun;
   }
 
   private async compactConversation(payload: ExecutedStreamTextPayload): Promise<void> {
@@ -233,6 +250,13 @@ export class CompactionTokenService {
       newContent: compactedText,
       includeHistory: true,
       command: 'compacted',
+    });
+
+    const t = getTranslation(payload.lang);
+    await this.plugin.conversationRenderer.updateConversationNote({
+      path: payload.conversationTitle,
+      newContent: `<small>*${t('common.conversationCompacted', { compactIndex })}*</small>`,
+      includeHistory: false,
     });
   }
 

@@ -53,6 +53,8 @@ const ja = {
       artifactSaved: 'アーティファクト「{{name}}」を保存しました',
       dismiss: '閉じる',
       neverAskAgain: '今後表示しない',
+      conversationCompacted:
+        'コンテキスト容量を確保するため、古いメッセージを圧縮しました（圧縮 #{{compactIndex}}）。',
     },
     widget: {
       newTabRefreshNotify:
@@ -496,6 +498,14 @@ const ja = {
         medium: '中',
         high: '高',
         xhigh: '最高',
+      },
+      modelMetadata: {
+        toolUse: 'ツール使用',
+        temperature: '温度',
+        contextLength: 'コンテキスト長',
+        modalities: 'モダリティ',
+        supported: 'はい',
+        notSupported: 'いいえ',
       },
     },
   },
