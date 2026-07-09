@@ -120,7 +120,8 @@ export class RevertLatestQuery {
 
   private async collectRevertCandidates(params: { title: string }): Promise<RevertCandidate[]> {
     const { title } = params;
-    const { messages: allMessages } = await this.agent.renderer.extractAllConversationMessages(title);
+    const { messages: allMessages } =
+      await this.agent.renderer.extractAllConversationMessages(title);
     // Assume the latest 2 messages are noise for revert collection
     // (typically: latest user "revert" + assistant acknowledgement).
     const endExclusive = Math.max(0, allMessages.length - 2);
@@ -165,7 +166,8 @@ export class RevertLatestQuery {
     }
 
     for (const childTitle of childTitlesSet) {
-      const { messages: childMessages } = await this.agent.renderer.extractAllConversationMessages(childTitle);
+      const { messages: childMessages } =
+        await this.agent.renderer.extractAllConversationMessages(childTitle);
       if (childMessages.length === 0) {
         continue;
       }

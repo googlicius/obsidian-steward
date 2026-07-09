@@ -10,6 +10,7 @@ import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
 import { createStepProcessedQuery } from './stepProcessedQuery';
+import { AbortService } from 'src/services/AbortService';
 
 /** `streamText` is loaded via `getBundledLib('ai')` in production; tests stub that path. */
 jest.mock('src/utils/bundledLibs', () => {
@@ -126,9 +127,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       getEmbeddingSettings: jest.fn().mockReturnValue({}),
       validateImageSupport: jest.fn(),
     },
-    abortService: {
-      createAbortController: jest.fn().mockReturnValue(new AbortController()),
-    },
+    abortService: AbortService.getInstance(),
     contentReadingService: {
       readContent: jest.fn(),
       applyImageVisionNotices: jest.fn(),
@@ -205,6 +204,7 @@ describe('SuperAgent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPlugin = createMockPlugin();
+    mockPlugin.abortService.abortAllOperations();
     superAgent = new SuperAgent(mockPlugin);
 
     // Set up default classifier mock for all tests
@@ -797,6 +797,89 @@ describe('SuperAgent', () => {
 
       // Should not save embedding because there are multiple user messages
       expect(mockSaveEmbedding).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handle - stop requested', () => {
+    it('returns STOP_PROCESSING when stop is requested on a subsequent invocation', async () => {
+      mockPlugin.abortService.abortConversation('test-conversation');
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+        invocationCount: 1,
+      };
+
+      const result = await superAgent.handle(params);
+
+      expect(result.status).toBe(IntentResultStatus.STOP_PROCESSING);
+      expect(mockPlugin.abortService.isStopRequested('test-conversation')).toBe(true);
+      expect(getMockStreamText()).not.toHaveBeenCalled();
+    });
+
+    it('calls abortConversation when classified as stop on the first turn', async () => {
+      const abortConversationSpy = jest.spyOn(mockPlugin.abortService, 'abortConversation');
+
+      const mockDoClassify = jest.fn().mockResolvedValue({ name: 'stop', matchType: 'static' });
+      (getClassifier as jest.Mock).mockResolvedValue({
+        saveEmbedding: mockSaveEmbedding,
+        doClassify: mockDoClassify,
+      });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: ' ',
+          query: 'stop',
+        } as Intent,
+        activeTools: [],
+      };
+
+      const result = await superAgent.handle(params);
+
+      expect(abortConversationSpy).toHaveBeenCalledWith('test-conversation');
+      expect(result.status).toBe(IntentResultStatus.STOP_PROCESSING);
+      expect(getMockStreamText()).not.toHaveBeenCalled();
+
+      abortConversationSpy.mockRestore();
+    });
+
+    it('returns STOP_PROCESSING when stop is requested during tool call execution', async () => {
+      mockPlugin.abortService.abortConversation('test-conversation');
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: '>',
+          query: 'git status',
+        } as Intent,
+        activeTools: [ToolName.SHELL],
+        invocationCount: 1,
+      };
+
+      type HandleOptions = NonNullable<Parameters<SuperAgent['handle']>[1]>;
+      const resumedToolCalls: NonNullable<HandleOptions['toolCalls']> = [
+        {
+          type: 'tool-call',
+          toolName: ToolName.SHELL,
+          toolCallId: 'tool-call-1',
+          input: { argsLine: 'git status' },
+        },
+      ];
+
+      const result = await superAgent.handle(params, {
+        remainingSteps: 2,
+        toolCalls: resumedToolCalls,
+        currentToolCallIndex: 0,
+      });
+
+      expect(result.status).toBe(IntentResultStatus.STOP_PROCESSING);
+      expect(mockPlugin.abortService.isStopRequested('test-conversation')).toBe(true);
+      expect(getMockStreamText()).not.toHaveBeenCalled();
     });
   });
 

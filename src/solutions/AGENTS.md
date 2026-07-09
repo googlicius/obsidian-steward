@@ -4,13 +4,13 @@ Self-contained feature subsystems consumed by services and agent handlers. Each 
 
 ## Subfolders
 
-| Subfolder | Role | Key files |
-|-----------|------|-----------|
-| [`commands/`](commands/AGENTS.md) | Core command/agent system: intents, agents, tools, handlers | See [commands/AGENTS.md](commands/AGENTS.md) |
-| `artifact/` | Persist operation results as `stw-artifact` blocks for revert, pagination, batch processing | `ArtifactManagerV2.ts`, `types.ts`, `serializers/` |
-| `search/` | In-repo BM25 search engine v3 | `searchService.ts`, `indexer.ts`, `documentStore.ts`, `searchEngineV3/`, `tokenizer/` |
-| `pty-companion/` | Out-of-process Socket.IO PTY server for desktop shell | `server.ts`, `client.ts`, `protocol.ts`, `resolveVaultPtyNativePath.ts` |
-| `widgets/` | Empty placeholder — widget runtime lives in `src/services/WidgetService/` | — |
+| Subfolder                         | Role                                                                                        | Key files                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [`commands/`](commands/AGENTS.md) | Core command/agent system: intents, agents, tools, handlers                                 | See [commands/AGENTS.md](commands/AGENTS.md)                                          |
+| `artifact/`                       | Persist operation results as `stw-artifact` blocks for revert, pagination, batch processing | `ArtifactManagerV2.ts`, `types.ts`, `serializers/`                                    |
+| `search/`                         | In-repo BM25 search engine v3                                                               | `searchService.ts`, `indexer.ts`, `documentStore.ts`, `searchEngineV3/`, `tokenizer/` |
+| `pty-companion/`                  | Out-of-process Socket.IO PTY server for desktop shell                                       | `server.ts`, `client.ts`, `protocol.ts`, `resolveVaultPtyNativePath.ts`               |
+| `widgets/`                        | Empty placeholder — widget runtime lives in `src/services/WidgetService/`                   | —                                                                                     |
 
 ## artifact/
 

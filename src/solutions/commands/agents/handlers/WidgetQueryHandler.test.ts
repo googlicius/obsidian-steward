@@ -42,7 +42,8 @@ describe('WidgetQueryHandler', () => {
     session: WidgetSessionData | null,
     options: { projectPath?: string | null } = {}
   ) {
-    const resolvedProjectPath = options.projectPath === undefined ? projectPath : options.projectPath;
+    const resolvedProjectPath =
+      options.projectPath === undefined ? projectPath : options.projectPath;
     const dispatchQuery = jest.fn().mockResolvedValue({ ok: true, data: [1, 2, 3] });
     const serializeInvocation = jest.fn().mockResolvedValue(undefined);
     const updateConversationNote = jest.fn().mockResolvedValue(undefined);
@@ -126,8 +127,9 @@ describe('WidgetQueryHandler', () => {
   });
 
   it('dispatches when session actor is human without an agent block', async () => {
-    const { handler, ctx, toolCall, dispatchQuery, serializeInvocation } =
-      createHandlerHarness(createSession('white'));
+    const { handler, ctx, toolCall, dispatchQuery, serializeInvocation } = createHandlerHarness(
+      createSession('white')
+    );
 
     await handler.handle(ctx, { toolCall });
 

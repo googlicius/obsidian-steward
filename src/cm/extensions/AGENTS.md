@@ -19,15 +19,15 @@ src/cm/extensions/
 
 ## Files
 
-| File | Role |
-|------|------|
-| `CommandInputExtension.ts` | ViewPlugin decorations for command blocks, Enter→`main.handleEnter`, paste/PNG embed helpers, CLI caption badges |
-| `StwSourceBlockExtension.ts` | StateField + `WidgetType` replaces `{{stw-source}}` and `@encoded/path` with clickable chips |
-| `StwSqueezedBlockExtension.ts` | Widget chip for `{{stw-squeezed [[title]]}}`; click re-opens conversation in chat |
-| `AutocompleteExtension/AutocompleteExtension.ts` | Wires `autocompletion({ override: [...] })` with datasource → model → command priority |
-| `AutocompleteExtension/commandCompletionSource.ts` | Suggests built-in `/` prefixes and user-defined command names |
-| `AutocompleteExtension/datasourceCompletionSource.ts` | `@` file/folder completion after valid command prefix; inserts short `@path` refs |
-| `AutocompleteExtension/modelCompletionSource.ts` | `m:` / `model:` completion; persists to settings or conversation frontmatter |
+| File                                                  | Role                                                                                                             |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CommandInputExtension.ts`                            | ViewPlugin decorations for command blocks, Enter→`main.handleEnter`, paste/PNG embed helpers, CLI caption badges |
+| `StwSourceBlockExtension.ts`                          | StateField + `WidgetType` replaces `{{stw-source}}` and `@encoded/path` with clickable chips                     |
+| `StwSqueezedBlockExtension.ts`                        | Widget chip for `{{stw-squeezed [[title]]}}`; click re-opens conversation in chat                                |
+| `AutocompleteExtension/AutocompleteExtension.ts`      | Wires `autocompletion({ override: [...] })` with datasource → model → command priority                           |
+| `AutocompleteExtension/commandCompletionSource.ts`    | Suggests built-in `/` prefixes and user-defined command names                                                    |
+| `AutocompleteExtension/datasourceCompletionSource.ts` | `@` file/folder completion after valid command prefix; inserts short `@path` refs                                |
+| `AutocompleteExtension/modelCompletionSource.ts`      | `m:` / `model:` completion; persists to settings or conversation frontmatter                                     |
 
 ## Patterns
 
@@ -74,10 +74,10 @@ Override array order in `AutocompleteExtension`:
 
 ## Symmetry with Post-Processors
 
-| Syntax | Editor (CM) | Preview (post-processor) |
-|--------|-------------|--------------------------|
-| `{{stw-source ...}}` / `@path` | `StwSourceBlockExtension` | `StwSourcePostProcessor` |
-| `{{stw-squeezed [[title]]}}` | `StwSqueezedBlockExtension` | (embed via conversation processor) |
+| Syntax                         | Editor (CM)                 | Preview (post-processor)           |
+| ------------------------------ | --------------------------- | ---------------------------------- |
+| `{{stw-source ...}}` / `@path` | `StwSourceBlockExtension`   | `StwSourcePostProcessor`           |
+| `{{stw-squeezed [[title]]}}`   | `StwSqueezedBlockExtension` | (embed via conversation processor) |
 
 ## Services Used
 

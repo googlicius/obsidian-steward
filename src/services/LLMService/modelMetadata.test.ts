@@ -1,8 +1,4 @@
-import {
-  formatContextLengthTokens,
-  getModelMetadata,
-  normalizeModelId,
-} from './modelMetadata';
+import { formatContextLengthTokens, getModelMetadata, normalizeModelId } from './modelMetadata';
 
 describe('normalizeModelId', () => {
   it('strips ollama-style tags', () => {

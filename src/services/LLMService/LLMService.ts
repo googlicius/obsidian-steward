@@ -169,7 +169,11 @@ export class LLMService {
     }
 
     const metadataContext = getModelMetadata(trimmed)?.context;
-    if (typeof metadataContext === 'number' && metadataContext > 0 && Number.isFinite(metadataContext)) {
+    if (
+      typeof metadataContext === 'number' &&
+      metadataContext > 0 &&
+      Number.isFinite(metadataContext)
+    ) {
       return Math.floor(metadataContext);
     }
 

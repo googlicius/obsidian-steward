@@ -22,9 +22,7 @@ describe('CreateContentReducer', () => {
   it('replaces file content with an omitted-content placeholder', () => {
     const toolCall = createToolCall({
       newFolders: [],
-      newFiles: [
-        { filePath: 'notes/note1.md', content: 'This is a long note content' },
-      ],
+      newFiles: [{ filePath: 'notes/note1.md', content: 'This is a long note content' }],
     });
 
     const reduced = reducer.reduceToolCall({ toolCall, messageId: 'msg-1', lang: 'en' });

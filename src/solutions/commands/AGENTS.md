@@ -21,13 +21,13 @@ src/solutions/commands/
 
 ## Key Abstractions
 
-| Abstraction | File | Role |
-|-------------|------|------|
-| `Intent` / `AgentResult` | `types.ts` | Rich result union drives pause/continue/stop |
-| `Agent` | `Agent.ts` | Abstract base: `handle`, `buildCorePrompt`, `getValidToolNames`, `safeHandle` |
-| `IntentProcessor` | `IntentProcessor.ts` | Contract for `AgentRunner.processIntents` |
-| `ToolRegistry` | `ToolRegistry.ts` | Prompt text, categories, companion tool expansion |
-| `ToolName` | `toolNames.ts` | Enum of all tool identifiers |
+| Abstraction              | File                 | Role                                                                          |
+| ------------------------ | -------------------- | ----------------------------------------------------------------------------- |
+| `Intent` / `AgentResult` | `types.ts`           | Rich result union drives pause/continue/stop                                  |
+| `Agent`                  | `Agent.ts`           | Abstract base: `handle`, `buildCorePrompt`, `getValidToolNames`, `safeHandle` |
+| `IntentProcessor`        | `IntentProcessor.ts` | Contract for `AgentRunner.processIntents`                                     |
+| `ToolRegistry`           | `ToolRegistry.ts`    | Prompt text, categories, companion tool expansion                             |
+| `ToolName`               | `toolNames.ts`       | Enum of all tool identifiers                                                  |
 
 ## agents/ Layout
 
@@ -55,14 +55,14 @@ src/solutions/commands/agents/
 
 From `defaultAgents.ts`:
 
-| Config `id` | Factory | Role |
-|-------------|---------|------|
-| `super` (default) | `super` | Full SuperAgent, all tools, can spawn subagents |
-| `subagent` | `subagent` | Narrow delegated worker |
-| `search`, `speech`, `image`, `new` | `super` | SuperAgent with pre-scoped tools |
-| `>` | `super` | Shell/CLI intent (`/>` syntax) |
-| `widget_actor` | `super` | Widget interaction (`WIDGET_ACTION` only) |
-| `title`, `compaction_summary` | standalone | Not routed via `AgentRunner` intent loop |
+| Config `id`                        | Factory    | Role                                            |
+| ---------------------------------- | ---------- | ----------------------------------------------- |
+| `super` (default)                  | `super`    | Full SuperAgent, all tools, can spawn subagents |
+| `subagent`                         | `subagent` | Narrow delegated worker                         |
+| `search`, `speech`, `image`, `new` | `super`    | SuperAgent with pre-scoped tools                |
+| `>`                                | `super`    | Shell/CLI intent (`/>` syntax)                  |
+| `widget_actor`                     | `super`    | Widget interaction (`WIDGET_ACTION` only)       |
+| `title`, `compaction_summary`      | standalone | Not routed via `AgentRunner` intent loop        |
 
 **UDC routing:** User-defined command names resolve to **`super`** in `AgentRunner.resolveAgentId()`. Expansion happens inside **`RunCommand`** handler + **`TodoList`**, not a separate UDC agent class.
 
@@ -141,43 +141,43 @@ Each handler: class taking `AgentHandlerContext`, implements `handle(ctx: Handle
 
 Registration: **`components/Handlers.ts`** → `getToolHandlerMap()` maps `ToolName` → lazy handler instance.
 
-| Group | Handlers |
-|-------|----------|
-| Vault | `VaultCreate`, `VaultList`, `VaultDelete`, `VaultCopy`, `VaultMove`, `VaultRename`, `VaultUpdateFrontmatter`, `VaultGrep`, `VaultExists` |
-| Content | `ReadContent`, `EditHandler` |
-| Search | `Search`, `SearchMore`, `BuildSearchIndex` |
-| Revert | `RevertLatestQuery` |
-| Media | `Speech`, `Image` |
-| Widget | `ShowWidget`, `WidgetActionHandler` |
-| Workflow | `TodoList`, `RunCommand`, `SpawnSubagent`, `SwitchAgentCapacity`, `ActivateToolHandler`, `Dynamic` |
-| Artifacts | `GetMostRecentArtifact`, `GetArtifactById`, `RecallCompactedContext` |
-| User | `UserConfirm`, `Help`, `Stop`, `ThankYou`, `NewSession` |
-| CLI/MCP | `CliHandler`, `McpToolHandler` |
+| Group     | Handlers                                                                                                                                 |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Vault     | `VaultCreate`, `VaultList`, `VaultDelete`, `VaultCopy`, `VaultMove`, `VaultRename`, `VaultUpdateFrontmatter`, `VaultGrep`, `VaultExists` |
+| Content   | `ReadContent`, `EditHandler`                                                                                                             |
+| Search    | `Search`, `SearchMore`, `BuildSearchIndex`                                                                                               |
+| Revert    | `RevertLatestQuery`                                                                                                                      |
+| Media     | `Speech`, `Image`                                                                                                                        |
+| Widget    | `ShowWidget`, `WidgetActionHandler`                                                                                                      |
+| Workflow  | `TodoList`, `RunCommand`, `SpawnSubagent`, `SwitchAgentCapacity`, `ActivateToolHandler`, `Dynamic`                                       |
+| Artifacts | `GetMostRecentArtifact`, `GetArtifactById`, `RecallCompactedContext`                                                                     |
+| User      | `UserConfirm`, `Help`, `Stop`, `ThankYou`, `NewSession`                                                                                  |
+| CLI/MCP   | `CliHandler`, `McpToolHandler`                                                                                                           |
 
 ## Mixin Components
 
 Applied via `applyMixins()` from `src/utils/applyMixins.ts`.
 
-| Mixin | File | Role |
-|-------|------|------|
-| `Handlers` | `components/Handlers.ts` | Lazy handler instances + tool map |
-| `StreamTextExecutor` | `components/StreamTextExecutor.ts` | LLM streaming, history, tool extraction |
-| `GenerateTextExecutor` | `components/GenerateTextExecutor.ts` | Non-streaming LLM (SubAgent) |
-| `ToolCallExecutor` | `components/ToolCallExecutor.ts` | Run tool calls, middleware, batch resume |
-| `ManualToolCall` | `components/ManualToolCall.ts` | Skip LLM for known patterns |
-| `ToolContentStreamConsumer` | `components/ToolContentStreamConsumer.ts` | Stream large tool output to temp files |
-| `SystemPromptComposer` | `components/SystemPromptComposer.ts` | Compose prompts for executors |
-| `ToolIntentResolution` | `components/ToolIntentResolution.ts` | Resolve tool-related intents |
+| Mixin                       | File                                      | Role                                     |
+| --------------------------- | ----------------------------------------- | ---------------------------------------- |
+| `Handlers`                  | `components/Handlers.ts`                  | Lazy handler instances + tool map        |
+| `StreamTextExecutor`        | `components/StreamTextExecutor.ts`        | LLM streaming, history, tool extraction  |
+| `GenerateTextExecutor`      | `components/GenerateTextExecutor.ts`      | Non-streaming LLM (SubAgent)             |
+| `ToolCallExecutor`          | `components/ToolCallExecutor.ts`          | Run tool calls, middleware, batch resume |
+| `ManualToolCall`            | `components/ManualToolCall.ts`            | Skip LLM for known patterns              |
+| `ToolContentStreamConsumer` | `components/ToolContentStreamConsumer.ts` | Stream large tool output to temp files   |
+| `SystemPromptComposer`      | `components/SystemPromptComposer.ts`      | Compose prompts for executors            |
+| `ToolIntentResolution`      | `components/ToolIntentResolution.ts`      | Resolve tool-related intents             |
 
 **SuperAgent mixins:** `Handlers`, `ToolContentStreamConsumer`, `ManualToolCall`, `StreamTextExecutor`, `ToolCallExecutor`
 
 ## Auxiliary Agents (Not in Intent Loop)
 
-| Agent | Invoked from |
-|-------|--------------|
-| `ConversationTitleAgent` | `ConversationEventHandler.generateConversationTitle` |
-| `CompactionSummaryAgent` | `CompactionTokenService` |
-| `DataAwarenessAgent` | Vault handlers (e.g. `VaultRename`) for batch LLM over artifact paths |
+| Agent                    | Invoked from                                                          |
+| ------------------------ | --------------------------------------------------------------------- |
+| `ConversationTitleAgent` | `ConversationEventHandler.generateConversationTitle`                  |
+| `CompactionSummaryAgent` | `CompactionTokenService`                                              |
+| `DataAwarenessAgent`     | Vault handlers (e.g. `VaultRename`) for batch LLM over artifact paths |
 
 ## Architecture Decisions
 
@@ -212,11 +212,11 @@ Applied via `applyMixins()` from `src/utils/applyMixins.ts`.
 
 ## Service Connections
 
-| From commands | To services |
-|---------------|-------------|
-| `AgentRunner` | `ConversationRenderer`, `ModelFallbackService`, `UserDefinedCommandService`, `NoteContentService` |
-| SuperAgent / handlers | `LLMService`, `ContentReadingService`, `VaultService`, `SkillService`, `GuardrailsRuleService`, `CliSessionService`, `WidgetService`, `SubagentSpawnService`, `ArtifactManagerV2`, `SearchService` |
-| `RunCommand` / `TodoList` | `UserDefinedCommandService` |
+| From commands             | To services                                                                                                                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AgentRunner`             | `ConversationRenderer`, `ModelFallbackService`, `UserDefinedCommandService`, `NoteContentService`                                                                                                  |
+| SuperAgent / handlers     | `LLMService`, `ContentReadingService`, `VaultService`, `SkillService`, `GuardrailsRuleService`, `CliSessionService`, `WidgetService`, `SubagentSpawnService`, `ArtifactManagerV2`, `SearchService` |
+| `RunCommand` / `TodoList` | `UserDefinedCommandService`                                                                                                                                                                        |
 
 ## See Also
 

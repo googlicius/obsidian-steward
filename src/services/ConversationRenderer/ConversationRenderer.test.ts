@@ -437,8 +437,9 @@ describe('ConversationRenderer', () => {
       });
 
       const assistantMessage = history.messages.find(m => m.role === 'assistant');
-      const toolCallPart = (assistantMessage?.content as Array<{ type: string; input?: unknown }>)
-        ?.find(p => p.type === 'tool-call');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
 
       expect((toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content).toBe(
         originalContent
@@ -475,8 +476,9 @@ describe('ConversationRenderer', () => {
       });
 
       const assistantMessage = history.messages.find(m => m.role === 'assistant');
-      const toolCallPart = (assistantMessage?.content as Array<{ type: string; input?: unknown }>)
-        ?.find(p => p.type === 'tool-call');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
 
       expect(
         (toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content
@@ -541,10 +543,12 @@ describe('ConversationRenderer', () => {
         .filter(p => p.type === 'tool-call');
 
       const oldPart = toolCallParts.find(
-        p => (p.input as { newFiles: { filePath: string }[] }).newFiles[0].filePath === 'notes/old.md'
+        p =>
+          (p.input as { newFiles: { filePath: string }[] }).newFiles[0].filePath === 'notes/old.md'
       );
       const newPart = toolCallParts.find(
-        p => (p.input as { newFiles: { filePath: string }[] }).newFiles[0].filePath === 'notes/new.md'
+        p =>
+          (p.input as { newFiles: { filePath: string }[] }).newFiles[0].filePath === 'notes/new.md'
       );
 
       expect((oldPart?.input as { newFiles: { content: string }[] }).newFiles[0].content).toContain(
@@ -585,14 +589,15 @@ describe('ConversationRenderer', () => {
       });
 
       const assistantMessage = history.messages.find(m => m.role === 'assistant');
-      const toolCallPart = (assistantMessage?.content as Array<{ type: string; input?: unknown }>)
-        ?.find(p => p.type === 'tool-call');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
       expect((toolCallPart?.input as { argsLine: string }).argsLine).toBe('ls -la');
 
       const toolMessage = history.messages.find(m => m.role === 'tool');
-      const toolResultPart = (toolMessage?.content as Array<{ type: string; output?: unknown }>)?.find(
-        p => p.type === 'tool-result'
-      );
+      const toolResultPart = (
+        toolMessage?.content as Array<{ type: string; output?: unknown }>
+      )?.find(p => p.type === 'tool-result');
       const output = toolResultPart?.output as { type: string; value: string };
       expect(output.value).toContain('recall_compacted_context');
       expect(output.value).toContain('msg-shell_msg');

@@ -7,9 +7,7 @@ import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../toolNames';
-import {
-  DEFAULT_WIDGET_QUERY_NAME,
-} from 'src/services/WidgetService/types';
+import { DEFAULT_WIDGET_QUERY_NAME } from 'src/services/WidgetService/types';
 
 const { getTranslation } = getBundledInternal('i18n');
 

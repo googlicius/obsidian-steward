@@ -174,7 +174,9 @@ export class WidgetDefinitionService {
   }
 
   /** Read-only actors roster from Definition.md for iframe injection via window.stw.getActors(). */
-  public async getIframeActorsConfig(projectPath: string): Promise<WidgetIframeActorsConfig | null> {
+  public async getIframeActorsConfig(
+    projectPath: string
+  ): Promise<WidgetIframeActorsConfig | null> {
     const definition = await this.getWidgetDefinition(projectPath);
     const actors = definition.actors;
     if (!actors) {

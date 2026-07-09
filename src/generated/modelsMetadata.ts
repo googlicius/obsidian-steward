@@ -919,6 +919,18 @@ export const MODELS_METADATA: Record<string, Record<string, BundledModelMetadata
       "context": 1048576,
       "output": 65536
     },
+    "gemini-omni-flash-preview": {
+      "toolCall": false,
+      "temperature": true,
+      "reasoning": true,
+      "input": [
+        "text",
+        "image",
+        "video"
+      ],
+      "context": 131072,
+      "output": 65536
+    },
     "gemini-3.1-flash-image-preview": {
       "toolCall": false,
       "temperature": true,
@@ -1077,6 +1089,117 @@ export const MODELS_METADATA: Record<string, Record<string, BundledModelMetadata
       ],
       "context": 1000000,
       "output": 384000
+    }
+  },
+  "xai": {
+    "grok-4.20-multi-agent-0309": {
+      "toolCall": false,
+      "temperature": true,
+      "reasoning": true,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 1000000,
+      "output": 30000
+    },
+    "grok-4.20-0309-non-reasoning": {
+      "toolCall": true,
+      "temperature": true,
+      "reasoning": false,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 1000000,
+      "output": 30000
+    },
+    "grok-4.3": {
+      "toolCall": true,
+      "temperature": true,
+      "reasoning": true,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 1000000,
+      "output": 30000
+    },
+    "grok-imagine-image-quality": {
+      "toolCall": false,
+      "temperature": false,
+      "reasoning": false,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 8000,
+      "output": 0
+    },
+    "grok-imagine-video": {
+      "toolCall": false,
+      "temperature": false,
+      "reasoning": false,
+      "input": [
+        "text",
+        "image",
+        "video",
+        "pdf"
+      ],
+      "context": 1024,
+      "output": 0
+    },
+    "grok-4.5": {
+      "toolCall": true,
+      "temperature": true,
+      "reasoning": true,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 500000,
+      "output": 500000
+    },
+    "grok-4.20-0309-reasoning": {
+      "toolCall": true,
+      "temperature": true,
+      "reasoning": true,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 1000000,
+      "output": 30000
+    },
+    "grok-imagine-image": {
+      "toolCall": false,
+      "temperature": false,
+      "reasoning": false,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 8000,
+      "output": 0
+    },
+    "grok-build-0.1": {
+      "toolCall": true,
+      "temperature": true,
+      "reasoning": true,
+      "input": [
+        "text",
+        "image",
+        "pdf"
+      ],
+      "context": 256000,
+      "output": 256000
     }
   }
 };

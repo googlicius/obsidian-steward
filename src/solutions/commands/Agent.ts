@@ -110,8 +110,7 @@ export abstract class Agent {
       params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
       params.invocationCount =
         params.upstreamOptions?.invocationCount ?? params.invocationCount ?? 0;
-      params.handlerId =
-        params.upstreamOptions?.handlerId ?? params.handlerId ?? uniqueID();
+      params.handlerId = params.upstreamOptions?.handlerId ?? params.handlerId ?? uniqueID();
       params.lang = params.lang || (await this.loadConversationLang(params.title));
       params.intent.tools = await this.resolveIntentTools(params.title, params.intent.tools);
       await this.loadConversationContext(params);
@@ -130,8 +129,7 @@ export abstract class Agent {
         const t = getTranslation(params.lang);
         await this.renderer.updateConversationNote({
           path: params.title,
-          newContent: `*${t('stop.stopped')}*`,
-          lang: params.lang,
+          newContent: `<small>*${t('stop.stopped')}*</small>`,
           includeHistory: false,
           handlerId: params.handlerId,
         });
@@ -304,8 +302,7 @@ export abstract class Agent {
       return;
     }
 
-    const session =
-      await this.plugin.widgetService.stateService.readSession(widgetProjectPath);
+    const session = await this.plugin.widgetService.stateService.readSession(widgetProjectPath);
     if (!session) {
       return;
     }

@@ -18,52 +18,52 @@ Registration site: `src/main.ts` → `registerStuffs()`.
 
 ```typescript
 // src/main.ts registerStuffs() — order matters
-createCalloutMetadataProcessor()           // 1. metadata first
-createCalloutActionPostProcessor(this)
-createCalloutSearchResultPostProcessor(this)
-createCalloutEditPreviewPostProcessor()
-createUserMessageButtonsProcessor(this)
-createConversationIndicatorProcessor(this)
-createStewardConversationProcessor(this)
-createStwSourcePostProcessor(this)
-createCollapsibleBlockPostProcessor(this)
-createCliTranscriptPostProcessor()
-createCliXtermPostProcessor(this)
-createWidgetPostProcessor(this)
-createConfirmationButtonsProcessor(this)
-createHistoryPostProcessor(this)
-createRunPostProcessor(this)
+createCalloutMetadataProcessor(); // 1. metadata first
+createCalloutActionPostProcessor(this);
+createCalloutSearchResultPostProcessor(this);
+createCalloutEditPreviewPostProcessor();
+createUserMessageButtonsProcessor(this);
+createConversationIndicatorProcessor(this);
+createStewardConversationProcessor(this);
+createStwSourcePostProcessor(this);
+createCollapsibleBlockPostProcessor(this);
+createCliTranscriptPostProcessor();
+createCliXtermPostProcessor(this);
+createWidgetPostProcessor(this);
+createConfirmationButtonsProcessor(this);
+createHistoryPostProcessor(this);
+createRunPostProcessor(this);
 ```
 
 ## Processors
 
-| File | Plugin? | Role |
-|------|---------|------|
-| `CalloutMetadataProcessor.ts` | No | Parses `stw-*` callout title metadata (`key:value,...`) into `data-*` attributes |
-| `CalloutActionPostProcessor.ts` | Yes | Binds click handlers on `stw-notify` / `stw-actions` callout buttons with `data-action` |
-| `CalloutSearchResultPostProcessor.ts` | Yes | Makes `stw-search-result` callouts clickable to jump to file/line/range |
-| `CalloutEditPreviewPostProcessor.ts` | No | Click-to-expand `stw-review` callouts; auto-scroll when `data-streaming="true"` |
-| `UserMessageButtonsProcessor.ts` | Yes | Reload/delete icon buttons on `stw-user-message` callouts |
-| `ConversationIndicatorProcessor.ts` | Yes | “Generating…” overlay on embedded conversations; listens to `CONVERSATION_INDICATOR_CHANGED` |
-| `StewardConversationProcessor.ts` | Yes | Decorates conversation embeds: title sync, squeeze/close buttons, `stw-conversation` class |
-| `StwSourcePostProcessor.ts` | Yes | Replaces `{{stw-source ...}}` with `@filename` chips in preview |
-| `CollapsibleBlockPostProcessor.ts` | Yes | Auto-scroll + toggle for `stw-thinking` / `cli-model` fences; lazy-load archived shell output from `__shell.md` on click |
-| `CliTranscriptPostProcessor.ts` | No | Strips stream markers; blinking cursor on active `cli-transcript` / `cli-model` blocks |
-| `CliXtermPostProcessor.ts` | Yes | Mounts live xterm.js + PTY for `cli-xterm` fenced blocks |
-| `WidgetPostProcessor.ts` | Yes | Mounts widget iframes from widget fence languages; bridges to `WidgetService` |
-| `ConfirmationButtonsProcessor.ts` | Yes | Renders `{{stw-confirmation-buttons ...}}` as Yes/No → `user_confirm` intents |
-| `HistoryPostProcessor.ts` | Yes | **Path-scoped:** only on `Steward/History.md` — wraps history links, open-in-chat + delete |
-| `RunPostProcessor.ts` | Yes | Binds `a.stw-run` (UDC click commands) and `a.stw-embed` (history/commands view builders) |
+| File                                  | Plugin? | Role                                                                                                                     |
+| ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `CalloutMetadataProcessor.ts`         | No      | Parses `stw-*` callout title metadata (`key:value,...`) into `data-*` attributes                                         |
+| `CalloutActionPostProcessor.ts`       | Yes     | Binds click handlers on `stw-notify` / `stw-actions` callout buttons with `data-action`                                  |
+| `CalloutSearchResultPostProcessor.ts` | Yes     | Makes `stw-search-result` callouts clickable to jump to file/line/range                                                  |
+| `CalloutEditPreviewPostProcessor.ts`  | No      | Click-to-expand `stw-review` callouts; auto-scroll when `data-streaming="true"`                                          |
+| `UserMessageButtonsProcessor.ts`      | Yes     | Reload/delete icon buttons on `stw-user-message` callouts                                                                |
+| `ConversationIndicatorProcessor.ts`   | Yes     | “Generating…” overlay on embedded conversations; listens to `CONVERSATION_INDICATOR_CHANGED`                             |
+| `StewardConversationProcessor.ts`     | Yes     | Decorates conversation embeds: title sync, squeeze/close buttons, `stw-conversation` class                               |
+| `StwSourcePostProcessor.ts`           | Yes     | Replaces `{{stw-source ...}}` with `@filename` chips in preview                                                          |
+| `CollapsibleBlockPostProcessor.ts`    | Yes     | Auto-scroll + toggle for `stw-thinking` / `cli-model` fences; lazy-load archived shell output from `__shell.md` on click |
+| `CliTranscriptPostProcessor.ts`       | No      | Strips stream markers; blinking cursor on active `cli-transcript` / `cli-model` blocks                                   |
+| `CliXtermPostProcessor.ts`            | Yes     | Mounts live xterm.js + PTY for `cli-xterm` fenced blocks                                                                 |
+| `WidgetPostProcessor.ts`              | Yes     | Mounts widget iframes from widget fence languages; bridges to `WidgetService`                                            |
+| `ConfirmationButtonsProcessor.ts`     | Yes     | Renders `{{stw-confirmation-buttons ...}}` as Yes/No → `user_confirm` intents                                            |
+| `HistoryPostProcessor.ts`             | Yes     | **Path-scoped:** only on `Steward/History.md` — wraps history links, open-in-chat + delete                               |
+| `RunPostProcessor.ts`                 | Yes     | Binds `a.stw-run` (UDC click commands) and `a.stw-embed` (history/commands view builders)                                |
 
 ## Upstream Authors
 
-| Processor targets | Written by |
-|-------------------|------------|
-| `stw-*` callouts, confirmation markers, search results | `ConversationRenderer` |
-| `cli-transcript`, `cli-xterm`, stream markers | `CliSessionService` |
-| Widget fence blocks | `WidgetService` / ShowWidget handler |
-| `History.md` / `Commands.md` content | `HistoryViewBuilder` / `CommandsViewBuilder` |
-| `{{stw-source}}`, `{{stw-squeezed}}` | Editor CM extensions + conversation notes |
+| Processor targets                                      | Written by                                   |
+| ------------------------------------------------------ | -------------------------------------------- |
+| `stw-*` callouts, confirmation markers, search results | `ConversationRenderer`                       |
+| `cli-transcript`, `cli-xterm`, stream markers          | `CliSessionService`                          |
+| Widget fence blocks                                    | `WidgetService` / ShowWidget handler         |
+| `History.md` / `Commands.md` content                   | `HistoryViewBuilder` / `CommandsViewBuilder` |
+| `{{stw-source}}`, `{{stw-squeezed}}`                   | Editor CM extensions + conversation notes    |
 
 ## Downstream Services (on click)
 

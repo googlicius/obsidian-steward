@@ -73,9 +73,7 @@ function isValidPreferenceQuestion(value: unknown): value is UserPreferenceQuest
 
 function getPreferenceQuestions(
   invocations: NonNullable<
-    Awaited<
-      ReturnType<StewardPlugin['conversationRenderer']['deserializeToolInvocations']>
-    >
+    Awaited<ReturnType<StewardPlugin['conversationRenderer']['deserializeToolInvocations']>>
   >
 ): UserPreferenceQuestion[] {
   for (let i = 0; i < invocations.length; i++) {
@@ -102,9 +100,7 @@ function getPreferenceQuestions(
 
 function getToolResultText(
   invocations: NonNullable<
-    Awaited<
-      ReturnType<StewardPlugin['conversationRenderer']['deserializeToolInvocations']>
-    >
+    Awaited<ReturnType<StewardPlugin['conversationRenderer']['deserializeToolInvocations']>>
   >
 ): string | null {
   for (let i = 0; i < invocations.length; i++) {
@@ -233,7 +229,9 @@ export function createPreferenceButtonsProcessor(plugin: StewardPlugin): Markdow
               selectedIndexes[questionIndex] = optionIndex;
               customValues[questionIndex] = '';
               customInput.value = '';
-              optionRows.forEach((row, i) => row.classList.toggle('is-selected', i === optionIndex));
+              optionRows.forEach((row, i) =>
+                row.classList.toggle('is-selected', i === optionIndex)
+              );
               updateContinueState();
             });
           });

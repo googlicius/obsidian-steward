@@ -17,10 +17,7 @@ import type {
   TestModelInput,
 } from 'src/types/models';
 import type { ReasoningUiMode } from 'src/services/LLMService/reasoningTypes';
-import {
-  formatContextLengthTokens,
-  getModelMetadata,
-} from 'src/services/LLMService/modelMetadata';
+import { formatContextLengthTokens, getModelMetadata } from 'src/services/LLMService/modelMetadata';
 
 const { getTranslation } = getBundledInternal('i18n');
 const lang = getLanguage();
@@ -227,7 +224,9 @@ export class ModelSetting {
         setMetadataRow(
           metadataRows.toolUse,
           t('settings.modelMetadata.toolUse'),
-          metadata.toolCall ? t('settings.modelMetadata.supported') : t('settings.modelMetadata.notSupported')
+          metadata.toolCall
+            ? t('settings.modelMetadata.supported')
+            : t('settings.modelMetadata.notSupported')
         );
         setMetadataRow(
           metadataRows.temperature,
@@ -246,7 +245,9 @@ export class ModelSetting {
         setMetadataRow(
           metadataRows.modalities,
           t('settings.modelMetadata.modalities'),
-          metadata.input.length > 0 ? metadata.input.join(', ') : t('settings.modelMetadata.notSupported')
+          metadata.input.length > 0
+            ? metadata.input.join(', ')
+            : t('settings.modelMetadata.notSupported')
         );
         setMetadataPanelVisible(true);
 

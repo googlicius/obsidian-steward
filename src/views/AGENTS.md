@@ -24,23 +24,23 @@ src/views/
 
 From `src/constants.ts`:
 
-| Constant | Type string | Class |
-|----------|-------------|-------|
-| `CHAT_VIEW_CONFIG.type` | `'steward-conversation'` | `ChatView` |
-| `READING_VIEW_CONFIG.type` | `'steward-reading'` | `ReadingView` |
+| Constant                   | Type string              | Class         |
+| -------------------------- | ------------------------ | ------------- |
+| `CHAT_VIEW_CONFIG.type`    | `'steward-conversation'` | `ChatView`    |
+| `READING_VIEW_CONFIG.type` | `'steward-reading'`      | `ReadingView` |
 
 `.art` files are registered to open in `ReadingView` via `registerExtensions(['art'], READING_VIEW_CONFIG.type)`.
 
 ## Files
 
-| File | Role |
-|------|------|
-| `StewardMarkdownView.ts` | Base class: custom header (new chat, history, dock toggle), disables navigation, `canAcceptExtension` → false |
-| `ChatView.ts` | Chat note editor; auto-scroll during streaming; `startNewChat()`, `openExistingConversation()`, version notify embed |
-| `ReadingView.ts` | Forces preview mode; hides Obsidian properties panel via MutationObserver |
-| `view-builders/ViewBuilder.ts` | `buildContent()` + `write()` contract; `refreshViewBuilder()` helper |
-| `view-builders/HistoryViewBuilder.ts` | Scans `Conversations/`, writes clickable `stw-history-link` list to `History.md` |
-| `view-builders/CommandsViewBuilder.ts` | Renders community UDC install/update table into `Commands.md` from `COMMUNITY_UDC_MANIFEST` |
+| File                                   | Role                                                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `StewardMarkdownView.ts`               | Base class: custom header (new chat, history, dock toggle), disables navigation, `canAcceptExtension` → false        |
+| `ChatView.ts`                          | Chat note editor; auto-scroll during streaming; `startNewChat()`, `openExistingConversation()`, version notify embed |
+| `ReadingView.ts`                       | Forces preview mode; hides Obsidian properties panel via MutationObserver                                            |
+| `view-builders/ViewBuilder.ts`         | `buildContent()` + `write()` contract; `refreshViewBuilder()` helper                                                 |
+| `view-builders/HistoryViewBuilder.ts`  | Scans `Conversations/`, writes clickable `stw-history-link` list to `History.md`                                     |
+| `view-builders/CommandsViewBuilder.ts` | Renders community UDC install/update table into `Commands.md` from `COMMUNITY_UDC_MANIFEST`                          |
 
 ## Patterns
 
@@ -82,12 +82,12 @@ Used from header history button and `RunPostProcessor` embed links (`a.stw-embed
 
 ## ChatView vs ReadingView
 
-| Aspect | ChatView | ReadingView |
-|--------|----------|-------------|
-| File | `Steward/Chat.md` | Any markdown (History, .art, etc.) |
-| Mode | Editor (command input) | Preview only |
-| Conversations | Embeds `![[Conversations/...]]` | Displays generated lists |
-| Dock persistence | Yes (`chatViewDock` setting) | Follows leaf |
+| Aspect           | ChatView                        | ReadingView                        |
+| ---------------- | ------------------------------- | ---------------------------------- |
+| File             | `Steward/Chat.md`               | Any markdown (History, .art, etc.) |
+| Mode             | Editor (command input)          | Preview only                       |
+| Conversations    | Embeds `![[Conversations/...]]` | Displays generated lists           |
+| Dock persistence | Yes (`chatViewDock` setting)    | Follows leaf                       |
 
 ## Registration in main.ts
 
@@ -99,12 +99,12 @@ this.registerExtensions(['art'], READING_VIEW_CONFIG.type);
 
 ## Entry Points
 
-| Action | Trigger |
-|--------|---------|
-| Open chat | Ribbon icon, `toggle-chat` command, squeezed block click |
-| Open reading view | History header button, `HistoryPostProcessor`, `RunPostProcessor` embed |
-| Open existing conversation | `HistoryPostProcessor`, `ChatView.openExistingConversation()` |
-| Toggle dock | Header button → `toggleViewDockFromView` → refocus command input after move |
+| Action                     | Trigger                                                                     |
+| -------------------------- | --------------------------------------------------------------------------- |
+| Open chat                  | Ribbon icon, `toggle-chat` command, squeezed block click                    |
+| Open reading view          | History header button, `HistoryPostProcessor`, `RunPostProcessor` embed     |
+| Open existing conversation | `HistoryPostProcessor`, `ChatView.openExistingConversation()`               |
+| Toggle dock                | Header button → `toggleViewDockFromView` → refocus command input after move |
 
 ## Streaming UX
 

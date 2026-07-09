@@ -19,13 +19,13 @@ All generated TS under src/generated/  →  imported by src/  →  esbuild.confi
 
 ## Scripts
 
-| Script | npm command | Source | Output | Runtime consumer |
-|--------|-------------|--------|--------|------------------|
-| `build-bundled-libs.mjs` | `build:bundled-libs` | `src/bundled-libs-entry.ts`, `src/bundled-libs-sync-entry.ts`, `src/bundled-libs-desktop-entry.ts`, `internal/bundled-internals-entry.ts` | `bundledLibsPayload.ts`, `bundledSyncLibsPayload.ts`, `bundledDesktopLibsPayload.ts`, `bundledInternalsPayload.ts` | `src/utils/bundledLibs.ts`, `src/utils/bundledInternals.ts` |
-| `build-community-udc-manifest.mjs` | `build:community-manifest` | `community-UDCs/**/*.md` | `communityUdcManifest.ts` | `src/views/view-builders/CommandsViewBuilder.ts` |
-| `build-standard-skills.mjs` | `build:standard-skills` | `standard-skills/**/SKILL.md` | `standardSkills.ts` | `src/services/SkillService/SkillService.ts` |
-| `build-sub-agents.mjs` | `build:sub-agents` | `agents/Sub Agents.md` | `subAgents.ts` | `src/services/SubAgent/SubAgentDefinitionService.ts` |
-| `build-models-metadata.mjs` | `build:models-metadata` | `https://models.dev/api.json` (allowlisted providers) | `modelsMetadata.ts` | `src/services/LLMService/modelMetadata.ts`, `LLMService.ts`, `ModelRegistry.ts`, `ModelSetting.ts` |
+| Script                             | npm command                | Source                                                                                                                                    | Output                                                                                                             | Runtime consumer                                                                                   |
+| ---------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `build-bundled-libs.mjs`           | `build:bundled-libs`       | `src/bundled-libs-entry.ts`, `src/bundled-libs-sync-entry.ts`, `src/bundled-libs-desktop-entry.ts`, `internal/bundled-internals-entry.ts` | `bundledLibsPayload.ts`, `bundledSyncLibsPayload.ts`, `bundledDesktopLibsPayload.ts`, `bundledInternalsPayload.ts` | `src/utils/bundledLibs.ts`, `src/utils/bundledInternals.ts`                                        |
+| `build-community-udc-manifest.mjs` | `build:community-manifest` | `community-UDCs/**/*.md`                                                                                                                  | `communityUdcManifest.ts`                                                                                          | `src/views/view-builders/CommandsViewBuilder.ts`                                                   |
+| `build-standard-skills.mjs`        | `build:standard-skills`    | `standard-skills/**/SKILL.md`                                                                                                             | `standardSkills.ts`                                                                                                | `src/services/SkillService/SkillService.ts`                                                        |
+| `build-sub-agents.mjs`             | `build:sub-agents`         | `agents/Sub Agents.md`                                                                                                                    | `subAgents.ts`                                                                                                     | `src/services/SubAgent/SubAgentDefinitionService.ts`                                               |
+| `build-models-metadata.mjs`        | `build:models-metadata`    | `https://models.dev/api.json` (allowlisted providers)                                                                                     | `modelsMetadata.ts`                                                                                                | `src/services/LLMService/modelMetadata.ts`, `LLMService.ts`, `ModelRegistry.ts`, `ModelSetting.ts` |
 
 ## build-bundled-libs.mjs
 
@@ -78,10 +78,10 @@ Snapshots model capability metadata from [models.dev](https://models.dev/api.jso
 
 ## Integration with npm Scripts
 
-| npm script | Content scripts | Bundled libs |
-|------------|-----------------|--------------|
-| `dev` | Runs UDC, skills, sub-agents in parallel at start; esbuild watch | Not run (uses committed payloads) |
-| `build` | Runs UDC, skills, sub-agents sequentially; esbuild production | Not run |
+| npm script | Content scripts                                                  | Bundled libs                      |
+| ---------- | ---------------------------------------------------------------- | --------------------------------- |
+| `dev`      | Runs UDC, skills, sub-agents in parallel at start; esbuild watch | Not run (uses committed payloads) |
+| `build`    | Runs UDC, skills, sub-agents sequentially; esbuild production    | Not run                           |
 
 **Gotcha:** Editing `community-UDCs/`, `standard-skills/`, or `agents/Sub Agents.md` requires re-running the matching script (or restarting `dev`/`build`). There is no watch on source trees — `dev` only regenerates once at startup.
 

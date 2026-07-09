@@ -34,25 +34,25 @@ Read **stateful-widget** for host-injected persistence and asset APIs: `getState
 
 This skill adds **turn-based** APIs:
 
-| API                                        | Description                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `window.stw.getSession()`                  | Read-only. Returns a session object or `null` when no interactive session is active. Fields: `actor` (current turn id), `turnIndex`, `phase`, optional `moveLog`, optional `conversationTitle`. `phase` is `awaiting_input` (human or idle), `thinking` (model turn running), or `ended`. Use in `render()` for turn status (e.g. "O is thinking…"). Never write session — the host advances it. |
-| `window.stw.getActors()`                   | Read-only. Returns `{ mode, turnOrder, actors }` from `Definition.md` or `null` when the project is not interactive. Use to derive who opens (e.g. map `turnOrder[0]` to your game's first player token). Injected at mount — not stored in `data`. |
-| `window.stw.setState(data, options?)`      | Saves **data** (debounced ~400ms). Optional **`options.intent`**: `'reset'` (clear session), `'start'` (begin play; model-first when `turnOrder[0]` is model), `'reset_and_start'` (both). **Never triggers model on mount.** Options are host-only — never stored in `data`.                                                                                                                                                                      |
-| `window.stw.registerAction(name, fn)`      | Register a handler the **host** dispatches during **model** turns. `name` must match a key under `actions` in `Definition.md`. Not called on human clicks.                                                                                                                                                                                                                                           |
-| `window.stw.registerQuery(name, fn)`       | Register a **read-only** handler for model **`widget_query`** calls. `name` must match a key under `queries` in `Definition.md` (except **`get_state`**, which the host serves from persisted `data`). Must **not** call `setState`.                                                                                                                                                                                                                                        |
-| `window.stw.dispatchAction(name, params)`  | Runs a registered action handler inside the iframe (host `applyAction` bridge). Human clicks should call the shared action function directly instead.                                                                                                                                                                                                                                                   |
-| `window.stw.dispatchQuery(name, params)`   | Runs a registered query handler inside the iframe (host `dispatchQuery` bridge). For local debugging only — model turns use the host `widget_query` tool.                                                                                                                                                                                                                                         |
+| API                                       | Description                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `window.stw.getSession()`                 | Read-only. Returns a session object or `null` when no interactive session is active. Fields: `actor` (current turn id), `turnIndex`, `phase`, optional `moveLog`, optional `conversationTitle`. `phase` is `awaiting_input` (human or idle), `thinking` (model turn running), or `ended`. Use in `render()` for turn status (e.g. "O is thinking…"). Never write session — the host advances it. |
+| `window.stw.getActors()`                  | Read-only. Returns `{ mode, turnOrder, actors }` from `Definition.md` or `null` when the project is not interactive. Use to derive who opens (e.g. map `turnOrder[0]` to your game's first player token). Injected at mount — not stored in `data`.                                                                                                                                              |
+| `window.stw.setState(data, options?)`     | Saves **data** (debounced ~400ms). Optional **`options.intent`**: `'reset'` (clear session), `'start'` (begin play; model-first when `turnOrder[0]` is model), `'reset_and_start'` (both). **Never triggers model on mount.** Options are host-only — never stored in `data`.                                                                                                                    |
+| `window.stw.registerAction(name, fn)`     | Register a handler the **host** dispatches during **model** turns. `name` must match a key under `actions` in `Definition.md`. Not called on human clicks.                                                                                                                                                                                                                                       |
+| `window.stw.registerQuery(name, fn)`      | Register a **read-only** handler for model **`widget_query`** calls. `name` must match a key under `queries` in `Definition.md` (except **`get_state`**, which the host serves from persisted `data`). Must **not** call `setState`.                                                                                                                                                             |
+| `window.stw.dispatchAction(name, params)` | Runs a registered action handler inside the iframe (host `applyAction` bridge). Human clicks should call the shared action function directly instead.                                                                                                                                                                                                                                            |
+| `window.stw.dispatchQuery(name, params)`  | Runs a registered query handler inside the iframe (host `dispatchQuery` bridge). For local debugging only — model turns use the host `widget_query` tool.                                                                                                                                                                                                                                        |
 
 **Resetting game data vs session** — do not mix these up:
 
-| Goal                          | How                                                              | Triggers model?                    | Clears `session`? |
-| ----------------------------- | ---------------------------------------------------------------- | ---------------------------------- | ----------------- |
-| **Reset only**                | **`setState(data, { intent: 'reset' })`**                        | **No**                             | **Yes**           |
-| **Start only**                | **`setState(data, { intent: 'start' })`**                        | **Yes** when `turnOrder[0]` is model | **No**          |
-| **Reset + start (one button)** | **`setState(data, { intent: 'reset_and_start' })`**           | **Yes** when `turnOrder[0]` is model | **Yes**         |
-| **Normal move**               | **`setState(data, { move: { action, params, endTurn? } })`** — `endTurn` defaults from catalog | **Yes** when next actor is `model` | **No**            |
-| **Reset session only**        | **Edit `{projectPath}/state.json`** — remove the `session` key   | **No**                             | **Yes**           |
+| Goal                           | How                                                                                            | Triggers model?                      | Clears `session`? |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------ | ----------------- |
+| **Reset only**                 | **`setState(data, { intent: 'reset' })`**                                                      | **No**                               | **Yes**           |
+| **Start only**                 | **`setState(data, { intent: 'start' })`**                                                      | **Yes** when `turnOrder[0]` is model | **No**            |
+| **Reset + start (one button)** | **`setState(data, { intent: 'reset_and_start' })`**                                            | **Yes** when `turnOrder[0]` is model | **Yes**           |
+| **Normal move**                | **`setState(data, { move: { action, params, endTurn? } })`** — `endTurn` defaults from catalog | **Yes** when next actor is `model`   | **No**            |
+| **Reset session only**         | **Edit `{projectPath}/state.json`** — remove the `session` key                                 | **No**                               | **Yes**           |
 
 - **Reset only** → **`setState(freshData, { intent: 'reset' })`** — use when a separate **Start** button calls `{ intent: 'start' }`.
 - **Reset + model opens** → **`setState(freshData, { intent: 'reset_and_start' })`** — one **New game** button when the model moves first per `Definition.md`.
@@ -77,10 +77,10 @@ Rules:
 
 **Query handler contract** (`registerQuery` callback):
 
-| Return                      | Meaning                                                                 |
-| --------------------------- | ----------------------------------------------------------------------- |
-| `{ ok: false, error }`      | Query failed; host surfaces `error` to the model caller.              |
-| `{ ok: true, data }`        | Success; return read-only data. **Do not** call `setState`.             |
+| Return                 | Meaning                                                     |
+| ---------------------- | ----------------------------------------------------------- |
+| `{ ok: false, error }` | Query failed; host surfaces `error` to the model caller.    |
+| `{ ok: true, data }`   | Success; return read-only data. **Do not** call `setState`. |
 
 Rules:
 
@@ -106,15 +106,15 @@ You never call the host to "start the model turn". **`setState` after a valid hu
 
 ### Session lifecycle (host-managed)
 
-| Host action                                     | Who triggers it                  | Writes `session` to `state.json`      | Starts session conversation | Triggers model / LLM                                                            |
-| ----------------------------------------------- | -------------------------------- | ------------------------------------- | --------------------------- | ------------------------------------------------------------------------------- |
-| **Mount**                                       | Host when widget renders         | **No**                                | **No**                      | **No**                                                                          |
-| **Edit `state.json`** (remove `session`)        | You / model via `edit`           | Removes `session`                     | **No** until user start     | **No**                                                                          |
-| **Reset (`intent: 'reset'`)**                   | Widget button / hotkey           | Removes `session`                     | No                          | **No**                                                                          |
-| **Start (`intent: 'start'`)**                   | Widget button / hotkey           | **Yes** when `turnOrder[0]` is model  | **Yes** — when LLM runs     | **Yes** — when `turnOrder[0]` is model                                          |
-| **Reset + start (`intent: 'reset_and_start'`)** | Widget button / hotkey           | Removes then starts                   | **Yes** — when LLM runs     | **Yes** — when `turnOrder[0]` is model                                          |
-| **Human move (`setState`)**                     | Widget after user click          | **Yes** — on first model turn         | **Yes** — when LLM runs     | **Yes** — when next actor is `model`                                            |
-| **Model turn**                                  | Orchestrator                     | **Yes** — created/updated             | **Yes**                     | **Yes**                                                                         |
+| Host action                                     | Who triggers it          | Writes `session` to `state.json`     | Starts session conversation | Triggers model / LLM                   |
+| ----------------------------------------------- | ------------------------ | ------------------------------------ | --------------------------- | -------------------------------------- |
+| **Mount**                                       | Host when widget renders | **No**                               | **No**                      | **No**                                 |
+| **Edit `state.json`** (remove `session`)        | You / model via `edit`   | Removes `session`                    | **No** until user start     | **No**                                 |
+| **Reset (`intent: 'reset'`)**                   | Widget button / hotkey   | Removes `session`                    | No                          | **No**                                 |
+| **Start (`intent: 'start'`)**                   | Widget button / hotkey   | **Yes** when `turnOrder[0]` is model | **Yes** — when LLM runs     | **Yes** — when `turnOrder[0]` is model |
+| **Reset + start (`intent: 'reset_and_start'`)** | Widget button / hotkey   | Removes then starts                  | **Yes** — when LLM runs     | **Yes** — when `turnOrder[0]` is model |
+| **Human move (`setState`)**                     | Widget after user click  | **Yes** — on first model turn        | **Yes** — when LLM runs     | **Yes** — when next actor is `model`   |
+| **Model turn**                                  | Orchestrator             | **Yes** — created/updated            | **Yes**                     | **Yes**                                |
 
 When a turn-based widget **mounts**, the host does **not** write `session` to `state.json`. `window.stw.getSession()` returns `null` until the first model turn.
 
@@ -242,12 +242,12 @@ Catalog of actions the host may dispatch. Keys must match `registerAction` names
 
 **Param spec** (`actions.<actionName>.params.<paramName>`):
 
-| Field     | Type   | Required | Description                                                                                 |
-| --------- | ------ | -------- | ------------------------------------------------------------------------------------------- |
-| `type`    | string | No       | One of: `integer`, `number`, `string`, `boolean`. Default treated as `string` when omitted. |
-| `minimum` | number | No       | Minimum value (`integer` / `number` only).                                                  |
-| `maximum` | number | No       | Maximum value (`integer` / `number` only).                                                  |
-| `required` | boolean | No    | When `false`, the param may be omitted. Defaults to required.                               |
+| Field      | Type    | Required | Description                                                                                 |
+| ---------- | ------- | -------- | ------------------------------------------------------------------------------------------- |
+| `type`     | string  | No       | One of: `integer`, `number`, `string`, `boolean`. Default treated as `string` when omitted. |
+| `minimum`  | number  | No       | Minimum value (`integer` / `number` only).                                                  |
+| `maximum`  | number  | No       | Maximum value (`integer` / `number` only).                                                  |
+| `required` | boolean | No       | When `false`, the param may be omitted. Defaults to required.                               |
 
 Only **one** `actions` block is allowed. Required when any `agent` block exists.
 
@@ -255,18 +255,18 @@ Only **one** `actions` block is allowed. Required when any `agent` block exists.
 
 Catalog of read-only queries the host may dispatch during model turns. Keys must match `registerQuery` names in `main.js`. Optional — add when models need to probe or reason before committing a move.
 
-| Field     | Type         | Required | Description                                          |
-| --------- | ------------ | -------- | ---------------------------------------------------- |
-| `name`    | `queries`    | **Yes**  | Block type literal.                                  |
+| Field     | Type         | Required | Description                                       |
+| --------- | ------------ | -------- | ------------------------------------------------- |
+| `name`    | `queries`    | **Yes**  | Block type literal.                               |
 | `queries` | object (map) | **Yes**  | Map of query name → query definition (see below). |
 
 **Query definition** (`queries.<queryName>`):
 
-| Field         | Type         | Required | Description                                                    |
-| ------------- | ------------ | -------- | -------------------------------------------------------------- |
-| `description` | string       | No       | Human-readable summary for docs and prompts.                   |
+| Field         | Type         | Required | Description                                                                                     |
+| ------------- | ------------ | -------- | ----------------------------------------------------------------------------------------------- |
+| `description` | string       | No       | Human-readable summary for docs and prompts.                                                    |
 | `endTurn`     | boolean      | No       | When `false`, the actor may take another action before the roster advances. Defaults to `true`. |
-| `params`      | object (map) | No       | Param name → param spec (same shape as action params).         |
+| `params`      | object (map) | No       | Param name → param spec (same shape as action params).                                          |
 
 Only **one** `queries` block is allowed. Optional unless an `agent` block lists `queries`.
 
@@ -274,11 +274,11 @@ Only **one** `queries` block is allowed. Optional unless an `agent` block lists 
 
 Turn roster and policy. Required when any `agent` block exists.
 
-| Field          | Type             | Required | Description                                                                                                                                                                                                                                                        |
-| -------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`         | `actors`         | **Yes**  | Block type literal.                                                                                                                                                                                                                                                |
-| `mode`         | string           | **Yes**  | `user_and_models` — wait for human actors between model turns. `models_only` — chain model turns (host burst limit applies).                                                                                                                                       |
-| `turnOrder`    | array of strings | **Yes**  | Ordered actor ids; length defines participant count (2–N). Each id must exist in `actors`.                                                                                                                                                                           |
+| Field       | Type             | Required | Description                                                                                                                  |
+| ----------- | ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `name`      | `actors`         | **Yes**  | Block type literal.                                                                                                          |
+| `mode`      | string           | **Yes**  | `user_and_models` — wait for human actors between model turns. `models_only` — chain model turns (host burst limit applies). |
+| `turnOrder` | array of strings | **Yes**  | Ordered actor ids; length defines participant count (2–N). Each id must exist in `actors`.                                   |
 | `actors`    | object (map)     | **Yes**  | Actor id → actor entry (see below).                                                                                          |
 
 **Actor entry** (`actors.<actorId>`):
@@ -293,15 +293,15 @@ Only **one** `actors` block is allowed. At least one `kind: model` actor is requ
 
 One fence **per model actor**. Repeat the block for each `kind: model` entry in `actors`.
 
-| Field          | Type             | Required | Description                                                                                                                                                                                                                               |
-| -------------- | ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`         | `agent`          | **Yes**  | Block type literal.                                                                                                                                                                                                                       |
-| `id`           | string           | **Yes**  | Must match an `actors` key with `kind: model`.                                                                                                                                                                                           |
+| Field          | Type             | Required | Description                                                                                                                                                                                                                                                               |
+| -------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | `agent`          | **Yes**  | Block type literal.                                                                                                                                                                                                                                                       |
+| `id`           | string           | **Yes**  | Must match an `actors` key with `kind: model`.                                                                                                                                                                                                                            |
 | `instructions` | array of strings | **Yes**  | System prompts for this actor (plain text or wikilinks). Prefer one internal heading in this `Definition.md` — e.g. `[[#Actor instructions]]` — that holds rules, examples, and any inline skill notes in a single section. Heading-only links resolve against this file. |
-| `actions`      | array of strings | **Yes**  | Subset of action names from the `actions` catalog this actor may call.                                                                                                                                                                    |
-| `queries`      | array of strings | No       | Subset of query names from the `queries` catalog this actor may call via `widget_query`.                                                                                                                                                |
-| `tools`        | array of strings | No       | Steward tools for this actor. `widget_action` and `widget_query` are always included (listing them is optional). The host injects detailed per-tool guidelines automatically.                     |
-| `model`        | string           | No       | LLM model id override for this actor; omit for plugin default chat model.                                                                                                                                                                 |
+| `actions`      | array of strings | **Yes**  | Subset of action names from the `actions` catalog this actor may call.                                                                                                                                                                                                    |
+| `queries`      | array of strings | No       | Subset of query names from the `queries` catalog this actor may call via `widget_query`.                                                                                                                                                                                  |
+| `tools`        | array of strings | No       | Steward tools for this actor. `widget_action` and `widget_query` are always included (listing them is optional). The host injects detailed per-tool guidelines automatically.                                                                                             |
+| `model`        | string           | No       | LLM model id override for this actor; omit for plugin default chat model.                                                                                                                                                                                                 |
 
 Each `agent.id` must be unique across `agent` blocks.
 
@@ -330,14 +330,17 @@ Below your YAML fences, add **one** markdown heading that bundles rules, example
 ## Actor instructions
 
 ### Rules
+
 - Take auxiliary actions (`endTurn: false`) as needed, then finish with an action that ends your turn (`endTurn: true`, the default).
 - Prefer blocking moves over random plays.
 
 ### Examples
+
 - Opening: center cell when available.
 - Defense: block opponent two-in-a-row.
 
 ### Skills (inline)
+
 When the board is symmetric, treat corner and edge plays as equivalent unless a win/block is available.
 ```
 
@@ -345,7 +348,7 @@ Then in the `agent` block:
 
 ```yaml
 instructions:
-  - "[[#Actor instructions]]"
+  - '[[#Actor instructions]]'
 ```
 
 Repeat the same `instructions` wikilink in each `agent` block when multiple model actors share the same guidance.
@@ -402,7 +405,7 @@ actors:
 name: agent
 id: o
 instructions:
-  - "[[#Actor instructions]]"
+  - '[[#Actor instructions]]'
 tools:
   - content_reading
 actions:
@@ -477,10 +480,10 @@ Model turns → **`widget_query`** (optional, read-only) → **`widget_action`**
 4. `edit` `Definition.md`: add `name: actions` (see **stateful-widget** for manifest and editing).
 5. For complex games, add `name: queries` + extra `registerQuery` handlers so models can probe before moving.
 6. For model play: add `name: actors` + `name: agent` fence(s); confirm `status` valid.
-6. Open note → widget mounts → **no `session` yet**; human **`setState`** triggers first model turn and session creation.
-7. Human plays → **`setState`** → host runs the next model actor (creating/updating `session`).
-8. "Play again" → **`setState(freshData, { intent: 'reset' })`** — host clears `session`; no model turn.
-9. **Final response to the user** — after setup is complete (`status` valid, interactive blocks saved), end your message with a short note that Playground shows model turns live. Include an Obsidian wikilink to `{stewardFolder}/Playground.md`, e.g. `[[Steward/Playground.md]]` when the steward folder is `Steward`. Mention that the embed appears after the first model turn.
+7. Open note → widget mounts → **no `session` yet**; human **`setState`** triggers first model turn and session creation.
+8. Human plays → **`setState`** → host runs the next model actor (creating/updating `session`).
+9. "Play again" → **`setState(freshData, { intent: 'reset' })`** — host clears `session`; no model turn.
+10. **Final response to the user** — after setup is complete (`status` valid, interactive blocks saved), end your message with a short note that Playground shows model turns live. Include an Obsidian wikilink to `{stewardFolder}/Playground.md`, e.g. `[[Steward/Playground.md]]` when the steward folder is `Steward`. Mention that the embed appears after the first model turn.
 
 ---
 

@@ -1,7 +1,4 @@
-import {
-  MODELS_METADATA,
-  type BundledModelMetadata,
-} from 'src/generated/modelsMetadata';
+import { MODELS_METADATA, type BundledModelMetadata } from 'src/generated/modelsMetadata';
 
 export type { BundledModelMetadata };
 

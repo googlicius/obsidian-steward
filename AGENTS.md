@@ -8,36 +8,36 @@ See [README.md](README.md) for user-facing features and installation.
 
 ## Repository Map
 
-| Path | Purpose |
-|------|---------|
-| `src/` | Plugin source (TypeScript) |
-| `scripts/` | Build-time bundlers (libs, skills, UDCs, sub-agents) → `src/generated/` |
-| `community-UDCs/` | Community user-defined command definitions |
-| `standard-skills/` | Built-in skills bundled into the plugin |
-| `agents/` | Default `Sub Agents.md` bundled into the plugin |
-| `docs/` | Technical documentation |
-| `main.js` | Production bundle (esbuild output) |
-| `styles.css` | Compiled CSS (PostCSS output) |
+| Path               | Purpose                                                                 |
+| ------------------ | ----------------------------------------------------------------------- |
+| `src/`             | Plugin source (TypeScript)                                              |
+| `scripts/`         | Build-time bundlers (libs, skills, UDCs, sub-agents) → `src/generated/` |
+| `community-UDCs/`  | Community user-defined command definitions                              |
+| `standard-skills/` | Built-in skills bundled into the plugin                                 |
+| `agents/`          | Default `Sub Agents.md` bundled into the plugin                         |
+| `docs/`            | Technical documentation                                                 |
+| `main.js`          | Production bundle (esbuild output)                                      |
+| `styles.css`       | Compiled CSS (PostCSS output)                                           |
 
 ## Source Layout (`src/`)
 
-| Folder | Role | AGENTS.md |
-|--------|------|-----------|
-| `main.ts` | Plugin entry: lazy service getters, `registerStuffs()`, command Enter handling | — |
-| `services/` | Business logic (no conversation wiring) | [src/services/AGENTS.md](src/services/AGENTS.md) |
-| `solutions/` | Feature subsystems: agents, search, artifacts, PTY | [src/solutions/AGENTS.md](src/solutions/AGENTS.md) |
-| `post-processors/` | Markdown post-processors for Steward syntax → interactive DOM | [src/post-processors/AGENTS.md](src/post-processors/AGENTS.md) |
-| `cm/extensions/` | CodeMirror extensions: command input, autocomplete, inline widgets | [src/cm/extensions/AGENTS.md](src/cm/extensions/AGENTS.md) |
-| `views/` | ChatView, ReadingView, view-builders | [src/views/AGENTS.md](src/views/AGENTS.md) |
-| `settings/` | Settings tab and schema migrations | — |
-| `database/` | IndexedDB search database (`SearchDatabase`) | — |
-| `lib/modelfusion/` | Embedding classifier for intent/tool routing | — |
-| `tools/` | Obsidian API helpers, media tools | — |
-| `types/` | Shared TypeScript types and events | — |
-| `utils/` | Cross-cutting utilities (logger, retry, date, etc.) | — |
-| `constants/` | Shared constants | — |
-| `i18n/` | Internationalization locales | — |
-| `generated/` | Build-time generated payloads (do not edit by hand) | — |
+| Folder             | Role                                                                           | AGENTS.md                                                      |
+| ------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `main.ts`          | Plugin entry: lazy service getters, `registerStuffs()`, command Enter handling | —                                                              |
+| `services/`        | Business logic (no conversation wiring)                                        | [src/services/AGENTS.md](src/services/AGENTS.md)               |
+| `solutions/`       | Feature subsystems: agents, search, artifacts, PTY                             | [src/solutions/AGENTS.md](src/solutions/AGENTS.md)             |
+| `post-processors/` | Markdown post-processors for Steward syntax → interactive DOM                  | [src/post-processors/AGENTS.md](src/post-processors/AGENTS.md) |
+| `cm/extensions/`   | CodeMirror extensions: command input, autocomplete, inline widgets             | [src/cm/extensions/AGENTS.md](src/cm/extensions/AGENTS.md)     |
+| `views/`           | ChatView, ReadingView, view-builders                                           | [src/views/AGENTS.md](src/views/AGENTS.md)                     |
+| `settings/`        | Settings tab and schema migrations                                             | —                                                              |
+| `database/`        | IndexedDB search database (`SearchDatabase`)                                   | —                                                              |
+| `lib/modelfusion/` | Embedding classifier for intent/tool routing                                   | —                                                              |
+| `tools/`           | Obsidian API helpers, media tools                                              | —                                                              |
+| `types/`           | Shared TypeScript types and events                                             | —                                                              |
+| `utils/`           | Cross-cutting utilities (logger, retry, date, etc.)                            | —                                                              |
+| `constants/`       | Shared constants                                                               | —                                                              |
+| `i18n/`            | Internationalization locales                                                   | —                                                              |
+| `generated/`       | Build-time generated payloads (do not edit by hand)                            | —                                                              |
 
 The agent subsystem deep dive lives in [src/solutions/commands/AGENTS.md](src/solutions/commands/AGENTS.md).
 

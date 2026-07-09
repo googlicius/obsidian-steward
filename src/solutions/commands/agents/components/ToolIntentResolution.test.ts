@@ -139,7 +139,11 @@ describe('ToolIntentResolution', () => {
       const names = buildSuperAgentEffectiveAllowedNames({
         declaredNormalized: declared,
         expandedDeclared: expanded,
-        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE],
+        conversationActiveTools: [
+          ToolName.TODO_WRITE,
+          ToolName.CONFIRMATION,
+          ToolName.ASK_USER_PREFERENCE,
+        ],
         allToolKeys: ALL_SUPER_KEYS,
         hasCompactionContext: false,
       });
@@ -229,7 +233,11 @@ describe('ToolIntentResolution', () => {
         buildSuperAgentEffectiveAllowedNames({
           declaredNormalized: declared,
           expandedDeclared: expanded,
-          conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE],
+          conversationActiveTools: [
+            ToolName.TODO_WRITE,
+            ToolName.CONFIRMATION,
+            ToolName.ASK_USER_PREFERENCE,
+          ],
           allToolKeys: ALL_SUPER_KEYS,
           hasCompactionContext: false,
         })
@@ -238,7 +246,11 @@ describe('ToolIntentResolution', () => {
         declaredNormalized: declared,
         expandedDeclared: expanded,
         effectiveAllowed: effective,
-        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER_PREFERENCE],
+        conversationActiveTools: [
+          ToolName.TODO_WRITE,
+          ToolName.CONFIRMATION,
+          ToolName.ASK_USER_PREFERENCE,
+        ],
         hasCompactionContext: false,
       });
       expect([...active].sort()).toEqual([...effective].sort());

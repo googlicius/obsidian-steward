@@ -219,9 +219,18 @@ other
       const sections: SectionCache[] = [
         { type: 'yaml', position: sectionPosition(0) },
         { type: 'heading', position: sectionPosition(4) },
-        { type: 'code', position: { start: { line: 6, col: 0, offset: 0 }, end: { line: 10, col: 3, offset: 0 } } },
+        {
+          type: 'code',
+          position: { start: { line: 6, col: 0, offset: 0 }, end: { line: 10, col: 3, offset: 0 } },
+        },
         { type: 'heading', position: sectionPosition(12) },
-        { type: 'code', position: { start: { line: 14, col: 0, offset: 0 }, end: { line: 16, col: 3, offset: 0 } } },
+        {
+          type: 'code',
+          position: {
+            start: { line: 14, col: 0, offset: 0 },
+            end: { line: 16, col: 3, offset: 0 },
+          },
+        },
       ];
 
       setupNoteFile(mockPlugin, mockFile, testContent, sections);

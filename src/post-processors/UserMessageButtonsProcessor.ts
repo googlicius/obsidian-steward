@@ -69,7 +69,8 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
 
       // Find the next message (response to the current message)
       // We need to get all messages to find the next one since there's no direct way to get the next message by ID
-      const { messages: allMessages } = await plugin.conversationRenderer.extractAllConversationMessages(title);
+      const { messages: allMessages } =
+        await plugin.conversationRenderer.extractAllConversationMessages(title);
       const currentMessageIndex = allMessages.findIndex(message => message.id === messageId);
 
       if (currentMessageIndex === -1) {

@@ -60,6 +60,8 @@ function createMockPlugin(
       parseHeadingLine: NoteContentService.prototype.parseHeadingLine.bind(
         {} as NoteContentService
       ),
+      transformHeadingOnlyWikilinks:
+        NoteContentService.prototype.transformHeadingOnlyWikilinks.bind({} as NoteContentService),
     },
     conversationRenderer: {
       getConversationFileByName: jest.fn(),

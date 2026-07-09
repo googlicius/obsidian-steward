@@ -4,99 +4,99 @@ Business logic for Steward. Services do not wire conversation UI directly (excep
 
 ## Related Code Outside This Folder
 
-| Name | Path |
-|------|------|
+| Name              | Path                                          |
+| ----------------- | --------------------------------------------- |
 | ArtifactManagerV2 | `src/solutions/artifact/ArtifactManagerV2.ts` |
-| SearchService | `src/solutions/search/searchService.ts` |
+| SearchService     | `src/solutions/search/searchService.ts`       |
 
 ## Service Categories
 
 ### LLM / AI
 
-| Service | Path | Role |
-|---------|------|------|
-| LLMService | `LLMService/LLMService.ts` | AI SDK provider factory, streaming, JSON repair, model context-length lookup |
-| ModelFallbackService | `ModelFallbackService.ts` | Tracks/alternates models in conversation frontmatter on failures |
-| CompactionTokenService | `CompactionTokenService/` | Shrinks tool results in history when prompt tokens exceed ~80% of model context |
+| Service                | Path                       | Role                                                                            |
+| ---------------------- | -------------------------- | ------------------------------------------------------------------------------- |
+| LLMService             | `LLMService/LLMService.ts` | AI SDK provider factory, streaming, JSON repair, model context-length lookup    |
+| ModelFallbackService   | `ModelFallbackService.ts`  | Tracks/alternates models in conversation frontmatter on failures                |
+| CompactionTokenService | `CompactionTokenService/`  | Shrinks tool results in history when prompt tokens exceed ~80% of model context |
 
 ### Conversation Notes
 
-| Service | Path | Role |
-|---------|------|------|
-| ConversationRenderer | `ConversationRenderer/` | Reads/writes conversation markdown: messages, tools, frontmatter, streaming, compaction |
-| ConversationEventHandler | `ConversationEventHandler.ts` | Vault/event wiring: auto-init chat on note modify, title generation, intent dispatch |
-| WikilinkForwardService | `WikilinkForwardService/` | `forwarded_to` / `continued_to` chains and embed rewrites |
-| UserMessageService | `UserMessageService.ts` | Parses user messages: strip images, attach metadata, build AI parts |
-| CommandTrackingService | `CommandTrackingService.ts` | Tracks command execution state per conversation |
-| TrashCleanupService | `TrashCleanupService.ts` | Scheduled cleanup of soft-deleted files per retention policy |
+| Service                  | Path                          | Role                                                                                    |
+| ------------------------ | ----------------------------- | --------------------------------------------------------------------------------------- |
+| ConversationRenderer     | `ConversationRenderer/`       | Reads/writes conversation markdown: messages, tools, frontmatter, streaming, compaction |
+| ConversationEventHandler | `ConversationEventHandler.ts` | Vault/event wiring: auto-init chat on note modify, title generation, intent dispatch    |
+| WikilinkForwardService   | `WikilinkForwardService/`     | `forwarded_to` / `continued_to` chains and embed rewrites                               |
+| UserMessageService       | `UserMessageService.ts`       | Parses user messages: strip images, attach metadata, build AI parts                     |
+| CommandTrackingService   | `CommandTrackingService.ts`   | Tracks command execution state per conversation                                         |
+| TrashCleanupService      | `TrashCleanupService.ts`      | Scheduled cleanup of soft-deleted files per retention policy                            |
 
 ### Vault / File / Content
 
-| Service | Path | Role |
-|---------|------|------|
-| VaultService | `VaultService/VaultService.ts` | Path existence resolution (visible vs hidden/dot paths) |
-| NoteContentService | `NoteContentService.ts` | Note split/merge, frontmatter, images, edit diffs, wikilink handling |
-| ContentReadingService | `ContentReadingService.ts` | Implements read-content tool: cursor/element/range/frontmatter reads |
-| MarkdownDefinitionService | `MarkdownDefinitionService/` | Shared YAML-fence walker/replacer for vault markdown definitions |
+| Service                   | Path                           | Role                                                                 |
+| ------------------------- | ------------------------------ | -------------------------------------------------------------------- |
+| VaultService              | `VaultService/VaultService.ts` | Path existence resolution (visible vs hidden/dot paths)              |
+| NoteContentService        | `NoteContentService.ts`        | Note split/merge, frontmatter, images, edit diffs, wikilink handling |
+| ContentReadingService     | `ContentReadingService.ts`     | Implements read-content tool: cursor/element/range/frontmatter reads |
+| MarkdownDefinitionService | `MarkdownDefinitionService/`   | Shared YAML-fence walker/replacer for vault markdown definitions     |
 
 ### Commands / Intent Processing
 
-| Service | Path | Role |
-|---------|------|------|
-| CommandProcessorService | `CommandProcessorService.ts` | Thin wrapper around `AgentRunner` + intent content validation |
-| CommandInputService | `CommandInputService.ts` | Editor command-line input, CLI decorations, chat view integration |
+| Service                   | Path                         | Role                                                                              |
+| ------------------------- | ---------------------------- | --------------------------------------------------------------------------------- |
+| CommandProcessorService   | `CommandProcessorService.ts` | Thin wrapper around `AgentRunner` + intent content validation                     |
+| CommandInputService       | `CommandInputService.ts`     | Editor command-line input, CLI decorations, chat view integration                 |
 | UserDefinedCommandService | `UserDefinedCommandService/` | Loads vault UDC YAML, triggers, step conditions, dispatches custom slash commands |
 
 ### Skills / Agents / Memory
 
-| Service | Path | Role |
-|---------|------|------|
-| SkillService | `SkillService/` | Watches `Steward/Skills`, exposes skill catalog/bodies to the agent |
-| SubAgentDefinitionService | `SubAgent/SubAgentDefinitionService.ts` | Parses `Sub Agents.md` YAML agent blocks into spawn catalog |
-| SubagentSpawnService | `SubAgent/SubagentSpawnService.ts` | Runs background child conversations for delegated sub-agent tasks |
-| ToolInstructionService | `Memory/ToolInstructionService.ts` | Per-tool guidelines from `Memory/Tool instructions.md` merged into prompts |
+| Service                   | Path                                    | Role                                                                       |
+| ------------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| SkillService              | `SkillService/`                         | Watches `Steward/Skills`, exposes skill catalog/bodies to the agent        |
+| SubAgentDefinitionService | `SubAgent/SubAgentDefinitionService.ts` | Parses `Sub Agents.md` YAML agent blocks into spawn catalog                |
+| SubagentSpawnService      | `SubAgent/SubagentSpawnService.ts`      | Runs background child conversations for delegated sub-agent tasks          |
+| ToolInstructionService    | `Memory/ToolInstructionService.ts`      | Per-tool guidelines from `Memory/Tool instructions.md` merged into prompts |
 
 ### MCP
 
-| Service | Path | Role |
-|---------|------|------|
+| Service    | Path                       | Role                                                                       |
+| ---------- | -------------------------- | -------------------------------------------------------------------------- |
 | MCPService | `MCPService/MCPService.ts` | Vault MCP note definitions, connections, tool prefixing (`mcp__`), secrets |
 
 ### Guardrails / Security
 
-| Service | Path | Role |
-|---------|------|------|
-| GuardrailsRuleService | `GuardrailsRuleService/` | Path/action rules from `Steward/Rules` |
-| guardrailsMiddleware | `GuardrailsRuleService/guardrailsMiddleware.ts` | Tool handler middleware enforcing guardrails |
-| EncryptionService | `EncryptionService.ts` | Vault-specific encrypt/decrypt via Obsidian secret storage |
+| Service               | Path                                            | Role                                                       |
+| --------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| GuardrailsRuleService | `GuardrailsRuleService/`                        | Path/action rules from `Steward/Rules`                     |
+| guardrailsMiddleware  | `GuardrailsRuleService/guardrailsMiddleware.ts` | Tool handler middleware enforcing guardrails               |
+| EncryptionService     | `EncryptionService.ts`                          | Vault-specific encrypt/decrypt via Obsidian secret storage |
 
 ### CLI / PTY / Shell
 
-| Service | Path | Role |
-|---------|------|------|
-| CliSessionService | `CliSessionService/` | Interactive/transcript CLI sessions via PTY or remote companion |
-| ShellOutputArchiveService | `CliSessionService/ShellOutputArchiveService.ts` | Archives completed shell output to `{title}__shell.md`; provides `headingRef:` resolution |
-| PtyCompanionService | `PtyCompanionService/` | Localhost PTY companion server for desktop shell sessions |
-| NodePtyInstallerScriptService | `NodePtyInstallerScriptService/` | Syncs node-pty installer scripts into the vault |
+| Service                       | Path                                             | Role                                                                                      |
+| ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| CliSessionService             | `CliSessionService/`                             | Interactive/transcript CLI sessions via PTY or remote companion                           |
+| ShellOutputArchiveService     | `CliSessionService/ShellOutputArchiveService.ts` | Archives completed shell output to `{title}__shell.md`; provides `headingRef:` resolution |
+| PtyCompanionService           | `PtyCompanionService/`                           | Localhost PTY companion server for desktop shell sessions                                 |
+| NodePtyInstallerScriptService | `NodePtyInstallerScriptService/`                 | Syncs node-pty installer scripts into the vault                                           |
 
 ### Widgets
 
-| Service | Path | Role |
-|---------|------|------|
-| WidgetService | `WidgetService/WidgetService.ts` | Facade for multi-file widget projects: bundle, mount, hot-reload, action bridge |
-| WidgetOrchestrator | `WidgetService/WidgetOrchestrator.ts` | Turn scheduling: human saves vs model actors for interactive widgets |
-| WidgetSessionService | `WidgetService/WidgetSessionService.ts` | Widget session conversations, Playground embed, model turn dispatch |
-| WidgetDefinitionService | `WidgetService/WidgetDefinitionService.ts` | Loads widget project definitions from vault |
-| WidgetStateService | `WidgetService/WidgetStateService.ts` | Persists widget runtime state (`state.json`) |
-| WidgetBundler / WidgetBuild / WidgetAsset / WidgetJsValidator / WidgetProtocol | `WidgetService/` | Build, validate, and bundle widget HTML/JS/CSS |
+| Service                                                                        | Path                                       | Role                                                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| WidgetService                                                                  | `WidgetService/WidgetService.ts`           | Facade for multi-file widget projects: bundle, mount, hot-reload, action bridge |
+| WidgetOrchestrator                                                             | `WidgetService/WidgetOrchestrator.ts`      | Turn scheduling: human saves vs model actors for interactive widgets            |
+| WidgetSessionService                                                           | `WidgetService/WidgetSessionService.ts`    | Widget session conversations, Playground embed, model turn dispatch             |
+| WidgetDefinitionService                                                        | `WidgetService/WidgetDefinitionService.ts` | Loads widget project definitions from vault                                     |
+| WidgetStateService                                                             | `WidgetService/WidgetStateService.ts`      | Persists widget runtime state (`state.json`)                                    |
+| WidgetBundler / WidgetBuild / WidgetAsset / WidgetJsValidator / WidgetProtocol | `WidgetService/`                           | Build, validate, and bundle widget HTML/JS/CSS                                  |
 
 ### Infrastructure
 
-| Service | Path | Role |
-|---------|------|------|
-| EventEmitter | `EventEmitter.ts` | In-process typed pub/sub between services and agents |
-| AbortService | `AbortService.ts` | Per-conversation, per-operation `AbortController` registry |
-| VersionCheckerService | `VersionCheckerService.ts` | Checks for plugin updates |
+| Service               | Path                       | Role                                                       |
+| --------------------- | -------------------------- | ---------------------------------------------------------- |
+| EventEmitter          | `EventEmitter.ts`          | In-process typed pub/sub between services and agents       |
+| AbortService          | `AbortService.ts`          | Per-conversation, per-operation `AbortController` registry |
+| VersionCheckerService | `VersionCheckerService.ts` | Checks for plugin updates                                  |
 
 ## Common Patterns
 
@@ -131,15 +131,15 @@ Plain `new` when lifecycle is simpler:
 
 Repeated folder convention under `settings.stewardFolder`:
 
-| Folder | Service |
-|--------|---------|
-| `Skills/` | SkillService |
-| `Commands/` | UserDefinedCommandService |
-| `Rules/` | GuardrailsRuleService |
-| `MCP/` | MCPService |
-| `Memory/` | ToolInstructionService |
+| Folder          | Service                   |
+| --------------- | ------------------------- |
+| `Skills/`       | SkillService              |
+| `Commands/`     | UserDefinedCommandService |
+| `Rules/`        | GuardrailsRuleService     |
+| `MCP/`          | MCPService                |
+| `Memory/`       | ToolInstructionService    |
 | `Sub Agents.md` | SubAgentDefinitionService |
-| `Widgets/` | WidgetService |
+| `Widgets/`      | WidgetService             |
 
 ### Markdown YAML fence parsing
 

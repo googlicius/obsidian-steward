@@ -193,15 +193,21 @@ export function loadGoogleTools(): Promise<AgentToolsRecord> {
 export function loadSuperAgentToolsBase(): Promise<AgentToolsRecord> {
   if (!superAgentOnlyToolsPromise) {
     superAgentOnlyToolsPromise = loadSubagentToolsBase().then(async base => {
-      const [confirmationBundle, askUserPreferenceTool, userConfirmTool, spawnSubagentTool, switchAgentCapacityTool, runCommandTool] =
-        await Promise.all([
-          createConfirmationTool(),
-          handlers.AskUserPreference.getAskUserPreferenceTool(),
-          handlers.UserConfirm.getUserConfirmTool(),
-          handlers.SpawnSubagent.getSpawnSubagentTool(),
-          handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
-          handlers.RunCommand.getRunCommandTool(),
-        ]);
+      const [
+        confirmationBundle,
+        askUserPreferenceTool,
+        userConfirmTool,
+        spawnSubagentTool,
+        switchAgentCapacityTool,
+        runCommandTool,
+      ] = await Promise.all([
+        createConfirmationTool(),
+        handlers.AskUserPreference.getAskUserPreferenceTool(),
+        handlers.UserConfirm.getUserConfirmTool(),
+        handlers.SpawnSubagent.getSpawnSubagentTool(),
+        handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
+        handlers.RunCommand.getRunCommandTool(),
+      ]);
       return {
         ...base,
         [ToolName.CONFIRMATION]: confirmationBundle.confirmationTool,

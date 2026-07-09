@@ -127,201 +127,204 @@ export class StreamTextExecutor {
     );
 
     try {
-
-    let rejectStreamError: (error: Error) => void;
-    let resolveSettleStream: (toolCalls: TToolCalls) => void;
-    const settleStreamPromise = new Promise<TToolCalls>((resolve, reject) => {
-      resolveSettleStream = resolve;
-      rejectStreamError = reject;
-    });
-
-    let hasStreamSettled = false;
-
-    const currentNote =
-      (await agent.renderer.getConversationProperty<string>(params.title, 'current_note')) ?? null;
-
-    let currentPosition: number | null = null;
-    if (currentNote) {
-      const cursor = agent.plugin.editor.getCursor();
-      currentPosition = cursor.line;
-    }
-
-    const includeSkillCatalog =
-      !params.intent.tools ||
-      params.intent.tools.length === 0 ||
-      params.intent.tools.includes(ToolName.CONTENT_READING);
-    const includeSubAgentCatalog =
-      !params.intent.tools ||
-      params.intent.tools.length === 0 ||
-      params.intent.tools.includes(ToolName.CONTENT_READING);
-    const runCommandAvailable = allActiveToolNames.includes(ToolName.RUN_COMMAND);
-
-    const resolvedSystemPrompts =
-      params.intent.systemPrompts && params.intent.systemPrompts.length > 0
-        ? await agent.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
-            params.intent.systemPrompts
-          )
-        : [];
-    const additionalSystemPrompts = [...resolvedSystemPrompts];
-
-    if (llmConfig.systemPrompt) {
-      additionalSystemPrompts.push(llmConfig.systemPrompt);
-    }
-
-    if (additionalSystemPrompts.length > 0) {
-      for (const item of additionalSystemPrompts) {
-        messages.unshift({ role: 'system', content: item });
-      }
-    }
-
-    const coreSystemPrompt =
-      params.intent.coreSystemPrompt ??
-      agent.buildCorePrompt({
-        registry,
-        availableTools: declaredNormalized ?? allSuperAgentKeys,
-        currentNote,
-        currentPosition,
-        includeSkillCatalog,
-        includeSubAgentCatalog,
-        runCommandAvailable,
-        extraCorePromptSections: params.intent.extraCorePromptSections,
+      let rejectStreamError: (error: Error) => void;
+      let resolveSettleStream: (toolCalls: TToolCalls) => void;
+      const settleStreamPromise = new Promise<TToolCalls>((resolve, reject) => {
+        resolveSettleStream = resolve;
+        rejectStreamError = reject;
       });
 
-    type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];
+      let hasStreamSettled = false;
 
-    const { streamText, NoSuchToolError } = await getBundledLib('ai');
+      const currentNote =
+        (await agent.renderer.getConversationProperty<string>(params.title, 'current_note')) ??
+        null;
 
-    const streamTextResult = streamText({
-      model: llmConfig.model,
-      ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
-      maxOutputTokens: llmConfig.maxOutputTokens,
-      abortSignal,
-      system: coreSystemPrompt,
-      messages,
-      ...(llmConfig.reasoningCallExtras?.providerOptions
-        ? { providerOptions: llmConfig.reasoningCallExtras.providerOptions }
-        : {}),
-      tools: registry.getToolsObject() as NonNullable<AiStreamTextParams['tools']>,
-      experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
-      onError: ({ error }) => {
-        if (hasStreamSettled) {
-          return;
-        }
-        logger.error('Error in streamText', error);
-        rejectStreamError(error as Error);
-      },
-      onAbort: () => {
-        if (hasStreamSettled) {
-          return;
-        }
-        rejectStreamError(new DOMException('Request aborted', 'AbortError'));
-      },
-      onChunk: ({ chunk }) => {
-        if (chunk.type === 'tool-input-start') {
-          void agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
-
-          const isNoSuchTool = !activeToolSet.has(chunk.toolName);
-          if (isNoSuchTool && !hasStreamSettled) {
-            const availableTools = Object.keys(registry.getToolsObject());
-            logger.warn(
-              `Aborting stream early: inactive dynamic tool call detected for ${chunk.toolName}.`
-            );
-            hasStreamSettled = true;
-            resolveSettleStream([
-              {
-                type: 'tool-call',
-                toolCallId: chunk.id,
-                toolName: chunk.toolName,
-                input: {},
-                dynamic: true,
-                invalid: true,
-                error: new NoSuchToolError({
-                  toolName: chunk.toolName,
-                  availableTools,
-                }),
-              },
-            ] as TToolCalls);
-
-            agent.plugin.abortService.abortOperation(params.title, AbortOperationKeys.SUPER_AGENT);
-          }
-        }
-      },
-      onFinish: ({ finishReason }) => {
-        if (hasStreamSettled) {
-          return;
-        }
-        if (finishReason === 'length') {
-          rejectStreamError(new SysError('Stream finished due to length limit'));
-        } else if (finishReason === 'error') {
-          rejectStreamError(new SysError('Stream finished due to error'));
-        }
-      },
-    });
-
-    const { textStream, textDone, toolContentStream } = createLLMStream(
-      streamTextResult.fullStream,
-      {
-        toolContentStreaming: {
-          targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
-          createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
-        },
-        abortSignal,
+      let currentPosition: number | null = null;
+      if (currentNote) {
+        const cursor = agent.plugin.editor.getCursor();
+        currentPosition = cursor.line;
       }
-    );
 
-    const streamPromise = agent.renderer.streamConversationNote({
-      path: params.title,
-      stream: textStream,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-      abortSignal,
-    });
+      const includeSkillCatalog =
+        !params.intent.tools ||
+        params.intent.tools.length === 0 ||
+        params.intent.tools.includes(ToolName.CONTENT_READING);
+      const includeSubAgentCatalog =
+        !params.intent.tools ||
+        params.intent.tools.length === 0 ||
+        params.intent.tools.includes(ToolName.CONTENT_READING);
+      const runCommandAvailable = allActiveToolNames.includes(ToolName.RUN_COMMAND);
 
-    await Promise.race([textDone, settleStreamPromise]);
+      const resolvedSystemPrompts =
+        params.intent.systemPrompts && params.intent.systemPrompts.length > 0
+          ? await agent.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+              params.intent.systemPrompts
+            )
+          : [];
+      const additionalSystemPrompts = [...resolvedSystemPrompts];
 
-    const toolContentStreamPromise = agent.consumeToolContentStream({
-      title: params.title,
-      toolContentStream,
-      handlerId: params.handlerId,
-      lang: params.lang,
-      abortSignal,
-    });
+      if (llmConfig.systemPrompt) {
+        additionalSystemPrompts.push(llmConfig.systemPrompt);
+      }
 
-    const toolCalls = (await Promise.race([
-      streamTextResult.toolCalls,
-      settleStreamPromise,
-    ])) as TToolCalls;
-    const toolContentStreamInfo = await toolContentStreamPromise;
+      if (additionalSystemPrompts.length > 0) {
+        for (const item of additionalSystemPrompts) {
+          messages.unshift({ role: 'system', content: item });
+        }
+      }
 
-    await streamPromise.catch(() => {
-      // Ignore errors here, they're handled by settleStreamPromise
-    });
+      const coreSystemPrompt =
+        params.intent.coreSystemPrompt ??
+        agent.buildCorePrompt({
+          registry,
+          availableTools: declaredNormalized ?? allSuperAgentKeys,
+          currentNote,
+          currentPosition,
+          includeSkillCatalog,
+          includeSubAgentCatalog,
+          runCommandAvailable,
+          extraCorePromptSections: params.intent.extraCorePromptSections,
+        });
 
-    let usage: LanguageModelUsage | undefined;
-    let totalUsage: LanguageModelUsage | undefined;
-    let text = '';
+      type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];
 
-    if (!hasStreamSettled) {
-      usage = await streamTextResult.usage;
-      totalUsage = await streamTextResult.totalUsage;
-      text = await streamTextResult.text;
-    }
+      const { streamText, NoSuchToolError } = await getBundledLib('ai');
 
-    eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
-      conversationTitle: params.title,
-      lang: params.lang,
-      model: modelForStream,
-      promptTokens: usage?.inputTokens,
-    });
+      const streamTextResult = streamText({
+        model: llmConfig.model,
+        ...(llmConfig.temperature !== undefined ? { temperature: llmConfig.temperature } : {}),
+        maxOutputTokens: llmConfig.maxOutputTokens,
+        abortSignal,
+        system: coreSystemPrompt,
+        messages,
+        ...(llmConfig.reasoningCallExtras?.providerOptions
+          ? { providerOptions: llmConfig.reasoningCallExtras.providerOptions }
+          : {}),
+        tools: registry.getToolsObject() as NonNullable<AiStreamTextParams['tools']>,
+        experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
+        onError: ({ error }) => {
+          if (hasStreamSettled) {
+            return;
+          }
+          logger.error('Error in streamText', error);
+          rejectStreamError(error as Error);
+        },
+        onAbort: () => {
+          if (hasStreamSettled) {
+            return;
+          }
+          rejectStreamError(new DOMException('Request aborted', 'AbortError'));
+        },
+        onChunk: ({ chunk }) => {
+          if (chunk.type === 'tool-input-start') {
+            void agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
 
-    return {
-      toolCalls,
-      conversationHistory: historyResult.messages,
-      text,
-      toolContentStreamInfo,
-      usage,
-      totalUsage,
-    };
+            const isNoSuchTool = !activeToolSet.has(chunk.toolName);
+            if (isNoSuchTool && !hasStreamSettled) {
+              const availableTools = Object.keys(registry.getToolsObject());
+              logger.warn(
+                `Aborting stream early: inactive dynamic tool call detected for ${chunk.toolName}.`
+              );
+              hasStreamSettled = true;
+              resolveSettleStream([
+                {
+                  type: 'tool-call',
+                  toolCallId: chunk.id,
+                  toolName: chunk.toolName,
+                  input: {},
+                  dynamic: true,
+                  invalid: true,
+                  error: new NoSuchToolError({
+                    toolName: chunk.toolName,
+                    availableTools,
+                  }),
+                },
+              ] as TToolCalls);
+
+              agent.plugin.abortService.abortOperation(
+                params.title,
+                AbortOperationKeys.SUPER_AGENT
+              );
+            }
+          }
+        },
+        onFinish: ({ finishReason }) => {
+          if (hasStreamSettled) {
+            return;
+          }
+          if (finishReason === 'length') {
+            rejectStreamError(new SysError('Stream finished due to length limit'));
+          } else if (finishReason === 'error') {
+            rejectStreamError(new SysError('Stream finished due to error'));
+          }
+        },
+      });
+
+      const { textStream, textDone, toolContentStream } = createLLMStream(
+        streamTextResult.fullStream,
+        {
+          toolContentStreaming: {
+            targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
+            createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
+          },
+          abortSignal,
+        }
+      );
+
+      const streamPromise = agent.renderer.streamConversationNote({
+        path: params.title,
+        stream: textStream,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
+        abortSignal,
+      });
+
+      await Promise.race([textDone, settleStreamPromise]);
+
+      const toolContentStreamPromise = agent.consumeToolContentStream({
+        title: params.title,
+        toolContentStream,
+        handlerId: params.handlerId,
+        lang: params.lang,
+        abortSignal,
+      });
+
+      const toolCalls = (await Promise.race([
+        streamTextResult.toolCalls,
+        settleStreamPromise,
+      ])) as TToolCalls;
+      const toolContentStreamInfo = await toolContentStreamPromise;
+
+      await streamPromise.catch(() => {
+        // Ignore errors here, they're handled by settleStreamPromise
+      });
+
+      let usage: LanguageModelUsage | undefined;
+      let totalUsage: LanguageModelUsage | undefined;
+      let text = '';
+
+      if (!hasStreamSettled) {
+        usage = await streamTextResult.usage;
+        totalUsage = await streamTextResult.totalUsage;
+        text = await streamTextResult.text;
+      }
+
+      eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
+        conversationTitle: params.title,
+        lang: params.lang,
+        model: modelForStream,
+        promptTokens: usage?.inputTokens,
+      });
+
+      return {
+        toolCalls,
+        conversationHistory: historyResult.messages,
+        text,
+        toolContentStreamInfo,
+        usage,
+        totalUsage,
+      };
     } finally {
       agent.plugin.abortService.unregisterOperation(params.title, AbortOperationKeys.SUPER_AGENT);
     }

@@ -8,6 +8,7 @@ import {
   TOOL_CONTENT_STREAM_CONSUMER_SYMBOL,
 } from './ToolContentStreamConsumer';
 import type { AgentCorePromptContext } from '../../Agent';
+import { AbortService } from 'src/services/AbortService';
 
 jest.mock('src/utils/bundledLibs', () => {
   const actual =
@@ -82,10 +83,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       getEmbeddingSettings: jest.fn().mockReturnValue({}),
       validateImageSupport: jest.fn(),
     },
-    abortService: {
-      createAbortController: jest.fn().mockReturnValue(new AbortController()),
-      abortOperation: jest.fn().mockReturnValue(true),
-    },
+    abortService: AbortService.getInstance(),
     skillService: {
       getSkillCatalog: jest.fn().mockReturnValue([]),
       getSkillContents: jest.fn().mockReturnValue({ contents: {} }),
@@ -188,6 +186,7 @@ describe('StreamTextExecutor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPlugin = createMockPlugin();
+    mockPlugin.abortService.abortAllOperations();
     testAgent = new TestAgent(mockPlugin, mockPlugin.conversationRenderer);
 
     getMockStreamText().mockReturnValue({
@@ -411,10 +410,12 @@ describe('StreamTextExecutor', () => {
         };
       });
 
-      mockPlugin.abortService.abortOperation = jest.fn(() => {
-        capturedOnAbort?.({ steps: [] });
-        return true;
-      });
+      const abortOperationSpy = jest
+        .spyOn(mockPlugin.abortService, 'abortOperation')
+        .mockImplementation(() => {
+          capturedOnAbort?.({ steps: [] });
+          return true;
+        });
 
       const params: AgentHandlerParams = {
         title: 'test-conversation',
@@ -436,10 +437,7 @@ describe('StreamTextExecutor', () => {
         error?: { name: string };
       }>;
 
-      expect(mockPlugin.abortService.abortOperation).toHaveBeenCalledWith(
-        'test-conversation',
-        'super-agent'
-      );
+      expect(abortOperationSpy).toHaveBeenCalledWith('test-conversation', 'super-agent');
       expect(toolCalls).toHaveLength(1);
       expect(toolCalls[0].toolCallId).toBe('call-inactive-edit');
       expect(toolCalls[0].toolName).toBe(ToolName.EDIT);
@@ -448,6 +446,8 @@ describe('StreamTextExecutor', () => {
       expect(result.text).toBe('');
       expect(result.usage).toBeUndefined();
       expect(result.totalUsage).toBeUndefined();
+
+      abortOperationSpy.mockRestore();
     });
 
     it('skips reading stream output when settled early with inactive tool call', async () => {

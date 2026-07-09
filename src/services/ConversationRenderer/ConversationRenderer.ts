@@ -1,7 +1,11 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../../utils/uniqueID';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ConversationMessage, ConversationRole, ExtractedConversationMessages } from '../../types/types';
+import {
+  ConversationMessage,
+  ConversationRole,
+  ExtractedConversationMessages,
+} from '../../types/types';
 import type StewardPlugin from '../../main';
 import { logger } from 'src/utils/logger';
 import {
@@ -972,9 +976,7 @@ export class ConversationRenderer {
       const nextCommentRegex = /<!--STW ID:[^>]*-->/gi;
       nextCommentRegex.lastIndex = commentEnd;
       const nextMatch = nextCommentRegex.exec(content);
-      const msgEnd = nextMatch
-        ? (nextMatch.index ?? content.length)
-        : content.length;
+      const msgEnd = nextMatch ? (nextMatch.index ?? content.length) : content.length;
 
       return content.substring(0, commentEnd) + '\n' + newBody + content.substring(msgEnd);
     });

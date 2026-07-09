@@ -831,7 +831,6 @@ describe('WidgetService', () => {
       unregisterPrimary();
       expect(result.ok).toBe(true);
     });
-
   });
 
   describe('getWidgetDefinition queries and dispatchQuery', () => {

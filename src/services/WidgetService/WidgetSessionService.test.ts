@@ -71,7 +71,8 @@ describe('WidgetSessionService turn context helpers', () => {
     };
 
     it('returns system prompts and extra core prompt sections', async () => {
-      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance =
+        null;
       const plugin = createMockPlugin({
         widgetService: {
           definitionService: {
@@ -95,7 +96,8 @@ describe('WidgetSessionService turn context helpers', () => {
     });
 
     it('returns null when actor id is not in the definition', async () => {
-      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
+      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance =
+        null;
       const plugin = createMockPlugin({
         widgetService: {
           definitionService: {
@@ -114,8 +116,15 @@ describe('WidgetSessionService turn context helpers', () => {
     });
 
     it('returns null when definition has no agents', async () => {
-      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance = null;
-      const emptyDef: WidgetDefinition = { manifest: null, actions: null, queries: null, actors: null, agents: {} };
+      (WidgetSessionService as unknown as { instance: WidgetSessionService | null }).instance =
+        null;
+      const emptyDef: WidgetDefinition = {
+        manifest: null,
+        actions: null,
+        queries: null,
+        actors: null,
+        agents: {},
+      };
       const plugin = createMockPlugin({
         widgetService: {
           definitionService: {
@@ -334,4 +343,3 @@ describe('WidgetSessionService session move helpers', () => {
     });
   });
 });
-

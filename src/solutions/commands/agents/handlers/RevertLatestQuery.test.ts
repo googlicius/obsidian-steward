@@ -204,7 +204,7 @@ describe('RevertLatestQuery', () => {
               },
             ],
             compactedIndexes: [],
-                };
+          };
         }
         if (title === 'conversation__subagent_1') {
           return {
@@ -220,7 +220,7 @@ describe('RevertLatestQuery', () => {
               },
             ],
             compactedIndexes: [],
-                };
+          };
         }
         return { messages: [], compactedIndexes: [], anchorIndexes: [] };
       });

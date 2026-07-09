@@ -9,7 +9,7 @@ const outFile = path.join(root, 'src/generated/modelsMetadata.ts');
 
 const API_URL = 'https://models.dev/api.json';
 
-const PROVIDER_ALLOWLIST = ['openai', 'anthropic', 'google', 'deepseek', 'ollama'];
+const PROVIDER_ALLOWLIST = ['openai', 'anthropic', 'google', 'deepseek', 'xai'];
 
 /**
  * @param {unknown} value

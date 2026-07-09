@@ -18,7 +18,7 @@ describe('widgetActionSchema', () => {
   });
 });
 
-describe('WidgetActionHandler turn gate', () => {
+describe('WidgetActionHandler', () => {
   const projectPath = 'Steward/Widgets/tic-tac-toe';
 
   const definition = {
@@ -39,7 +39,11 @@ describe('WidgetActionHandler turn gate', () => {
     },
   };
 
-  function createHandlerHarness(currentActor: string, phase: 'thinking' | 'awaiting_input' = 'thinking') {
+  function createHandlerHarness(
+    currentActor: string,
+    phase: 'thinking' | 'awaiting_input' = 'thinking',
+    sessionOverride?: null
+  ) {
     const applyAction = jest.fn().mockResolvedValue({ ok: true });
     const recordMoveAndMaybeAdvance = jest.fn().mockResolvedValue(undefined);
     const updateConversationNote = jest.fn().mockResolvedValue(undefined);
@@ -65,13 +69,17 @@ describe('WidgetActionHandler turn gate', () => {
             getWidgetDefinition: jest.fn().mockResolvedValue(definition),
           },
           stateService: {
-            readSession: jest.fn().mockResolvedValue({
-              conversationTitle: 'tic-tac-toe__session_live',
-              actor: currentActor,
-              turnIndex: 1,
-              phase,
-              moveLog: [],
-            }),
+            readSession: jest.fn().mockResolvedValue(
+              sessionOverride === null
+                ? null
+                : {
+                    conversationTitle: 'tic-tac-toe__session_live',
+                    actor: currentActor,
+                    turnIndex: 1,
+                    phase,
+                    moveLog: [],
+                  }
+            ),
           },
           sessionService: {
             recordMoveAndMaybeAdvance,
@@ -189,10 +197,19 @@ describe('WidgetActionHandler turn gate', () => {
     expect(result.status).toBe(IntentResultStatus.SUCCESS);
   });
 
-  it('rejects when session phase is not thinking', async () => {
+  it('applies when current actor is allowed regardless of session phase', async () => {
+    const { handler, ctx, toolCall, applyAction } = createHandlerHarness('o', 'awaiting_input');
+
+    await handler.handle(ctx, { toolCall });
+
+    expect(applyAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects when session is missing', async () => {
     const { handler, ctx, toolCall, applyAction, serializeInvocation } = createHandlerHarness(
       'o',
-      'awaiting_input'
+      'thinking',
+      null
     );
 
     await handler.handle(ctx, { toolCall });
@@ -203,7 +220,7 @@ describe('WidgetActionHandler turn gate', () => {
     );
   });
 
-  it('rejects an out-of-turn move without applying when the roster already advanced', async () => {
+  it('rejects when current actor is not allowed the action', async () => {
     const { handler, ctx, toolCall, applyAction, recordMoveAndMaybeAdvance, serializeInvocation } =
       createHandlerHarness('user', 'awaiting_input');
 
@@ -212,7 +229,9 @@ describe('WidgetActionHandler turn gate', () => {
     expect(applyAction).not.toHaveBeenCalled();
     expect(recordMoveAndMaybeAdvance).not.toHaveBeenCalled();
     expect(serializeInvocation).toHaveBeenCalledWith(
-      expect.objectContaining({ result: { type: 'error-text', value: 'not_your_turn' } })
+      expect.objectContaining({
+        result: { type: 'error-text', value: 'action_not_allowed:playCell' },
+      })
     );
   });
 });

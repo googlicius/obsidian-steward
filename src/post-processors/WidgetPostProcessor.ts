@@ -481,7 +481,11 @@ async function mountWidgetProject(
         source: { mode: 'srcdoc', code: bundled.html },
         options: {
           ...iframeCallbacks,
-          extraHead: widgetService.stateService.buildStateHead(initialState, bundled.assets, actors),
+          extraHead: widgetService.stateService.buildStateHead(
+            initialState,
+            bundled.assets,
+            actors
+          ),
         },
       });
     }

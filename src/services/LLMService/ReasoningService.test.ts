@@ -165,9 +165,9 @@ describe('ReasoningService', () => {
 
   describe('ui mapping', () => {
     it('maps thinking-toggle UI values to stored levels', () => {
-      expect(
-        reasoningService.uiValueToReasoningLevel('provider-default', 'thinking-toggle')
-      ).toBe('provider-default');
+      expect(reasoningService.uiValueToReasoningLevel('provider-default', 'thinking-toggle')).toBe(
+        'provider-default'
+      );
       expect(reasoningService.uiValueToReasoningLevel('enabled', 'thinking-toggle')).toBe('medium');
       expect(reasoningService.uiValueToReasoningLevel('none', 'thinking-toggle')).toBe('none');
       expect(reasoningService.uiValueToReasoningLevel('unknown', 'thinking-toggle')).toBe(
@@ -184,7 +184,9 @@ describe('ReasoningService', () => {
         'provider-default'
       );
       expect(reasoningService.uiValueToReasoningLevel('high', 'effort')).toBe('high');
-      expect(reasoningService.uiValueToReasoningLevel('unknown', 'effort')).toBe('provider-default');
+      expect(reasoningService.uiValueToReasoningLevel('unknown', 'effort')).toBe(
+        'provider-default'
+      );
       expect(reasoningService.reasoningLevelToUiValue('provider-default', 'effort')).toBe(
         'provider-default'
       );
