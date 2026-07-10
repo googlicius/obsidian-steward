@@ -19,6 +19,8 @@ export interface Intent {
   /** Extra sections appended to the agent core prompt (heading + body). */
   extraCorePromptSections?: ExtraCorePromptSection[];
   model?: string; // Optional model to use for this intent
+  /** Ordered model list for sub-agent capability switching and fallback. */
+  models?: string[];
   no_confirm?: boolean; // Skip confirmation for this intent
   /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */
   tools?: ToolName[];

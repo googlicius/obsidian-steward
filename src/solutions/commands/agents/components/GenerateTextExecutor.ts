@@ -176,6 +176,18 @@ export class GenerateTextExecutor {
       );
     }
 
+    if (params.intent.models && params.intent.models.length > 1) {
+      additionalSystemPrompts.push(
+        this.wrapPromptSection(
+          '## Model',
+          this.buildModelSectionBody({
+            models: params.intent.models,
+            currentModel: params.intent.model,
+          })
+        )
+      );
+    }
+
     if (shouldUseTools) {
       additionalSystemPrompts.push(
         this.buildToolInstructionsSystemPrompt(registry, memorySourcePath)

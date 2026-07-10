@@ -254,12 +254,23 @@ export class ArtifactManagerV2 {
       // Add to the in-memory cache
       await this.addToCache(params.artifact);
 
-      logger.log('Stored artifact in conversation note', params.artifact);
       return messageId;
     } catch (error) {
       logger.error('Error storing artifact:', error);
       return undefined;
     }
+  }
+
+  /**
+   * Run an artifact through the type serializer so cache entries match getAllArtifacts().
+   */
+  private async normalizeArtifactForCache(artifact: Artifact): Promise<Artifact> {
+    const serializer = this.getSerializer(artifact.artifactType).injectTitle(
+      this.conversationTitle
+    );
+    const serialized = serializer.serialize(artifact);
+    const payload = typeof serialized === 'string' ? serialized : JSON.stringify(serialized);
+    return serializer.deserialize(payload);
   }
 
   /**
@@ -269,7 +280,9 @@ export class ArtifactManagerV2 {
     if (!this.artifactsCache) {
       this.artifactsCache = await this.getAllArtifacts(true);
     }
-    this.artifactsCache.push(artifact);
+
+    const normalizedArtifact = await this.normalizeArtifactForCache(artifact);
+    this.artifactsCache.push(normalizedArtifact);
   }
 
   /**
@@ -337,7 +350,6 @@ export class ArtifactManagerV2 {
    * Get an artifact by its ID
    */
   public async getArtifactById(artifactId: string): Promise<Artifact | undefined> {
-    // Get all artifacts from cache or load them if not available
     const artifacts = await this.getAllArtifacts();
     return artifacts.find(
       artifact => artifact.id === artifactId || artifact.messageId === artifactId

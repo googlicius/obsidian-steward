@@ -70,6 +70,7 @@ export class Handlers {
   private _dynamic: handlers.Dynamic;
   private _spawnSubagent: handlers.SpawnSubagent;
   private _switchAgentCapacity: handlers.SwitchAgentCapacity;
+  private _switchModel: handlers.SwitchModel;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
   private _recallCompactedContext: handlers.RecallCompactedContext;
@@ -252,6 +253,13 @@ export class Handlers {
     return this._switchAgentCapacity;
   }
 
+  public get switchModel(): handlers.SwitchModel {
+    if (!this._switchModel) {
+      this._switchModel = new handlers.SwitchModel(this.getAgent());
+    }
+    return this._switchModel;
+  }
+
   public get getMostRecentArtifact(): handlers.GetMostRecentArtifact {
     if (!this._getMostRecentArtifact) {
       this._getMostRecentArtifact = new handlers.GetMostRecentArtifact(this.getAgent());
@@ -330,6 +338,7 @@ export class Handlers {
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
       [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
       [ToolName.SWITCH_AGENT_CAPACITY]: () => this.switchAgentCapacity,
+      [ToolName.SWITCH_MODEL]: () => this.switchModel,
       [ToolName.SHELL]: () => this.cliHandler,
       [ToolName.RUN_COMMAND]: () => this.runCommand,
     };

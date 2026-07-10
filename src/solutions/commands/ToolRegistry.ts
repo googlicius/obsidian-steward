@@ -410,6 +410,18 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'tool-management',
   },
 
+  [ToolName.SWITCH_MODEL]: {
+    name: ToolName.SWITCH_MODEL,
+    description:
+      "Switch to another model from this conversation's allowed model list when the current model cannot handle the input.",
+    guidelines: [
+      `Use ${ToolName.SWITCH_MODEL} when a tool result reports the current model lacks a required capability (e.g. vision for images) or underperforms on the task.`,
+      `Pick a model from the Model section in your system prompt, then retry the failed tool.`,
+    ],
+    category: 'tool-management',
+    catalogExclude: true,
+  },
+
   [ToolName.RECALL_COMPACTED_CONTEXT]: {
     name: ToolName.RECALL_COMPACTED_CONTEXT,
     description:

@@ -6,7 +6,7 @@ export const subAgentDefinitionBlockSchema = z.object({
   id: z.string().min(1),
   description: z.string().min(1),
   instruction: z.string().min(1),
-  model: z.string().min(1).optional(),
+  model: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]).optional(),
   enabled: z.boolean().optional(),
   tools: z.array(z.nativeEnum(ToolName)).optional(),
   inactiveTools: z.array(z.nativeEnum(ToolName)).optional(),
@@ -18,7 +18,7 @@ export interface SubAgentDefinition {
   id: string;
   description: string;
   instruction: string;
-  model?: string;
+  models?: string[];
   enabled: boolean;
   tools?: ToolName[];
   inactiveTools?: ToolName[];

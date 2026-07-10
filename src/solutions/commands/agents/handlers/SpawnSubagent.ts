@@ -121,7 +121,7 @@ export class SpawnSubagent {
           tools: definition.tools,
           inactiveTools: definition.inactiveTools,
           systemPrompts: [definition.instruction],
-          model: definition.model,
+          models: definition.models,
         });
         continue;
       }

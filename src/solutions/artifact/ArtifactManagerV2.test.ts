@@ -3,6 +3,8 @@ import type StewardPlugin from 'src/main';
 import { App, TFile } from 'obsidian';
 import { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { NoteContentService } from 'src/services/NoteContentService';
+import { ArtifactType } from './types';
+import { ReadContentArtifactImpl } from './implements';
 
 function createMockPlugin(fileContent = ''): jest.Mocked<StewardPlugin> {
   // Create mock file
@@ -217,6 +219,58 @@ describe('ArtifactManagerV2', () => {
           ].join('\n'),
         },
       ]);
+    });
+  });
+
+  describe('storeArtifact cache', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (
+        ArtifactManagerV2 as unknown as { withTitleInstances: Map<string, ArtifactManagerV2> }
+      ).withTitleInstances?.clear();
+    });
+
+    it('caches read_content artifacts as ReadContentArtifactImpl with imagePaths', async () => {
+      mockPlugin = createMockPlugin('<!--STW ID:msg1,ROLE:user-->\nRead image\n');
+      mockPlugin.contentReadingService.collectImagePathsFromReadingResult = jest
+        .fn()
+        .mockReturnValue(['Images/test.png']);
+
+      mockPlugin.conversationRenderer.buildMessageMetadata = jest.fn().mockResolvedValue({
+        messageId: 'p0act',
+        comment: '<!--STW ID:p0act,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content-->',
+      });
+
+      (mockPlugin.app.vault.process as jest.Mock).mockImplementation(
+        async (_file, mutator: (content: string) => string) => {
+          return mutator('<!--STW ID:msg1,ROLE:user-->\nRead image\n');
+        }
+      );
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Subagent Conversation');
+
+      const artifactId = await manager.storeArtifact({
+        artifact: {
+          artifactType: ArtifactType.READ_CONTENT,
+          readingResults: [
+            {
+              blocks: [],
+              source: 'entire',
+              file: { path: 'Images/test.png', name: 'test.png' },
+            },
+          ],
+        },
+      });
+
+      expect(artifactId).toBe('p0act');
+
+      const cached = await manager.getArtifactById('p0act');
+      expect(cached).toBeInstanceOf(ReadContentArtifactImpl);
+      expect(cached).toMatchObject({
+        artifactType: ArtifactType.READ_CONTENT,
+        imagePaths: ['Images/test.png'],
+      });
     });
   });
 

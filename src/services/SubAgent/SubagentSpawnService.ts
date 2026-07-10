@@ -16,7 +16,7 @@ export interface SpawnSubagentJob {
   tools?: ToolName[];
   inactiveTools?: ToolName[];
   systemPrompts?: string[];
-  model?: string;
+  models?: string[];
 }
 
 export interface SubagentRunResult {
@@ -122,8 +122,9 @@ export class SubagentSpawnService {
         { name: 'lang', value: conversationLanguage },
         { name: 'indicator_text', value: indicatorText },
       ];
-      if (job.model) {
-        childProperties.unshift({ name: 'model', value: job.model });
+      const primaryModel = job.models?.[0];
+      if (primaryModel) {
+        childProperties.unshift({ name: 'model', value: primaryModel });
       }
 
       await this.plugin.conversationRenderer.createConversationNote(childTitle, {
@@ -133,11 +134,21 @@ export class SubagentSpawnService {
         },
         properties: childProperties,
       });
-      const childFrontmatter: Array<{ name: string; value: string }> = [
+      const childFrontmatter: Array<{ name: string; value: unknown }> = [
         { name: 'parent', value: params.parentAgentId },
       ];
       if (job.agentId) {
         childFrontmatter.push({ name: 'sub_agent_id', value: job.agentId });
+      }
+      if (job.models && job.models.length > 1) {
+        childFrontmatter.push({
+          name: 'modelFallback',
+          value: {
+            originalModel: job.models[0],
+            attemptedModels: [job.models[0]],
+            chain: job.models,
+          },
+        });
       }
       await this.plugin.conversationRenderer.updateConversationFrontmatter(
         childTitle,
@@ -152,13 +163,17 @@ export class SubagentSpawnService {
 
       try {
         const mergedActiveTools = this.mergeActiveTools(params.defaultTools, job.tools);
+        if (job.models && job.models.length > 1) {
+          mergedActiveTools.push(ToolName.SWITCH_MODEL);
+        }
         const childParams: AgentHandlerParams = {
           title: childTitle,
           intent: {
             type: DEFAULT_INTENT_TYPE,
             query: job.task,
             no_confirm: true,
-            model: job.model,
+            model: primaryModel,
+            models: job.models,
             systemPrompts: [...(params.defaultSystemPrompts || []), ...(job.systemPrompts || [])],
           },
           lang: params.lang,

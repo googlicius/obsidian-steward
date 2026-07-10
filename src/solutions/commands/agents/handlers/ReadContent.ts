@@ -271,6 +271,7 @@ export class ReadContent {
       model:
         ctx.agentHandlerParams.intent.model?.trim() || this.agent.plugin.settings.llm.chat.model,
       subAgentDefinitionId,
+      availableModels: ctx.agentHandlerParams.intent.models,
     });
 
     // Store single artifact with all reading results

@@ -764,14 +764,20 @@ export class ContentReadingService {
     readingResults: ContentReadingResult[];
     model: string;
     subAgentDefinitionId?: string | null;
+    availableModels?: string[];
   }): void {
-    const { readingResults, model, subAgentDefinitionId } = params;
+    const { readingResults, model, subAgentDefinitionId, availableModels } = params;
     if (this.plugin.llmService.supportsVision(model)) {
       return;
     }
 
     const { modelId } = this.plugin.llmService.parseModel(model);
-    const notice = this.buildImageVisionNotice(modelId, subAgentDefinitionId);
+    const notice = this.buildImageVisionNotice(
+      modelId,
+      subAgentDefinitionId,
+      availableModels,
+      model
+    );
 
     for (const result of readingResults) {
       if (this.collectImagePathsFromReadingResult(result).length > 0) {
@@ -814,11 +820,24 @@ export class ContentReadingService {
   }
 
   /** AI-only message when the chat model cannot receive image bytes from a read. */
-  private buildImageVisionNotice(modelId: string, subAgentDefinitionId?: string | null): string {
+  private buildImageVisionNotice(
+    modelId: string,
+    subAgentDefinitionId?: string | null,
+    availableModels?: string[],
+    currentModel?: string
+  ): string {
     const baseLines = [
       `The current chat model (${modelId}) does not support vision/image inputs.`,
       'Image pixels from this read were not attached to the model.',
     ];
+
+    const visionAlternative = this.findVisionCapableModel(availableModels, currentModel);
+    if (visionAlternative) {
+      return [
+        ...baseLines,
+        `Call \`${ToolName.SWITCH_MODEL}\` to \`${visionAlternative}\` and retry this read.`,
+      ].join(' ');
+    }
 
     if (subAgentDefinitionId === 'image_vision') {
       return [
@@ -832,5 +851,23 @@ export class ContentReadingService {
       `Use ${ToolName.SPAWN_SUBAGENT} to delegate to the image_vision sub-agent when the user needs image content analyzed.`,
       'Otherwise, tell the user this model cannot view images, or continue with a non-image approach (paths, filenames, surrounding text only—do not describe pixel content).',
     ].join(' ');
+  }
+
+  private findVisionCapableModel(
+    availableModels: string[] | undefined,
+    currentModel: string | undefined
+  ): string | undefined {
+    if (!availableModels || availableModels.length === 0) {
+      return undefined;
+    }
+
+    for (let i = 0; i < availableModels.length; i++) {
+      const candidate = availableModels[i];
+      if (candidate !== currentModel && this.plugin.llmService.supportsVision(candidate)) {
+        return candidate;
+      }
+    }
+
+    return undefined;
   }
 }

@@ -123,7 +123,7 @@ describe('SubAgentDefinitionService', () => {
     expect(validation.definitionsById.get('image_vision')).toMatchObject({
       id: 'image_vision',
       description: 'Reads and analyzes images using a vision-capable model',
-      model: 'google:gemini-2.5-flash',
+      models: ['google:gemini-2.5-flash'],
       enabled: true,
       tools: [ToolName.CONTENT_READING],
     });
@@ -193,5 +193,81 @@ describe('SubAgentDefinitionService', () => {
 
     expect(validation.valid).toBe(false);
     expect(validation.errors.some(error => error.includes('unsupported block name'))).toBe(true);
+  });
+
+  it('normalizes model string to a single-element models array', () => {
+    const content = buildValidSubAgentsMd();
+    const plugin = createValidatorPlugin(content);
+    const service = SubAgentDefinitionService.getInstance(plugin);
+
+    const validation = service.validateContent({ content, file });
+
+    expect(validation.valid).toBe(true);
+    expect(validation.definitionsById.get('image_vision')?.models).toEqual([
+      'google:gemini-2.5-flash',
+    ]);
+  });
+
+  it('accepts model as an ordered list', () => {
+    const content = [
+      '```yaml',
+      'name: agent',
+      'id: multi_model',
+      'description: Agent with fallback models',
+      'instruction: Test agent',
+      'model:',
+      '  - bogus:invalid-model',
+      '  - google:gemini-2.5-flash',
+      '```',
+    ].join('\n');
+    const plugin = createValidatorPlugin(content);
+    const service = SubAgentDefinitionService.getInstance(plugin);
+
+    const validation = service.validateContent({ content, file });
+
+    expect(validation.valid).toBe(true);
+    expect(validation.definitionsById.get('multi_model')?.models).toEqual([
+      'bogus:invalid-model',
+      'google:gemini-2.5-flash',
+    ]);
+  });
+
+  it('rejects duplicate model entries in a list', () => {
+    const content = [
+      '```yaml',
+      'name: agent',
+      'id: dup_models',
+      'description: Duplicate models',
+      'instruction: Test agent',
+      'model:',
+      '  - google:gemini-2.5-flash',
+      '  - google:gemini-2.5-flash',
+      '```',
+    ].join('\n');
+    const plugin = createValidatorPlugin(content);
+    const service = SubAgentDefinitionService.getInstance(plugin);
+
+    const validation = service.validateContent({ content, file });
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors.some(error => error.includes('duplicate model entries'))).toBe(true);
+  });
+
+  it('rejects an empty model list', () => {
+    const content = [
+      '```yaml',
+      'name: agent',
+      'id: empty_models',
+      'description: Empty model list',
+      'instruction: Test agent',
+      'model: []',
+      '```',
+    ].join('\n');
+    const plugin = createValidatorPlugin(content);
+    const service = SubAgentDefinitionService.getInstance(plugin);
+
+    const validation = service.validateContent({ content, file });
+
+    expect(validation.valid).toBe(false);
   });
 });

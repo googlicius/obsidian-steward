@@ -144,6 +144,28 @@ describe('ContentReadingService', () => {
         'Either stop and tell the user this model cannot view images, or continue with a non-image approach'
       );
     });
+
+    it('buildImageVisionNotice recommends switch_model when a vision alternative exists', () => {
+      const mockPlugin = createMockPlugin('', [], { line: 0, ch: 0 });
+      mockPlugin.llmService = {
+        supportsVision: jest
+          .fn()
+          .mockImplementation((model: string) => model === 'google:gemini-2.5-flash'),
+      } as never;
+      service = ContentReadingService.getInstance(mockPlugin);
+      buildImageVisionNotice = service['buildImageVisionNotice'].bind(service);
+
+      const notice = buildImageVisionNotice(
+        'deepseek-chat',
+        undefined,
+        ['deepseek:deepseek-chat', 'google:gemini-2.5-flash'],
+        'deepseek:deepseek-chat'
+      );
+
+      expect(notice).toContain('switch_model');
+      expect(notice).toContain('google:gemini-2.5-flash');
+      expect(notice).not.toContain('spawn_subagent');
+    });
   });
 
   describe('readContent - readType above/below/entire', () => {

@@ -153,7 +153,10 @@ export abstract class Agent {
         error instanceof Error &&
         ['AbortError', 'TypeError', 'SysError', 'AI_InvalidPromptError'].includes(error.name);
 
-      if (this.plugin.modelFallbackService.isEnabled() && !nonRetryAbleError) {
+      if (
+        !nonRetryAbleError &&
+        (await this.plugin.modelFallbackService.isEnabledFor(params.title))
+      ) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
         if (nextModel) {
           // Render fallback message

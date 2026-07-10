@@ -8,6 +8,7 @@ import { logger } from 'src/utils/logger';
 export interface ModelFallbackFrontmatter {
   originalModel?: string;
   attemptedModels?: string[];
+  chain?: string[];
 }
 
 /**
@@ -38,6 +39,30 @@ export class ModelFallbackService {
    */
   public isEnabled(): boolean {
     return this.plugin.settings.llm.modelFallback?.enabled ?? false;
+  }
+
+  /**
+   * Check if model fallback is enabled for a conversation (global setting or per-conversation chain).
+   */
+  public async isEnabledFor(conversationTitle: string): Promise<boolean> {
+    if (this.isEnabled()) {
+      return true;
+    }
+
+    const state = await this.getState(conversationTitle);
+    return (state?.chain?.length ?? 0) > 0;
+  }
+
+  private getEffectiveChain(state: ModelFallbackFrontmatter | null): string[] {
+    if (state?.chain && state.chain.length > 0) {
+      return state.chain;
+    }
+
+    if (this.isEnabled()) {
+      return this.plugin.settings.llm.modelFallback?.fallbackChain || [];
+    }
+
+    return [];
   }
 
   /**
@@ -108,7 +133,7 @@ export class ModelFallbackService {
    * Check if there are more fallback models available
    */
   public async hasMoreFallbacks(conversationTitle: string): Promise<boolean> {
-    if (!this.isEnabled()) {
+    if (!(await this.isEnabledFor(conversationTitle))) {
       return false;
     }
 
@@ -117,7 +142,7 @@ export class ModelFallbackService {
       return false;
     }
 
-    const fallbackChain = this.plugin.settings.llm.modelFallback?.fallbackChain || [];
+    const fallbackChain = this.getEffectiveChain(state);
     if (fallbackChain.length === 0) {
       return false;
     }
@@ -130,7 +155,7 @@ export class ModelFallbackService {
    * Get the next model from the fallback chain
    */
   private async getNextModel(conversationTitle: string): Promise<string | null> {
-    if (!this.isEnabled()) {
+    if (!(await this.isEnabledFor(conversationTitle))) {
       return null;
     }
 
@@ -139,7 +164,7 @@ export class ModelFallbackService {
       return null;
     }
 
-    const fallbackChain = this.plugin.settings.llm.modelFallback?.fallbackChain || [];
+    const fallbackChain = this.getEffectiveChain(state);
     if (fallbackChain.length === 0) {
       return null;
     }
@@ -153,7 +178,7 @@ export class ModelFallbackService {
    * @returns The next model if enabled and found otherwise null.
    */
   public async switchToNextModel(conversationTitle: string): Promise<string | null> {
-    if (!this.isEnabled()) {
+    if (!(await this.isEnabledFor(conversationTitle))) {
       return null;
     }
 
@@ -172,10 +197,38 @@ export class ModelFallbackService {
       return null;
     }
 
-    // Update the frontmatter
+    await this.applyModelSwitch(conversationTitle, nextModel);
+
+    return nextModel;
+  }
+
+  /**
+   * Switch explicitly to a model (agent-driven via switch_model tool).
+   * @returns true when the frontmatter was updated.
+   */
+  public async switchToModel(conversationTitle: string, model: string): Promise<boolean> {
+    const file = this.getConversationFile(conversationTitle);
+    if (!file) {
+      return false;
+    }
+
+    const currentModel = await this.getCurrentModel(conversationTitle);
+    if (currentModel === model) {
+      return false;
+    }
+
+    await this.applyModelSwitch(conversationTitle, model);
+    return true;
+  }
+
+  private async applyModelSwitch(conversationTitle: string, model: string): Promise<void> {
+    const file = this.getConversationFile(conversationTitle);
+    if (!file) {
+      return;
+    }
+
     await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
-      // Update the main model field
-      frontmatter.model = nextModel;
+      frontmatter.model = model;
 
       if (!frontmatter.modelFallback) {
         return;
@@ -185,13 +238,12 @@ export class ModelFallbackService {
         frontmatter.modelFallback.attemptedModels = [];
       }
 
-      frontmatter.modelFallback.attemptedModels.push(nextModel);
+      if (!frontmatter.modelFallback.attemptedModels.includes(model)) {
+        frontmatter.modelFallback.attemptedModels.push(model);
+      }
     });
 
-    // Update usedModels in frontmatter
-    await this.trackModelInFrontmatter(conversationTitle, nextModel);
-
-    return nextModel;
+    await this.trackModelInFrontmatter(conversationTitle, model);
   }
 
   /**

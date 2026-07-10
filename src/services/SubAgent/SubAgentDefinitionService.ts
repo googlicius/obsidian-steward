@@ -232,11 +232,21 @@ export class SubAgentDefinitionService {
       }
       idsSeen.add(parsed.data.id);
 
+      let models: string[] | undefined;
+      if (parsed.data.model !== undefined) {
+        models = Array.isArray(parsed.data.model) ? parsed.data.model : [parsed.data.model];
+        const uniqueModels = new Set(models);
+        if (uniqueModels.size !== models.length) {
+          errors.push(`agent "${parsed.data.id}": duplicate model entries`);
+          continue;
+        }
+      }
+
       definitionsById.set(parsed.data.id, {
         id: parsed.data.id,
         description: parsed.data.description,
         instruction: parsed.data.instruction,
-        model: parsed.data.model,
+        models,
         enabled: true,
         tools: parsed.data.tools,
         inactiveTools: parsed.data.inactiveTools,

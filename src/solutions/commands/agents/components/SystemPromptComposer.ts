@@ -2,6 +2,7 @@ import type StewardPlugin from 'src/main';
 import { ToolName } from '../../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
+import { getModelMetadata } from 'src/services/LLMService/modelMetadata';
 const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
   ToolName.LIST,
   ToolName.CREATE,
@@ -151,6 +152,27 @@ The command catalog is not listed here because ${ToolName.RUN_COMMAND} is inacti
       .concat(
         `\n\nTo run a user-defined command, use the ${ToolName.RUN_COMMAND} tool.\nNo need to read the command definition note before calling ${ToolName.RUN_COMMAND}, it's loaded automatically; pass command_name from this catalog.`
       );
+  }
+
+  protected buildModelSectionBody(params: { models: string[]; currentModel?: string }): string {
+    const lines: string[] = [];
+
+    for (let i = 0; i < params.models.length; i++) {
+      const model = params.models[i];
+      const metadata = getModelMetadata(model);
+      const isCurrent = model === params.currentModel;
+      const marker = isCurrent ? ' (current)' : '';
+      const vision = metadata?.input?.includes('image') ? 'yes' : 'no';
+      const toolCall = metadata?.toolCall !== false ? 'yes' : 'no';
+      lines.push(`- ${model}${marker}: vision ${vision}, tool-call ${toolCall}`);
+    }
+
+    lines.push('');
+    lines.push(
+      `If a tool result reports the current model cannot process the input (e.g. images) or the model underperforms on the task, call ${ToolName.SWITCH_MODEL} with a suitable model from this list, then retry the tool.`
+    );
+
+    return lines.join('\n');
   }
 
   protected wrapPromptSection(heading: string, body: string): string {
