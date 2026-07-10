@@ -1115,6 +1115,209 @@ Content.`;
     });
   });
 
+  describe('readContent - readType entire pagination', () => {
+    function createLongLineContent(lineCount: number): string {
+      return Array.from({ length: lineCount }, (_, i) => `line ${i}`).join('\n');
+    }
+
+    it('returns full markdown content without truncationNotice when under the line limit', async () => {
+      const lineCount = 500;
+      const mockText = createLongLineContent(lineCount);
+      const sections = [createSection('paragraph', 0, lineCount - 1)];
+      const mockFile = getInstance(TFile, { path: 'notes/small.md', name: 'small.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/small.md',
+      });
+      assertContentReadingResult(result);
+
+      expect(result.truncationNotice).toBeUndefined();
+      expect(result.blocks).toHaveLength(1);
+      expect(result.blocks[0].startLine).toBe(0);
+      expect(result.blocks[0].endLine).toBe(lineCount - 1);
+      expect(result.blocks[0].content).toBe(mockText);
+    });
+
+    it('truncates markdown entire reads at MAX_READ_ENTIRE_LINES with continuation notice', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const sections = [createSection('paragraph', 0, lineCount - 1)];
+      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/large.md',
+        offset: 0,
+      });
+      assertContentReadingResult(result);
+
+      expect(result.blocks[0].startLine).toBe(0);
+      expect(result.blocks[0].endLine).toBe(999);
+      expect(result.blocks[0].content.split('\n')).toHaveLength(1000);
+      expect(result.truncationNotice).toContain('1200 total');
+      expect(result.truncationNotice).toContain('200 line(s) remain');
+      expect(result.truncationNotice).toContain('offset 1000');
+    });
+
+    it('continues markdown entire reads from offset and reports end of file', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const sections = [createSection('paragraph', 0, lineCount - 1)];
+      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/large.md',
+        offset: 1000,
+      });
+      assertContentReadingResult(result);
+
+      expect(result.blocks[0].startLine).toBe(1000);
+      expect(result.blocks[0].endLine).toBe(1199);
+      expect(result.blocks[0].content.split('\n')).toHaveLength(200);
+      expect(result.truncationNotice).toContain('End of file reached');
+    });
+
+    it('clamps sections that span the pagination boundary', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const sections = [
+        createSection('paragraph', 990, 1020),
+        createSection('paragraph', 1100, 1150),
+      ];
+      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/large.md',
+        offset: 0,
+      });
+      assertContentReadingResult(result);
+
+      expect(result.blocks[0].sections).toEqual([{ type: 'paragraph', startLine: 990, endLine: 999 }]);
+    });
+
+    it('clamps section start lines when continuing with offset > 0', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const sections = [createSection('paragraph', 990, 1020)];
+      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/large.md',
+        offset: 1000,
+      });
+      assertContentReadingResult(result);
+
+      expect(result.blocks[0].sections).toEqual([
+        { type: 'paragraph', startLine: 1000, endLine: 1020 },
+      ]);
+    });
+
+    it('uses a fallback entire section when cache has no sections', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, [], { line: 0, ch: 0 }, mockFile);
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({});
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/large.md',
+        offset: 1000,
+      });
+      assertContentReadingResult(result);
+
+      expect(result.blocks[0].sections).toEqual([
+        { type: 'entire', startLine: 1000, endLine: 1199 },
+      ]);
+    });
+
+    it('returns empty blocks and an out-of-range notice when offset is past EOF', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const sections = [createSection('paragraph', 0, lineCount - 1)];
+      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'notes/large.md',
+        offset: 1200,
+      });
+      assertContentReadingResult(result);
+
+      expect(result.blocks).toEqual([]);
+      expect(result.truncationNotice).toContain('Offset 1200 is beyond the end of file');
+      expect(result.truncationNotice).toContain('valid offsets 0-1199');
+    });
+
+    it('paginates plain-text entire reads with line-number prefixes on continuation pages', async () => {
+      const lineCount = 1200;
+      const mockText = createLongLineContent(lineCount);
+      const mockFile = getInstance(TFile, {
+        path: 'widgets/large.html',
+        name: 'large.html',
+        extension: 'html',
+      });
+      const mockPlugin = createMockPlugin(mockText, [], { line: 0, ch: 0 }, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const page1 = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'widgets/large.html',
+        offset: 0,
+      });
+      assertContentReadingResult(page1);
+
+      expect(page1.instruction).toBe(PLAIN_TEXT_READ_INSTRUCTION);
+      expect(page1.truncationNotice).toContain('200 line(s) remain');
+
+      const page2 = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'widgets/large.html',
+        offset: 1000,
+      });
+      assertContentReadingResult(page2);
+
+      expect(page2.instruction).toBe(PLAIN_TEXT_READ_INSTRUCTION);
+      expect(page2.truncationNotice).toContain('End of file reached');
+      expect(page2.blocks[0].content.startsWith('1000: line 1000')).toBe(true);
+    });
+  });
+
   describe('getFileProperty', () => {
     it('returns a frontmatter property from the metadata cache', () => {
       const mockFile = new TFile();

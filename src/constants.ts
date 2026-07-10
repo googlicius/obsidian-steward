@@ -47,6 +47,9 @@ export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.
 
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 
+/** Maximum lines returned per content_reading call when readType is "entire". */
+export const MAX_READ_ENTIRE_LINES = 1000;
+
 /**
  * Stw-source pattern constants for reuse across the application
  * Pattern to match any stw-source block (with capture group for splitting)

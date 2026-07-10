@@ -1,4 +1,5 @@
 import { ToolName } from './toolNames';
+import { MAX_READ_ENTIRE_LINES } from 'src/constants';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { revertAbleArtifactTypes } from '../artifact';
@@ -49,6 +50,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
       `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests it.`,
       `To read or inspect hidden (dot-prefixed) files or paths under a hidden folder, use the ${ToolName.SHELL} tool (e.g. cat, type, or Get-Content) from the vault root; the read tool cannot use the editor for those paths.`,
+      `When readType is "entire", each call returns at most ${MAX_READ_ENTIRE_LINES} lines. If the result contains a truncationNotice with remaining lines, call ${ToolName.CONTENT_READING} again with readType "entire", the same file, and the offset from the notice. Do not assume the whole file was seen unless the notice says end of file (or there is no notice).`,
     ],
     showDescriptionWhenInactive: true,
   },
@@ -58,7 +60,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.CONFIRMATION,
     description: 'Get confirmation from the user before performing an action.',
     guidelines: [
-      `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note (markdown files). (When readType is "entire"). EXCEPT reading images.`,
+      `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note (markdown files). (When readType is "entire"). EXCEPT reading images, or continuing a truncated read with offset > 0 (the user already confirmed the initial read).`,
       `Use ${ToolName.CONFIRMATION} once for all note(s) to be read.`,
     ],
     category: 'user-interaction',

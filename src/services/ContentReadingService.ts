@@ -3,7 +3,7 @@ import { isConversationLink } from '../utils/conversationUtils';
 import type StewardPlugin from '../main';
 import { ContentReadingArgs } from '../solutions/commands/agents/handlers/ReadContent';
 import { logger } from 'src/utils/logger';
-import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN } from 'src/constants';
+import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN, MAX_READ_ENTIRE_LINES } from 'src/constants';
 import { isHiddenPath } from 'src/utils/pathUtils';
 import { ToolName } from 'src/solutions/commands/toolNames';
 
@@ -48,6 +48,8 @@ export interface ContentReadingResult {
   instruction?: string;
   /** AI-only notice when images were read but the chat model cannot receive image inputs. */
   imageVisionNotice?: string;
+  /** AI-only notice when an "entire" read was paginated or continued with offset. */
+  truncationNotice?: string;
 }
 
 /**
@@ -102,6 +104,7 @@ export class ContentReadingService {
     blocksToRead: ContentReadingArgs['blocksToRead'];
     elementType: ContentReadingArgs['elementType'];
     pattern?: ContentReadingArgs['pattern'];
+    offset?: ContentReadingArgs['offset'];
   }): Promise<ContentReadingResult | string> {
     if (isHiddenPath(normalizePath(args.fileName))) {
       return `This is a hidden (dot-prefixed) path, the read tool uses vault API cannot see hidden files. Use the ${ToolName.SHELL} tool to read it. Path: ${args.fileName}`;
@@ -126,7 +129,7 @@ export class ContentReadingService {
           },
         };
       }
-      return this.readPlainTextEntire(file);
+      return this.readPlainTextEntire(file, args.offset ?? 0);
     }
 
     if (file.extension.toLowerCase() !== 'md') {
@@ -145,7 +148,7 @@ export class ContentReadingService {
         return await this.readBlocksWithPattern(file, args.blocksToRead, args.pattern);
 
       case 'entire':
-        return this.readEntireContent(file);
+        return this.readEntireContent(file, args.offset ?? 0);
 
       case 'frontmatter':
         return this.readFrontmatter(file);
@@ -206,16 +209,78 @@ export class ContentReadingService {
     };
   }
 
-  private async readPlainTextEntire(file: TFile): Promise<ContentReadingResult> {
+  private sliceEntireLines(lines: string[], offset: number) {
+    const totalLines = lines.length;
+    const startLine = Math.min(Math.max(offset, 0), Math.max(totalLines - 1, 0));
+    const endLine = Math.min(startLine + MAX_READ_ENTIRE_LINES - 1, totalLines - 1);
+    return {
+      slice: lines.slice(startLine, endLine + 1),
+      startLine,
+      endLine,
+      totalLines,
+      truncated: endLine < totalLines - 1,
+    };
+  }
+
+  private buildTruncationNotice(params: {
+    path: string;
+    startLine: number;
+    endLine: number;
+    totalLines: number;
+    truncated: boolean;
+    offset: number;
+  }): string {
+    const { path, startLine, endLine, totalLines, truncated, offset } = params;
+
+    if (truncated) {
+      const remaining = totalLines - endLine - 1;
+      return `Showing lines ${startLine}-${endLine} of ${totalLines} total (0-based). ${remaining} line(s) remain. To continue, call content_reading again with readType "entire", fileNames ["${path}"], and offset ${endLine + 1}.`;
+    }
+
+    if (offset > 0) {
+      return `Showing lines ${startLine}-${endLine} of ${totalLines} total (0-based). End of file reached.`;
+    }
+
+    return '';
+  }
+
+  private buildOutOfRangeTruncationNotice(offset: number, totalLines: number): string {
+    return `Offset ${offset} is beyond the end of file (${totalLines} lines, valid offsets 0-${Math.max(totalLines - 1, 0)}).`;
+  }
+
+  private async readPlainTextEntire(file: TFile, offset = 0): Promise<ContentReadingResult> {
     const fileContent = await this.plugin.app.vault.cachedRead(file);
     const lines = fileContent.split('\n');
-    const endLine = Math.max(lines.length - 1, 0);
+    const totalLines = lines.length;
 
-    return {
+    if (offset >= totalLines) {
+      return {
+        blocks: [],
+        source: 'entire',
+        instruction: PLAIN_TEXT_READ_INSTRUCTION,
+        truncationNotice: this.buildOutOfRangeTruncationNotice(offset, totalLines),
+        file: {
+          path: file.path,
+          name: file.name,
+        },
+      };
+    }
+
+    const { slice, startLine, endLine, truncated } = this.sliceEntireLines(lines, offset);
+    const truncationNotice = this.buildTruncationNotice({
+      path: file.path,
+      startLine,
+      endLine,
+      totalLines,
+      truncated,
+      offset,
+    });
+
+    const result: ContentReadingResult = {
       blocks: [
         this.createPlainTextBlock({
-          lines,
-          startLine: 0,
+          lines: slice,
+          startLine,
           endLine,
         }),
       ],
@@ -226,6 +291,12 @@ export class ContentReadingService {
         name: file.name,
       },
     };
+
+    if (truncationNotice) {
+      result.truncationNotice = truncationNotice;
+    }
+
+    return result;
   }
 
   /**
@@ -478,43 +549,69 @@ export class ContentReadingService {
    * @param file The file to read
    * @returns The entire file content as a single block with all sections detailed
    */
-  private async readEntireContent(file: TFile): Promise<ContentReadingResult> {
+  private async readEntireContent(file: TFile, offset = 0): Promise<ContentReadingResult> {
     const content = await this.plugin.app.vault.cachedRead(file);
-    const endLine = content.split('\n').length - 1;
+    const lines = content.split('\n');
+    const totalLines = lines.length;
 
-    // Get all sections from the file cache
-    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    if (offset >= totalLines) {
+      return {
+        blocks: [],
+        source: 'entire',
+        truncationNotice: this.buildOutOfRangeTruncationNotice(offset, totalLines),
+        file: {
+          path: file.path,
+          name: file.name,
+        },
+      };
+    }
+
+    const { slice, startLine, endLine, truncated } = this.sliceEntireLines(lines, offset);
     const sections: SectionDetail[] = [];
 
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
     if (cache?.sections) {
-      // Map all sections to SectionDetail format
       for (const section of cache.sections) {
+        const sectionStartLine = section.position.start.line;
+        const sectionEndLine = section.position.end.line;
+
+        if (sectionEndLine < startLine || sectionStartLine > endLine) {
+          continue;
+        }
+
         sections.push({
           type: section.type,
-          startLine: section.position.start.line,
-          endLine: section.position.end.line,
+          startLine: Math.max(sectionStartLine, startLine),
+          endLine: Math.min(sectionEndLine, endLine),
         });
       }
     }
 
-    // If no sections found, create a default "entire" section
     if (sections.length === 0) {
       sections.push({
         type: 'entire',
-        startLine: 0,
+        startLine,
         endLine,
       });
     }
 
-    // Create a single block containing the entire file with all sections
     const block: ContentBlock = {
-      startLine: 0,
+      startLine,
       endLine,
       sections,
-      content,
+      content: slice.join('\n'),
     };
 
-    return {
+    const truncationNotice = this.buildTruncationNotice({
+      path: file.path,
+      startLine,
+      endLine,
+      totalLines,
+      truncated,
+      offset,
+    });
+
+    const result: ContentReadingResult = {
       blocks: [block],
       source: 'entire',
       file: {
@@ -522,6 +619,12 @@ export class ContentReadingService {
         name: file.name,
       },
     };
+
+    if (truncationNotice) {
+      result.truncationNotice = truncationNotice;
+    }
+
+    return result;
   }
 
   /**

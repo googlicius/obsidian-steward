@@ -39,6 +39,7 @@ const contentReadingResultSchema = z.object({
   range: editorRangeSchema.optional(),
   instruction: z.string().optional(),
   imageVisionNotice: z.string().optional(),
+  truncationNotice: z.string().optional(),
 });
 
 const readContentArtifactSchema = z.object({
