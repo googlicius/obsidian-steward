@@ -13,7 +13,8 @@
     "strictNullChecks": true,
     "lib": ["DOM", "ES5", "ES6", "ES7"],
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["jest", "node"]
   },
   "include": ["**/*.ts"]
 }

@@ -385,7 +385,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'read',
             toolCallId: 'call_456',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { query: 'React Hooks' },
             output: {
               type: 'text',
@@ -420,7 +420,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'create',
             toolCallId: 'call_create_1',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { newFiles: [{ filePath: 'notes/note.md', content: originalContent }] },
             output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
           },
@@ -459,7 +459,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'create',
             toolCallId: 'call_create_1',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { newFiles: [{ filePath: 'notes/note.md', content: originalContent }] },
             output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
           },
@@ -505,7 +505,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'create',
             toolCallId: 'call_old',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { newFiles: [{ filePath: 'notes/old.md', content: staleContent }] },
             output: { type: 'json', value: { createdPaths: ['notes/old.md'] } },
           },
@@ -521,7 +521,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'create',
             toolCallId: 'call_new',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { newFiles: [{ filePath: 'notes/new.md', content: freshContent }] },
             output: { type: 'json', value: { createdPaths: ['notes/new.md'] } },
           },
@@ -572,7 +572,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'shell',
             toolCallId: 'call_shell_1',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { argsLine: 'ls -la' },
             output: { type: 'text', value: longOutput },
           },
@@ -735,7 +735,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'search',
             toolCallId: 'call_123',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { query: 'React' },
             output: { type: 'text', value: 'Found results' },
           },
@@ -935,7 +935,7 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'read_content',
             toolCallId: 'call_789',
-            type: 'tool-call',
+            type: 'tool-result',
             input: { source: 'selection' },
             output: { type: 'text', value: 'artifactRef:artifact123' },
           },
@@ -1656,81 +1656,6 @@ describe('ConversationRenderer', () => {
   });
 
   describe('deserializeToolInvocations', () => {
-    it('should deserialize a tool-call with input and output', async () => {
-      const mockPlugin = createMockPlugin();
-      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
-
-      const message: ConversationMessage = {
-        id: 'msg123',
-        role: 'assistant',
-        content: [
-          'Some text before',
-          '',
-          '```stw-tool-invocation',
-          JSON.stringify([
-            {
-              toolName: 'search',
-              toolCallId: 'call_456',
-              type: 'tool-call',
-              input: { query: 'React hooks' },
-              output: {
-                type: 'text',
-                value: 'Found 5 results',
-              },
-            },
-          ]),
-          '```',
-          '',
-          'Some text after',
-        ].join('\n'),
-        intent: 'search',
-        type: 'tool-invocation',
-      };
-
-      const result = await conversationRenderer.deserializeToolInvocations({
-        message,
-        conversationTitle: 'test-conversation',
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
-    it('should deserialize a tool-call with args and result (backward compatibility)', async () => {
-      const mockPlugin = createMockPlugin();
-      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
-
-      const message: ConversationMessage = {
-        id: 'msg123',
-        role: 'assistant',
-        content: [
-          'Some text before',
-          '',
-          '```stw-tool-invocation',
-          JSON.stringify([
-            {
-              toolName: 'read',
-              toolCallId: 'call_789',
-              type: 'tool-call',
-              args: { query: 'TypeScript types' },
-              result: 'Found documentation',
-            },
-          ]),
-          '```',
-          '',
-          'Some text after',
-        ].join('\n'),
-        intent: 'read',
-        type: 'tool-invocation',
-      };
-
-      const result = await conversationRenderer.deserializeToolInvocations({
-        message,
-        conversationTitle: 'test-conversation',
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
     it('should deserialize a tool-result type with inline output', async () => {
       const mockPlugin = createMockPlugin();
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
@@ -2102,41 +2027,6 @@ describe('ConversationRenderer', () => {
       expect(result).toBeNull();
     });
 
-    it('should handle tool-call type with both input and output', async () => {
-      const mockPlugin = createMockPlugin();
-      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
-
-      const message: ConversationMessage = {
-        id: 'msg123',
-        role: 'assistant',
-        content: [
-          '```stw-tool-invocation',
-          JSON.stringify([
-            {
-              toolName: 'search',
-              toolCallId: 'call_999',
-              type: 'tool-call',
-              input: { query: 'test query' },
-              output: {
-                type: 'text',
-                value: 'Search results here',
-              },
-            },
-          ]),
-          '```',
-        ].join('\n'),
-        intent: 'search',
-        type: 'tool-invocation',
-      };
-
-      const result = await conversationRenderer.deserializeToolInvocations({
-        message,
-        conversationTitle: 'test-conversation',
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
     it('should handle tool-result type with input included', async () => {
       const mockPlugin = createMockPlugin();
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
@@ -2161,37 +2051,6 @@ describe('ConversationRenderer', () => {
           '```',
         ].join('\n'),
         intent: 'activate',
-        type: 'tool-invocation',
-      };
-
-      const result = await conversationRenderer.deserializeToolInvocations({
-        message,
-        conversationTitle: 'test-conversation',
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
-    it('should deserialize tool invocations from legacy stw-artifact fence', async () => {
-      const mockPlugin = createMockPlugin();
-      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
-
-      const message: ConversationMessage = {
-        id: 'msg123',
-        role: 'assistant',
-        content: [
-          '```stw-artifact',
-          JSON.stringify([
-            {
-              toolName: 'read',
-              toolCallId: 'call_legacy_fence',
-              type: 'tool-result',
-              output: { type: 'text', value: 'from legacy fence' },
-            },
-          ]),
-          '```',
-        ].join('\n'),
-        intent: 'read',
         type: 'tool-invocation',
       };
 

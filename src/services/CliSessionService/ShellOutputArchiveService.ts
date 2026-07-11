@@ -3,6 +3,7 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer/ConversationRenderer';
+import { MAX_INLINE_ARCHIVED_OUTPUT_LINES } from './constants';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -146,10 +147,20 @@ export class ShellOutputArchiveService {
     const commandOutput = i18next.t('common.commandOutput');
     const linesLabel = i18next.t('common.lines', { number: lineCount });
     const toggleText = `${commandOutput} (${linesLabel})`;
+    const metadataHeader = `>[!stw-shell] output_file:${vaultRelativePath},output_anchor:${messageId},lines:${lineCount}`;
+
+    if (lineCount > MAX_INLINE_ARCHIVED_OUTPUT_LINES) {
+      const wikilinkPath = vaultRelativePath.replace(/\.md$/, '');
+      return (
+        `<small>*${intro}*</small>\n\n` +
+        `${metadataHeader}\n` +
+        `> [[${wikilinkPath}#${messageId}|${toggleText}]]\n`
+      );
+    }
 
     return (
       `<small>*${intro}*</small>\n\n` +
-      `>[!stw-shell] output_file:${vaultRelativePath},output_anchor:${messageId},lines:${lineCount}\n` +
+      `${metadataHeader}\n` +
       `> <a class="stw-toggle-block">${toggleText}</a>\n`
     );
   }

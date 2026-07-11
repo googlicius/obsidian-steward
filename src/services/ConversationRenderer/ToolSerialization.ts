@@ -9,15 +9,13 @@ import type { ConversationRenderer } from './ConversationRenderer';
 /** Markdown language tag for persisted tool-call / tool-result JSON (hidden in reading view). */
 export const STW_TOOL_INVOCATION_FENCE = 'stw-tool-invocation';
 
-const LEGACY_TOOL_INVOCATION_FENCE = 'stw-artifact';
-
 const TOOL_INVOCATION_FENCED_BLOCK_RE = new RegExp(
-  `\`\`\`(?:${STW_TOOL_INVOCATION_FENCE}|${LEGACY_TOOL_INVOCATION_FENCE})\\n([\\s\\S]*?)\\n\`\`\``,
+  `\`\`\`${STW_TOOL_INVOCATION_FENCE}\\n([\\s\\S]*?)\\n\`\`\``,
   'g'
 );
 
 const TOOL_INVOCATION_FENCE_STRIP_RE = new RegExp(
-  `\`\`\`(?:${STW_TOOL_INVOCATION_FENCE}|${LEGACY_TOOL_INVOCATION_FENCE})\\n|\\n\`\`\``,
+  `\`\`\`${STW_TOOL_INVOCATION_FENCE}\\n|\\n\`\`\``,
   'g'
 );
 
@@ -96,20 +94,19 @@ export class ToolSerialization {
     ): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart>> => {
       switch (type) {
         case 'tool-call': {
-          const input = toolInvocation.input ?? toolInvocation.args;
           return [
             {
               type,
               toolName: toolInvocation.toolName,
               toolCallId: toolInvocation.toolCallId,
-              input,
+              input: toolInvocation.input,
             },
           ];
         }
 
         case 'tool-result':
         default: {
-          const output = toolInvocation.output ?? toolInvocation.result;
+          const output = toolInvocation.output;
           const additionalParts: Array<TextPart | FilePart | ImagePart> = [];
 
           let resolvedOutput: ToolResultPart['output'] =
@@ -249,9 +246,6 @@ export class ToolSerialization {
 
         if (type === 'tool-call') {
           toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
-          if (toolInvocation.output || toolInvocation.result) {
-            toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
-          }
         } else {
           if (toolInvocation.input) {
             toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
@@ -262,31 +256,5 @@ export class ToolSerialization {
     }
 
     return toolInvocations.length > 0 ? toolInvocations : null;
-  }
-
-  /**
-   * Extracts tool names from a tool-invocation message content (sync, no artifact resolution).
-   * Used for filtering groups by compactability before full deserialization.
-   */
-  public extractToolNamesFromToolInvocation(content: string): string[] {
-    const matches = content.match(TOOL_INVOCATION_FENCED_BLOCK_RE);
-    if (!matches?.length) return [];
-
-    const names: string[] = [];
-    for (const match of matches) {
-      try {
-        const jsonStr = match.replace(TOOL_INVOCATION_FENCE_STRIP_RE, '');
-        const data = JSON.parse(jsonStr);
-        if (!Array.isArray(data)) continue;
-        for (const item of data) {
-          if (item?.toolName && typeof item.toolName === 'string') {
-            names.push(item.toolName);
-          }
-        }
-      } catch {
-        // Skip malformed blocks
-      }
-    }
-    return names;
   }
 }

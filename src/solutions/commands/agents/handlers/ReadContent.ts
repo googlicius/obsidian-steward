@@ -57,11 +57,7 @@ Set to -1 when: Reading above or below the current position and explicitly reque
     .string()
     .optional()
     .describe(`RegExp pattern to search for in the content. Required when readType is "pattern".`),
-  offset: z
-    .number()
-    .int()
-    .min(0)
-    .default(0)
+  offset: z.number().int().min(0).default(0)
     .describe(`0-based line number to start reading from. Only used when readType is "entire".
 Set it to continue reading a file whose previous "entire" read was truncated: use the offset value given in the truncationNotice (the line after the last returned line). Defaults to 0.`),
   foundPlaceholder: z

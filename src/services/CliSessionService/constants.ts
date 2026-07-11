@@ -10,3 +10,6 @@ export function getCliStreamMarkerPlaceholder(params?: { hidden?: boolean }): st
 
 /** The placeholder to process xterm terminal */
 export const CLI_XTERM_MARKER = '{{stw-cli-xterm}}';
+
+/** Above this line count, archived shell stubs use a wikilink instead of inline toggle injection. */
+export const MAX_INLINE_ARCHIVED_OUTPUT_LINES = 1500;

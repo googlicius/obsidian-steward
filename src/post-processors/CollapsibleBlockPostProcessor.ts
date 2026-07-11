@@ -3,10 +3,24 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { setupAutoScroll } from 'src/utils/scrollUtils';
+import { MAX_INLINE_ARCHIVED_OUTPUT_LINES } from 'src/services/CliSessionService/constants';
 
 const { i18next } = getBundledInternal('i18n');
 
 const SUPPORTED_BLOCKS = ['stw-thinking', 'cli-model'];
+
+export function shouldOpenArchiveInNewTab(linesRaw: string | undefined): boolean {
+  if (!linesRaw) {
+    return false;
+  }
+
+  const lineCount = parseInt(linesRaw, 10);
+  if (Number.isNaN(lineCount)) {
+    return false;
+  }
+
+  return lineCount > MAX_INLINE_ARCHIVED_OUTPUT_LINES;
+}
 
 /**
  * Handles:
@@ -63,7 +77,13 @@ export function createCollapsibleBlockPostProcessor(plugin: StewardPlugin): Mark
     const callout: HTMLElement | null = toggleLink.closest('[data-callout="stw-shell"]');
 
     if (callout?.dataset['output_file'] && callout?.dataset['output_anchor']) {
-      handleArchivedShellToggle(plugin, toggleLink as HTMLAnchorElement, callout, el);
+      handleArchivedShellToggle(
+        plugin,
+        toggleLink as HTMLAnchorElement,
+        callout,
+        el,
+        ctx.sourcePath
+      );
       return;
     }
 
@@ -107,10 +127,18 @@ function handleArchivedShellToggle(
   plugin: StewardPlugin,
   toggleLink: HTMLAnchorElement,
   callout: HTMLElement,
-  container: HTMLElement
+  container: HTMLElement,
+  sourcePath: string
 ): void {
   toggleLink.addEventListener('click', event => {
     event.preventDefault();
+
+    if (shouldOpenArchiveInNewTab(callout.dataset['lines'])) {
+      const filePath = callout.dataset['output_file']!;
+      const headingText = callout.dataset['output_anchor']!;
+      void plugin.app.workspace.openLinkText(`${filePath}#${headingText}`, sourcePath, true);
+      return;
+    }
 
     void (async () => {
       if (callout.dataset['stwShellLoaded'] === 'true') {

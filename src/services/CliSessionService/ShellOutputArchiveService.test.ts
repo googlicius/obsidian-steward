@@ -182,11 +182,61 @@ describe('ShellOutputArchiveService', () => {
         'Steward/Conversations/test-conv__shell.md',
         expect.stringContaining('```cli-model\nline1\nline2\nline3\n```')
       );
-      expect(plugin.conversationRenderer.replaceMessageContent).toHaveBeenCalledWith(
-        'test-conv',
-        'msg1',
-        expect.stringContaining('output_file:')
+      const stub = (plugin.conversationRenderer.replaceMessageContent as jest.Mock).mock
+        .calls[0][2] as string;
+      expect(stub).toContain('output_file:');
+      expect(stub).toContain('output_anchor:msg1');
+      expect(stub).toContain('lines:3');
+      expect(stub).toContain('stw-toggle-block');
+      expect(stub).not.toContain('[[Steward/Conversations/test-conv__shell#msg1|');
+    });
+
+    it('emits wikilink stub without toggle anchor when output exceeds inline threshold', async () => {
+      const largeBody = Array.from({ length: 1501 }, (_, i) => `line ${i + 1}`).join('\n');
+      (plugin.conversationRenderer.getMessageById as jest.Mock).mockResolvedValue({
+        id: 'msg-large',
+        role: 'assistant',
+        content: `\`\`\`cli-model\n${largeBody}\n\`\`\``,
+        history: true,
+      });
+      (plugin.app.vault.getFileByPath as jest.Mock).mockReturnValue(null);
+      (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
+
+      await service.archiveMessageOutput({
+        conversationTitle: 'test-conv',
+        messageId: 'msg-large',
+      });
+
+      const stub = (plugin.conversationRenderer.replaceMessageContent as jest.Mock).mock
+        .calls[0][2] as string;
+      expect(stub).toContain(
+        'output_file:Steward/Conversations/test-conv__shell.md,output_anchor:msg-large,lines:1501'
       );
+      expect(stub).toContain('[[Steward/Conversations/test-conv__shell#msg-large|');
+      expect(stub).not.toContain('stw-toggle-block');
+    });
+
+    it('emits toggle anchor stub at inline threshold', async () => {
+      const body = Array.from({ length: 1500 }, (_, i) => `line ${i + 1}`).join('\n');
+      (plugin.conversationRenderer.getMessageById as jest.Mock).mockResolvedValue({
+        id: 'msg-threshold',
+        role: 'assistant',
+        content: `\`\`\`cli-model\n${body}\n\`\`\``,
+        history: true,
+      });
+      (plugin.app.vault.getFileByPath as jest.Mock).mockReturnValue(null);
+      (plugin.app.vault.adapter.exists as jest.Mock).mockResolvedValue(true);
+
+      await service.archiveMessageOutput({
+        conversationTitle: 'test-conv',
+        messageId: 'msg-threshold',
+      });
+
+      const stub = (plugin.conversationRenderer.replaceMessageContent as jest.Mock).mock
+        .calls[0][2] as string;
+      expect(stub).toContain('lines:1500');
+      expect(stub).toContain('stw-toggle-block');
+      expect(stub).not.toContain('[[Steward/Conversations/test-conv__shell#msg-threshold|');
     });
 
     it('extracts cli-model fence when message has a leading intro block', async () => {

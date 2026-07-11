@@ -8,20 +8,6 @@ import type { ContentReadingArgs } from '../agents/handlers/ReadContent';
 import type { GrepToolArgs } from '../agents/handlers/VaultGrep';
 import type { ListToolArgs } from '../agents/handlers/VaultList';
 
-export type ToolInvocation<T, ARGS = Record<string, unknown>> = {
-  toolName: string;
-  toolCallId: string;
-  args: ARGS;
-  result?: T;
-};
-
-export type ToolInvocationResult<T, ARGS = Record<string, unknown>> = {
-  toolName: string;
-  toolCallId: string;
-  args: ARGS;
-  result: T;
-};
-
 //-----------------
 // AI SDK Version 6
 //-----------------

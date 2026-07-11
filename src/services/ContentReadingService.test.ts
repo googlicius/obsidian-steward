@@ -1124,7 +1124,11 @@ Content.`;
       const lineCount = 500;
       const mockText = createLongLineContent(lineCount);
       const sections = [createSection('paragraph', 0, lineCount - 1)];
-      const mockFile = getInstance(TFile, { path: 'notes/small.md', name: 'small.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/small.md',
+        name: 'small.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
       const service = ContentReadingService.getInstance(mockPlugin);
 
@@ -1147,7 +1151,11 @@ Content.`;
       const lineCount = 1200;
       const mockText = createLongLineContent(lineCount);
       const sections = [createSection('paragraph', 0, lineCount - 1)];
-      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/large.md',
+        name: 'large.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
       const service = ContentReadingService.getInstance(mockPlugin);
 
@@ -1172,7 +1180,11 @@ Content.`;
       const lineCount = 1200;
       const mockText = createLongLineContent(lineCount);
       const sections = [createSection('paragraph', 0, lineCount - 1)];
-      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/large.md',
+        name: 'large.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
       const service = ContentReadingService.getInstance(mockPlugin);
 
@@ -1198,7 +1210,11 @@ Content.`;
         createSection('paragraph', 990, 1020),
         createSection('paragraph', 1100, 1150),
       ];
-      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/large.md',
+        name: 'large.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
       const service = ContentReadingService.getInstance(mockPlugin);
 
@@ -1211,14 +1227,20 @@ Content.`;
       });
       assertContentReadingResult(result);
 
-      expect(result.blocks[0].sections).toEqual([{ type: 'paragraph', startLine: 990, endLine: 999 }]);
+      expect(result.blocks[0].sections).toEqual([
+        { type: 'paragraph', startLine: 990, endLine: 999 },
+      ]);
     });
 
     it('clamps section start lines when continuing with offset > 0', async () => {
       const lineCount = 1200;
       const mockText = createLongLineContent(lineCount);
       const sections = [createSection('paragraph', 990, 1020)];
-      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/large.md',
+        name: 'large.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
       const service = ContentReadingService.getInstance(mockPlugin);
 
@@ -1239,7 +1261,11 @@ Content.`;
     it('uses a fallback entire section when cache has no sections', async () => {
       const lineCount = 1200;
       const mockText = createLongLineContent(lineCount);
-      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/large.md',
+        name: 'large.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, [], { line: 0, ch: 0 }, mockFile);
       (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({});
       const service = ContentReadingService.getInstance(mockPlugin);
@@ -1262,7 +1288,11 @@ Content.`;
       const lineCount = 1200;
       const mockText = createLongLineContent(lineCount);
       const sections = [createSection('paragraph', 0, lineCount - 1)];
-      const mockFile = getInstance(TFile, { path: 'notes/large.md', name: 'large.md', extension: 'md' });
+      const mockFile = getInstance(TFile, {
+        path: 'notes/large.md',
+        name: 'large.md',
+        extension: 'md',
+      });
       const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 }, mockFile);
       const service = ContentReadingService.getInstance(mockPlugin);
 

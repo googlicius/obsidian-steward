@@ -98,6 +98,7 @@ const en = {
         '{{message}}\n\nThere are installers for each platform in your {{stewardFolder}} folder; run them from your vault root folder:',
       openingInteractiveTerminal: 'Opening interactive terminal...',
       shellTranscriptIntro: '(Shell — output streams below.)',
+      earlierLinesArchived: '… {{number}} earlier lines archived',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
