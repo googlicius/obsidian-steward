@@ -1,7 +1,11 @@
 import type { LanguageModelUsage } from 'ai';
 import { parseYaml } from 'obsidian';
+import { formatContextLengthTokens } from 'src/services/LLMService/modelMetadata';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import type { ConversationRenderer } from './ConversationRenderer';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 /**
  * Agent id segment for token usage. Frontmatter uses one top-level key per agent:
@@ -36,6 +40,56 @@ type AgentUsageFrontmatterBlock = {
 };
 
 export class Frontmatter {
+  private formatUsageTokenCount(tokens: number | undefined): string | undefined {
+    if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens < 0) {
+      return undefined;
+    }
+    return formatContextLengthTokens(tokens);
+  }
+
+  /**
+   * Single-line summary of last-turn token usage for the conversation footer.
+   */
+  public formatTokenUsageSummary(usage: LanguageModelUsage, language?: string | null): string {
+    const t = getTranslation(language);
+    const parts: string[] = [];
+
+    const inputCount = this.formatUsageTokenCount(usage.inputTokens);
+    if (inputCount) {
+      parts.push(t('conversation.tokenUsageInput', { tokens: inputCount }));
+    }
+
+    const outputCount = this.formatUsageTokenCount(usage.outputTokens);
+    if (outputCount) {
+      parts.push(t('conversation.tokenUsageOutput', { tokens: outputCount }));
+    }
+
+    const cachedCount = this.formatUsageTokenCount(usage.inputTokenDetails?.cacheReadTokens);
+    if (cachedCount) {
+      parts.push(t('conversation.tokenUsageCached', { tokens: cachedCount }));
+    }
+
+    return parts.join(' · ');
+  }
+
+  /** Reads last-step usage from a `usage_<agent>` frontmatter value. */
+  public extractLastStepUsageFromFrontmatter(block: unknown): LanguageModelUsage | undefined {
+    if (!block || typeof block !== 'object') {
+      return undefined;
+    }
+
+    const record = block as Record<string, unknown>;
+    if (record.usage && typeof record.usage === 'object') {
+      return record.usage as LanguageModelUsage;
+    }
+
+    if (typeof record.inputTokens === 'number') {
+      return record as LanguageModelUsage;
+    }
+
+    return undefined;
+  }
+
   /**
    * Writes token usage for this agent under `usage_<agent>` in the note frontmatter.
    * Values are stored as provided (last write wins; no running totals): full {@link LanguageModelUsage}
@@ -62,6 +116,7 @@ export class Frontmatter {
       usage !== undefined && totalUsage !== undefined
         ? { usage, totalUsage }
         : (usage ?? totalUsage);
+
     try {
       const file = this.getConversationFileByName(conversationTitle);
       await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {

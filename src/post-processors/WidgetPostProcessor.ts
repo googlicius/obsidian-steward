@@ -67,6 +67,7 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
   });
   iframe.setAttribute('referrerpolicy', 'no-referrer');
   iframe.setAttribute('loading', 'lazy');
+  iframe.setAttribute('scrolling', 'no');
 
   if (params.source.mode === 'srcdoc') {
     const {
@@ -94,7 +95,15 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
 
   const syncHeight = () => {
     const doc = iframe.contentDocument;
-    const h = Math.max(doc?.documentElement.scrollHeight ?? 0, doc?.body?.scrollHeight ?? 0);
+    if (!doc) return;
+    const docEl = doc.documentElement;
+    const h = Math.ceil(
+      Math.max(
+        docEl.scrollHeight,
+        doc.body?.scrollHeight ?? 0,
+        docEl.getBoundingClientRect().height
+      )
+    );
     if (h > 0) iframe.style.height = `${h}px`;
   };
 

@@ -19,7 +19,11 @@ const WIDGET_RESIZE_SCRIPT = `<script>
   function reportHeight() {
     var docEl = document.documentElement;
     var body = document.body;
-    var height = Math.max(docEl.scrollHeight, body ? body.scrollHeight : 0);
+    var height = Math.ceil(Math.max(
+      docEl.scrollHeight,
+      body ? body.scrollHeight : 0,
+      docEl.getBoundingClientRect().height
+    ));
     if (height <= 0) {
       return;
     }
@@ -36,8 +40,10 @@ const WIDGET_RESIZE_SCRIPT = `<script>
 })();
 </script>`;
 
+const WIDGET_VIEWPORT_LOCK_STYLE = '<style>html { overflow: hidden; }</style>';
+
 /** Default head markup (charset, CSP, resize script) prepended to bundled widget HTML. */
-export const WIDGET_SRCDOC_HEAD = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">${WIDGET_RESIZE_SCRIPT}`;
+export const WIDGET_SRCDOC_HEAD = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">${WIDGET_VIEWPORT_LOCK_STYLE}${WIDGET_RESIZE_SCRIPT}`;
 
 /**
  * Script injected into project widgets: hydrates persisted state and exposes window.stw for saves.
@@ -466,7 +472,7 @@ export function buildWidgetSrcdoc(params: { type: WidgetType; code: string; extr
     const hasScript = widgetCodeContainsScript(trimmed);
     const headMeta = hasScript
       ? `${WIDGET_SRCDOC_HEAD}${extraHead}`
-      : `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">${extraHead}`;
+      : `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">${WIDGET_VIEWPORT_LOCK_STYLE}${extraHead}`;
     return {
       srcdoc: `<!DOCTYPE html><html><head>${headMeta}</head><body style="margin:0;">${trimmed}</body></html>`,
       sandbox: hasScript ? 'allow-scripts' : 'allow-same-origin',

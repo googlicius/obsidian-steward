@@ -112,7 +112,7 @@ this.registerExtensions(['art'], READING_VIEW_CONFIG.type);
 
 - `CollapsibleBlockPostProcessor` — auto-scroll thinking/cli blocks
 - `CalloutEditPreviewPostProcessor` — auto-scroll streaming review callouts
-- `ConversationIndicatorProcessor` — generating overlay on embeds
+- `ConversationFooterProcessor` — status + token usage footer on embeds
 
 ## Post-Processor Connections
 

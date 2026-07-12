@@ -470,6 +470,10 @@ const vi = {
       stepLimitReached:
         'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
       subagentReviewType: 'Sub-agent',
+      tokenUsageInput: '{{tokens}} vào',
+      tokenUsageOutput: '{{tokens}} ra',
+      tokenUsageTotal: '{{tokens}} tổng',
+      tokenUsageCached: '{{tokens}} cache',
     },
     // Model fallback messages
     modelFallback: {

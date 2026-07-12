@@ -16,8 +16,10 @@ describe('buildWidgetSrcdoc', () => {
     expect(result.sandbox).toBe('allow-scripts');
     expect(result.usesPostMessageResize).toBe(true);
     expect(result.srcdoc).toContain(WIDGET_SRCDOC_HEAD);
+    expect(result.srcdoc).toContain('html { overflow: hidden; }');
     expect(result.srcdoc).toContain('<p>Hello</p>');
     expect(result.srcdoc).toContain(WidgetMessageType.Resize);
+    expect(result.srcdoc).toContain('Math.ceil');
   });
 
   it('uses allow-same-origin for SVG without scripts', () => {
@@ -28,6 +30,7 @@ describe('buildWidgetSrcdoc', () => {
 
     expect(result.sandbox).toBe('allow-same-origin');
     expect(result.usesPostMessageResize).toBe(false);
+    expect(result.srcdoc).toContain('html { overflow: hidden; }');
     expect(result.srcdoc).toContain('<circle r="5"/>');
   });
 

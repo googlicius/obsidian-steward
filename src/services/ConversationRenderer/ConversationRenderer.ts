@@ -14,7 +14,14 @@ import {
   CONFIRMATION_BUTTONS_PATTERN,
 } from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
-import type { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
+import type {
+  LanguageModelUsage,
+  ModelMessage,
+  TextPart,
+  FilePart,
+  ImagePart,
+  ReasoningOutput,
+} from 'ai';
 import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -684,6 +691,25 @@ export class ConversationRenderer {
     ]);
   }
 
+  /**
+   * Shows the last super-agent turn token usage in the conversation footer.
+   */
+  public showConversationUsage(
+    path: string,
+    usage: LanguageModelUsage,
+    language?: string | null
+  ): void {
+    const usageText = this.formatTokenUsageSummary(usage, language);
+    if (!usageText) {
+      return;
+    }
+
+    this.emitConversationUsageChanged({
+      conversationPath: path,
+      usageText,
+    });
+  }
+
   public getIndicatorTextByIntentType(intentType: string, language?: string): string {
     const t = getTranslation(language);
 
@@ -723,6 +749,20 @@ export class ConversationRenderer {
           ...(params.indicatorText && {
             indicatorText: params.indicatorText,
           }),
+        },
+      })
+    );
+  }
+
+  private emitConversationUsageChanged(params: {
+    conversationPath: string;
+    usageText: string;
+  }): void {
+    activeDocument.dispatchEvent(
+      new CustomEvent(Events.CONVERSATION_USAGE_CHANGED, {
+        detail: {
+          conversationPath: params.conversationPath,
+          usageText: params.usageText,
         },
       })
     );

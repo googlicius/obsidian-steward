@@ -367,19 +367,25 @@ code[class*='language-stw-hidden-from-user'] {
   }
 }
 
-/* Conversation embed indicator */
+/* Conversation embed footer (status + token usage) */
 .stw-conversation-indicator {
-  & .generating-indicator {
+  & .stw-conversation-footer {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     margin-top: var(--size-2-2);
     padding: var(--embed-padding);
     color: var(--text-muted);
-    font-style: italic;
     font-size: 0.9em;
+    gap: var(--size-2-2);
 
-    &.hidden {
-      display: none;
+    & .stw-conversation-footer-status,
+    & .stw-conversation-footer-usage {
+      font-style: italic;
+
+      &.hidden {
+        display: none;
+      }
     }
   }
 }

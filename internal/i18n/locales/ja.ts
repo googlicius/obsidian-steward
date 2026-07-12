@@ -477,6 +477,10 @@ const ja = {
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
       stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
       subagentReviewType: 'サブエージェント',
+      tokenUsageInput: '入力 {{tokens}}',
+      tokenUsageOutput: '出力 {{tokens}}',
+      tokenUsageTotal: '合計 {{tokens}}',
+      tokenUsageCached: 'キャッシュ {{tokens}}',
     },
     // Model fallback messages
     modelFallback: {

@@ -23,7 +23,7 @@ createCalloutActionPostProcessor(this);
 createCalloutSearchResultPostProcessor(this);
 createCalloutEditPreviewPostProcessor();
 createUserMessageButtonsProcessor(this);
-createConversationIndicatorProcessor(this);
+createConversationFooterProcessor(this);
 createStewardConversationProcessor(this);
 createStwSourcePostProcessor(this);
 createCollapsibleBlockPostProcessor(this);
@@ -44,7 +44,7 @@ createRunPostProcessor(this);
 | `CalloutSearchResultPostProcessor.ts` | Yes     | Makes `stw-search-result` callouts clickable to jump to file/line/range                                                  |
 | `CalloutEditPreviewPostProcessor.ts`  | No      | Click-to-expand `stw-review` callouts; auto-scroll when `data-streaming="true"`                                          |
 | `UserMessageButtonsProcessor.ts`      | Yes     | Reload/delete icon buttons on `stw-user-message` callouts                                                                |
-| `ConversationIndicatorProcessor.ts`   | Yes     | “Generating…” overlay on embedded conversations; listens to `CONVERSATION_INDICATOR_CHANGED`                             |
+| `ConversationFooterProcessor.ts`      | Yes     | Conversation embed footer: generating status + last-turn super-agent token usage; listens to `CONVERSATION_INDICATOR_CHANGED` and `CONVERSATION_USAGE_CHANGED` |
 | `StewardConversationProcessor.ts`     | Yes     | Decorates conversation embeds: title sync, squeeze/close buttons, `stw-conversation` class                               |
 | `StwSourcePostProcessor.ts`           | Yes     | Replaces `{{stw-source ...}}` with `@filename` chips in preview                                                          |
 | `CollapsibleBlockPostProcessor.ts`    | Yes     | Auto-scroll + toggle for `stw-thinking` / `cli-model` fences; lazy-load archived shell output from `__shell.md` on click |

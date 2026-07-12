@@ -382,6 +382,9 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
           streamTextResult.usage,
           streamTextResult.totalUsage
         );
+        if (streamTextResult.usage) {
+          this.renderer.showConversationUsage(title, streamTextResult.usage, lang);
+        }
       } catch (usageError) {
         logger.error('Failed to record super agent token usage', usageError);
       }

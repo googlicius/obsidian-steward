@@ -25,7 +25,7 @@ import { createCollapsibleBlockPostProcessor } from './post-processors/Collapsib
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createPreferenceButtonsProcessor } from './post-processors/PreferenceButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
-import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
+import { createConversationFooterProcessor } from './post-processors/ConversationFooterProcessor';
 import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
 import { createCliXtermPostProcessor } from './post-processors/CliXtermPostProcessor';
 import { createWidgetPostProcessor } from './post-processors/WidgetPostProcessor';
@@ -91,42 +91,42 @@ import { ToolInstructionService } from './services/Memory/ToolInstructionService
 const { i18next } = getBundledInternal('i18n');
 
 export default class StewardPlugin extends Plugin {
-  settings: StewardPluginSettings;
+  settings!: StewardPluginSettings;
   chatTitle = 'Chat';
-  conversationEventHandler: ConversationEventHandler;
-  llmService: LLMService;
-  trashCleanupService: TrashCleanupService;
-  abortService: AbortService;
-  compactionTokenService: CompactionTokenService;
+  conversationEventHandler!: ConversationEventHandler;
+  llmService!: LLMService;
+  trashCleanupService!: TrashCleanupService;
+  abortService!: AbortService;
+  compactionTokenService!: CompactionTokenService;
 
   // Lazy-loaded services
-  _searchService: SearchService;
-  _artifactManagerV2: ArtifactManagerV2;
-  _conversationRenderer: ConversationRenderer;
-  _contentReadingService: ContentReadingService;
-  _vaultService: VaultService;
-  _userDefinedCommandService: UserDefinedCommandService;
-  _mediaTools: MediaTools;
-  _noteContentService: NoteContentService;
-  _markdownDefinitionService: MarkdownDefinitionService;
-  _modelFallbackService: ModelFallbackService;
-  _encryptionService: EncryptionService;
-  _commandInputService: CommandInputService;
-  _skillService: SkillService;
-  _mcpService: MCPService;
-  _guardrailsRuleService: GuardrailsRuleService;
-  _commandTrackingService: CommandTrackingService;
-  _versionCheckerService: VersionCheckerService;
-  _userMessageService: UserMessageService;
-  _subAgentSpawnService: SubagentSpawnService;
-  _subAgentDefinitionService: SubAgentDefinitionService;
-  _obsidianAPITools: ObsidianAPITools;
-  _commandProcessorService: CommandProcessorService;
-  _cliSessionService: CliSessionService;
-  _ptyCompanionService: PtyCompanionService;
-  _wikilinkForwardService: WikilinkForwardService;
-  _widgetService: WidgetService;
-  _toolInstructionService: ToolInstructionService;
+  _searchService?: SearchService;
+  _artifactManagerV2?: ArtifactManagerV2;
+  _conversationRenderer?: ConversationRenderer;
+  _contentReadingService?: ContentReadingService;
+  _vaultService?: VaultService;
+  _userDefinedCommandService?: UserDefinedCommandService;
+  _mediaTools?: MediaTools;
+  _noteContentService?: NoteContentService;
+  _markdownDefinitionService?: MarkdownDefinitionService;
+  _modelFallbackService?: ModelFallbackService;
+  _encryptionService?: EncryptionService;
+  _commandInputService?: CommandInputService;
+  _skillService?: SkillService;
+  _mcpService?: MCPService;
+  _guardrailsRuleService?: GuardrailsRuleService;
+  _commandTrackingService?: CommandTrackingService;
+  _versionCheckerService?: VersionCheckerService;
+  _userMessageService?: UserMessageService;
+  _subAgentSpawnService?: SubagentSpawnService;
+  _subAgentDefinitionService?: SubAgentDefinitionService;
+  _obsidianAPITools?: ObsidianAPITools;
+  _commandProcessorService?: CommandProcessorService;
+  _cliSessionService?: CliSessionService;
+  _ptyCompanionService?: PtyCompanionService;
+  _wikilinkForwardService?: WikilinkForwardService;
+  _widgetService?: WidgetService;
+  _toolInstructionService?: ToolInstructionService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
@@ -537,7 +537,7 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
-    this.registerMarkdownPostProcessor(createConversationIndicatorProcessor(this));
+    this.registerMarkdownPostProcessor(createConversationFooterProcessor(this));
 
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
@@ -949,7 +949,7 @@ export default class StewardPlugin extends Plugin {
 
     const leaf = this.app.workspace.getLeaf('tab');
     await leaf.openFile(file);
-    await this.app.workspace.setActiveLeaf(leaf, { focus: true });
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
 
     if (leaf.view instanceof MarkdownView) {
       this.setCursorToEndOfFile(leaf.view.editor as ObsidianEditor);
@@ -1150,7 +1150,8 @@ export default class StewardPlugin extends Plugin {
       return true;
     } catch (error) {
       logger.error('Error closing conversation:', error);
-      new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      new Notice(i18next.t('ui.errorClosingConversation', { errorMessage }));
       return false;
     }
   }

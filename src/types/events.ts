@@ -4,6 +4,7 @@ export enum Events {
   CONVERSATION_INTENT_RECEIVED = 'conversation-intent-received',
   CONVERSATION_LINK_INSERTED = 'conversation-link-inserted',
   CONVERSATION_INDICATOR_CHANGED = 'conversation-indicator-changed',
+  CONVERSATION_USAGE_CHANGED = 'conversation-usage-changed',
   EXECUTED_STREAM_TEXT = 'executed-stream-text',
   MOVE_OPERATION_COMPLETED = 'move-operation-completed',
   COPY_OPERATION_COMPLETED = 'copy-operation-completed',
@@ -56,6 +57,13 @@ export interface ConversationIndicatorChangedPayload {
   indicatorText?: string;
 }
 
+export interface ConversationUsageChangedPayload {
+  /** Conversation note path (e.g. "Steward/Conversations/Title.md") */
+  conversationPath: string;
+  /** Formatted last-turn token usage summary */
+  usageText: string;
+}
+
 export interface ExecutedStreamTextPayload {
   conversationTitle: string;
   model: string;
@@ -71,6 +79,7 @@ export type EventPayloadMap = {
   [Events.CONVERSATION_INTENT_RECEIVED]: ConversationIntentReceivedPayload;
   [Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;
   [Events.CONVERSATION_INDICATOR_CHANGED]: ConversationIndicatorChangedPayload;
+  [Events.CONVERSATION_USAGE_CHANGED]: ConversationUsageChangedPayload;
   [Events.EXECUTED_STREAM_TEXT]: ExecutedStreamTextPayload;
   [Events.MOVE_OPERATION_COMPLETED]: MoveOperationCompletedPayload;
   [Events.COPY_OPERATION_COMPLETED]: CopyOperationCompletedPayload;
