@@ -50,11 +50,21 @@ export class StreamTextExecutor {
     const agent = asAgent(this);
 
     const modelForStream = params.intent.model?.trim() || agent.plugin.settings.llm.chat.model;
+
+    const { modelChanged } = await agent.plugin.compactionTokenService.compactOnModelChangeIfNeeded(
+      {
+        conversationTitle: params.title,
+        model: modelForStream,
+        lang: params.lang,
+      }
+    );
+
     const historyResult = await agent.plugin.conversationRenderer.extractConversationHistory(
       params.title,
       {
         maxMessages: params.intent.maxHistoryMessages ?? null,
         model: modelForStream,
+        forceReduceBeforeAdvance: modelChanged,
       }
     );
 

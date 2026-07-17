@@ -537,7 +537,6 @@ const en = {
       subagentReviewType: 'Sub-agent',
       tokenUsageInput: '{{tokens}} in',
       tokenUsageOutput: '{{tokens}} out',
-      tokenUsageTotal: '{{tokens}} total',
       tokenUsageCached: '{{tokens}} cached',
     },
     // Model fallback messages

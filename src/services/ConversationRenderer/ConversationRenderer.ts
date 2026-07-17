@@ -549,9 +549,10 @@ export class ConversationRenderer {
       handlerId?: string;
       step?: number;
       /**
-       * Epoch ms this message was serialized, for per-message prompt-cache freshness checks
-       * (see isToolCallStale). Only meaningful for tool-invocation messages — pass explicitly
-       * from serializeToolInvocation; other message kinds omit it.
+       * Epoch ms this message was serialized, compared against the conversation's `reduce_before`
+       * watermark (see resolveReduceBeforeWatermark) for prompt-cache-safe reduction. Only
+       * meaningful for tool-invocation messages — pass explicitly from serializeToolInvocation;
+       * other message kinds omit it.
        */
       requestAt?: number;
     } = {}
@@ -1023,20 +1024,53 @@ export class ConversationRenderer {
   }
 
   /**
-   * Whether `message`'s own prompt-cache freshness (its `requestAt`, stamped once at
-   * serialization time and never rewritten) has aged past `model`'s TTL. Deciding per message
-   * — rather than from a single conversation-wide "last request" timestamp — is what makes this
-   * a one-way ratchet: elapsed time since a fixed `requestAt` only grows, so a message judged
-   * stale stays stale on every later history build, even if the conversation becomes active
-   * again. A missing `requestAt` (message written before this feature, or a non-tool-invocation
-   * message) is treated as NOT stale — fail-safe toward full-fidelity content.
+   * Advances and persists the conversation's `reduce_before` watermark, then bumps
+   * `last_request_at` — both in conversation frontmatter (see Frontmatter mixin).
+   *
+   * The watermark normally only moves forward when the *conversation* has been idle for at least
+   * `model`'s prompt-cache TTL since the last request — i.e. the provider cache is already cold,
+   * so flipping every eligible message to reduced in this one history build costs nothing extra.
+   * `forceAdvance` skips that idle-gap check (used on a model switch: provider caches are keyed
+   * per model, so the new model's cache is cold regardless of elapsed time — same reasoning as
+   * `CompactionTokenService.compactOnModelChangeIfNeeded`, applied to the lightweight per-turn
+   * reducers instead of full compaction). Either way, the watermark is computed as
+   * `max(existing reduce_before, last_request_at)`, so it never retreats: resumed activity or a
+   * model switch can never un-reduce a message that already crossed it. A missing/invalid
+   * `last_request_at` (first request ever) leaves the watermark untouched but still seeds
+   * `last_request_at` for the next call to compare against.
    */
-  private isToolCallStale(message: ConversationMessage, model: string): boolean {
-    if (typeof message.requestAt !== 'number' || !Number.isFinite(message.requestAt)) {
-      return false;
+  public async resolveReduceBeforeWatermark(
+    conversationTitle: string,
+    model: string,
+    options?: { forceAdvance?: boolean }
+  ): Promise<number> {
+    const lastRequestAt = await this.getConversationProperty<number>(
+      conversationTitle,
+      'last_request_at'
+    );
+    const reduceBefore =
+      (await this.getConversationProperty<number>(conversationTitle, 'reduce_before')) ?? 0;
+
+    const now = Date.now();
+    let nextReduceBefore = reduceBefore;
+
+    if (typeof lastRequestAt === 'number' && Number.isFinite(lastRequestAt)) {
+      const ttlMs = this.plugin.llmService.getModelPromptCacheTtlMs(model);
+      const idleGapCrossed = now - lastRequestAt >= ttlMs;
+      if (idleGapCrossed || options?.forceAdvance) {
+        nextReduceBefore = Math.max(reduceBefore, lastRequestAt);
+      }
     }
-    const ttlMs = this.plugin.llmService.getModelPromptCacheTtlMs(model);
-    return Date.now() - message.requestAt >= ttlMs;
+
+    const updates: Array<{ name: string; value: unknown }> = [
+      { name: 'last_request_at', value: now },
+    ];
+    if (nextReduceBefore !== reduceBefore) {
+      updates.push({ name: 'reduce_before', value: nextReduceBefore });
+    }
+    await this.updateConversationFrontmatter(conversationTitle, updates);
+
+    return nextReduceBefore;
   }
 
   /**
@@ -1044,10 +1078,10 @@ export class ConversationRenderer {
    * Used by convertMessageToModelFormat and extractConversationHistory.
    *
    * `reduceCtx`, when provided, reduces a tool-call and/or tool-result part via the registered
-   * per-tool reducer (see toolCallReducers/) — but only for messages whose OWN `requestAt` is stale relative to
-   * `reduceCtx.model` (see isToolCallStale). Freshness is judged per message, not globally: a
-   * conversation becoming active again must not resurrect full content for tool calls that were
-   * already judged stale earlier — their `requestAt` never changes, so once stale, always stale.
+   * per-tool reducer (see toolCallReducers/) — but only for messages whose OWN `requestAt` is at
+   * or before `reduceCtx.reduceBefore`, the conversation's monotonic watermark (see
+   * `resolveReduceBeforeWatermark`). Because the watermark never retreats, a conversation
+   * becoming active again can never resurrect full content for tool calls already past it.
    * Only `extractConversationHistory` (via `convertConversationMessagesToModelMessages`) ever
    * passes this — `convertMessageToModelFormat` (the recall_compacted_context tool's "get me the
    * real content back" path) and `getMessagesForCompaction` (CompactionTokenService's permanent
@@ -1056,7 +1090,7 @@ export class ConversationRenderer {
   private async convertMessageToParts(
     conversationTitle: string,
     message: ConversationMessage,
-    reduceCtx?: { registry: ToolCallReducerRegistry; model: string }
+    reduceCtx?: { registry: ToolCallReducerRegistry; reduceBefore: number }
   ): Promise<
     | { role: 'user'; content: string; handlerId?: string }
     | {
@@ -1110,7 +1144,9 @@ export class ConversationRenderer {
       const toolResultParts: ToolResultPart[] = [];
       const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
 
-      const shouldReduce = reduceCtx ? this.isToolCallStale(message, reduceCtx.model) : false;
+      const shouldReduce = reduceCtx
+        ? typeof message.requestAt === 'number' && message.requestAt <= reduceCtx.reduceBefore
+        : false;
 
       for (const part of toolInvocations) {
         if (part.type === 'tool-call') {
@@ -1203,7 +1239,7 @@ export class ConversationRenderer {
   private async convertConversationMessagesToModelMessages(
     conversationTitle: string,
     groupedMessages: ConversationMessage[][],
-    reduceCtx?: { registry: ToolCallReducerRegistry; model: string }
+    reduceCtx?: { registry: ToolCallReducerRegistry; reduceBefore: number }
   ): Promise<ModelMessage[]> {
     const modelMessages: ModelMessage[] = [];
     const lastUserGroupIndex = groupedMessages.findLastIndex(group => group[0].role === 'user');
@@ -1678,11 +1714,20 @@ export class ConversationRenderer {
       maxMessages?: number | null;
       includeCompactedMessage?: boolean;
       /**
-       * Model about to be called. When provided, each tool-call message's own `requestAt` is
-       * checked against this model's prompt-cache TTL (see isToolCallStale) and reduced (see
-       * toolCallReducers/) only if stale — full content is otherwise kept to preserve the cache.
+       * Model about to be called. When provided, this also marks the call as a real LLM request:
+       * it advances the conversation's `reduce_before` watermark (see
+       * `resolveReduceBeforeWatermark`) and bumps `last_request_at`. Each tool-call message's own
+       * `requestAt` is then checked against the resolved watermark and reduced (see
+       * toolCallReducers/) only if at or before it — full content is otherwise kept to preserve
+       * the cache.
        */
       model?: string;
+      /**
+       * Forces the `reduce_before` watermark to advance regardless of the idle-gap TTL check —
+       * pass `true` when the model just changed for this request (see
+       * `resolveReduceBeforeWatermark`). No-op when `model` is not provided.
+       */
+      forceReduceBeforeAdvance?: boolean;
     }
   ): Promise<{ messages: ModelMessage[]; hasCompactionContext: boolean }> {
     const messagesToInclude = await this.extractConversationMessagesForHistory(
@@ -1695,10 +1740,18 @@ export class ConversationRenderer {
 
     // Group consecutive messages by (handlerId, role, step) for merging
     const groupedMessages = this.groupMessagesByStep(messagesToInclude);
+    const reduceCtx = options?.model
+      ? {
+          registry: new ToolCallReducerRegistry(),
+          reduceBefore: await this.resolveReduceBeforeWatermark(conversationTitle, options.model, {
+            forceAdvance: options.forceReduceBeforeAdvance,
+          }),
+        }
+      : undefined;
     const messages = await this.convertConversationMessagesToModelMessages(
       conversationTitle,
       groupedMessages,
-      options?.model ? { registry: new ToolCallReducerRegistry(), model: options.model } : undefined
+      reduceCtx
     );
     return { messages, hasCompactionContext };
   }

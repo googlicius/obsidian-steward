@@ -3,6 +3,7 @@ import { ToolName } from 'src/solutions/commands/toolNames';
 import type { CompactionData } from './types';
 import {
   COMPACTION_PROMPT_THRESHOLD_PERCENT,
+  MODEL_CHANGE_COMPACTION_THRESHOLD_PERCENT,
   CompactionTokenService,
   estimatePromptTokensRoughFromMessages,
 } from './CompactionTokenService';
@@ -17,7 +18,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       extractConversationHistory: jest.fn().mockResolvedValue([]),
       updateConversationNote: jest.fn(),
       updateMessageMetadata: jest.fn(),
-      getMessagesForCompaction: jest.fn(),
+      getMessagesForCompaction: jest.fn().mockResolvedValue([]),
       getRecordedInputTokensForAgent: jest.fn(),
       countCompactedMessageBlocks: jest.fn().mockResolvedValue(0),
     },
@@ -172,6 +173,158 @@ describe('compactToolResult (no dedicated compactor)', () => {
     });
     expect(String(result.metadata.output)).toContain(ToolName.RECALL_COMPACTED_CONTEXT);
     expect(result.metadata.outputSize).toBe('messageRef:abc'.length);
+  });
+});
+
+describe('compactOnModelChangeIfNeeded', () => {
+  let service: CompactionTokenService;
+  let mockPlugin: jest.Mocked<StewardPlugin>;
+
+  const CONTEXT_LENGTH = 128_000;
+  const AT_THRESHOLD = Math.ceil(CONTEXT_LENGTH * MODEL_CHANGE_COMPACTION_THRESHOLD_PERCENT);
+  const BELOW_THRESHOLD =
+    Math.floor(CONTEXT_LENGTH * MODEL_CHANGE_COMPACTION_THRESHOLD_PERCENT) - 1;
+
+  function mockRecordedInputTokens(value: number | undefined) {
+    (mockPlugin.conversationRenderer.getRecordedInputTokensForAgent as jest.Mock).mockResolvedValue(
+      value
+    );
+  }
+
+  beforeEach(() => {
+    mockPlugin = createMockPlugin();
+    service = new CompactionTokenService(mockPlugin);
+  });
+
+  it('does nothing and reports modelChanged: false on the first call for a conversation (no previous model to compare against)', async () => {
+    mockRecordedInputTokens(AT_THRESHOLD);
+
+    const result = await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'anthropic:claude-sonnet-4',
+    });
+
+    expect(result).toEqual({ modelChanged: false });
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).not.toHaveBeenCalled();
+  });
+
+  it('does nothing and reports modelChanged: false when the model is unchanged from the previous call', async () => {
+    mockRecordedInputTokens(AT_THRESHOLD);
+
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'anthropic:claude-sonnet-4',
+    });
+    const result = await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'anthropic:claude-sonnet-4',
+    });
+
+    expect(result).toEqual({ modelChanged: false });
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).not.toHaveBeenCalled();
+  });
+
+  it('reports modelChanged: true but does not run compaction when prompt tokens are below the model-change threshold', async () => {
+    // The caller (StreamTextExecutor) still uses `modelChanged: true` to force-advance the
+    // reduce_before watermark for the lightweight on-the-fly reducers, independent of whether
+    // full compaction was warranted.
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'anthropic:claude-sonnet-4',
+    });
+    mockRecordedInputTokens(BELOW_THRESHOLD);
+
+    const result = await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'openai:gpt-4o',
+    });
+
+    expect(result).toEqual({ modelChanged: true });
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).not.toHaveBeenCalled();
+  });
+
+  it('runs compaction once when the model changed and prompt tokens reach the model-change threshold', async () => {
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'anthropic:claude-sonnet-4',
+    });
+    mockRecordedInputTokens(AT_THRESHOLD);
+
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'openai:gpt-4o',
+    });
+
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).toHaveBeenCalledTimes(1);
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).toHaveBeenCalledWith(
+      'convo-1'
+    );
+  });
+
+  it('does not re-trigger on a repeat call with the same (new) model after compacting once', async () => {
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'anthropic:claude-sonnet-4',
+    });
+    mockRecordedInputTokens(AT_THRESHOLD);
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'openai:gpt-4o',
+    });
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).toHaveBeenCalledTimes(1);
+
+    await service.compactOnModelChangeIfNeeded({
+      conversationTitle: 'convo-1',
+      model: 'openai:gpt-4o',
+    });
+
+    expect(mockPlugin.conversationRenderer.getMessagesForCompaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('runCompaction', () => {
+  let runCompaction: (params: { conversationTitle: string; lang?: string | null }) => Promise<void>;
+  let mockPlugin: jest.Mocked<StewardPlugin>;
+
+  beforeEach(() => {
+    mockPlugin = createMockPlugin();
+    const service = new CompactionTokenService(mockPlugin);
+    runCompaction = service['runCompaction'].bind(service);
+  });
+
+  it('gives widget_query a recall-hint placeholder instead of dropping it from the compacted summary', async () => {
+    const widgetQueryToolCall = {
+      type: 'tool-call' as const,
+      toolName: ToolName.WIDGET_QUERY,
+      toolCallId: 'call_widget_query',
+      input: { query: 'get_board_state' },
+    } satisfies ToolCallPart;
+    const widgetQueryToolResult = {
+      type: 'tool-result' as const,
+      toolName: ToolName.WIDGET_QUERY,
+      toolCallId: 'call_widget_query',
+      output: { type: 'json', value: { board: Array.from({ length: 50 }, (_, i) => i) } },
+    } satisfies ToolResultPart;
+
+    (mockPlugin.conversationRenderer.getMessagesForCompaction as jest.Mock).mockResolvedValue([
+      {
+        type: 'tool',
+        messageId: 'widget_msg_1',
+        toolName: ToolName.WIDGET_QUERY,
+        toolResult: widgetQueryToolResult,
+        toolCall: widgetQueryToolCall,
+      },
+    ]);
+
+    await runCompaction({ conversationTitle: 'convo-1' });
+
+    const updateCalls = (mockPlugin.conversationRenderer.updateConversationNote as jest.Mock).mock
+      .calls as Array<[{ command?: string; newContent: string }]>;
+    const compactedCall = updateCalls.find(([args]) => args.command === 'compacted');
+
+    expect(compactedCall).toBeDefined();
+    expect(compactedCall![0].newContent).toContain(ToolName.WIDGET_QUERY);
+    expect(compactedCall![0].newContent).toContain(ToolName.RECALL_COMPACTED_CONTEXT);
   });
 });
 

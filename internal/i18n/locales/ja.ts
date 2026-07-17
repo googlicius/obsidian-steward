@@ -479,7 +479,6 @@ const ja = {
       subagentReviewType: 'サブエージェント',
       tokenUsageInput: '入力 {{tokens}}',
       tokenUsageOutput: '出力 {{tokens}}',
-      tokenUsageTotal: '合計 {{tokens}}',
       tokenUsageCached: 'キャッシュ {{tokens}}',
     },
     // Model fallback messages

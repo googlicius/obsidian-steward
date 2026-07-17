@@ -47,7 +47,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 4. To change the model, in the input, type `m:` or `model:` and select from the dropdown.
-5. To stop a running command, press `ESC` key or type `Stop` in the command input.
+5. To stop a running command, press `Ctrl-c` or type `Stop` in the command input.
 6. To revert changes, type `Undo` in the command input.
 
 ### Showcases
@@ -129,7 +129,7 @@ Example prompts:
 / Visualize this note as an SVG diagram.
 ```
 
-Built-in skills **stateful-widget** and **interactive-widget** guide the agent when building interactive or turn-based widgets. For rendering, state, assets, and troubleshooting, see the [Widgets and visualizations wiki](https://github.com/googlicius/obsidian-steward/wiki/Widgets-and-visualizations).
+Built-in skills **stateful-widget** and **interactive-widget** guide the agent when building stateful or turn-based widgets. For rendering, state, assets, and troubleshooting, see the [Widgets and visualizations wiki](https://github.com/googlicius/obsidian-steward/wiki/Widgets-and-visualizations). For turn-based play (actions, actors, model turns, Playground), see the [Interactive widgets wiki](https://github.com/googlicius/obsidian-steward/wiki/Interactive-widgets).
 
 ## User-defined commands
 

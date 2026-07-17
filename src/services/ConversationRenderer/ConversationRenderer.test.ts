@@ -41,6 +41,11 @@ function createMockPlugin(
       }),
       getFirstLinkpathDest: jest.fn(),
     },
+    fileManager: {
+      processFrontMatter: jest.fn(async (_file: TFile, callback: (fm: object) => void) => {
+        callback({});
+      }),
+    },
   } as unknown as App;
 
   // Create mock plugin structure first
@@ -408,13 +413,17 @@ describe('ConversationRenderer', () => {
       expect(history).toMatchSnapshot();
     });
 
-    it('keeps full create tool-call content when the message is recent (per-message requestAt)', async () => {
+    it('keeps full create tool-call content while the conversation-wide cache is still warm, even for an old message', async () => {
+      // The provider cache TTL is judged from the conversation's `last_request_at`, not from the
+      // individual message's age — an old message must NOT be reduced just because it's old, as
+      // long as the conversation hasn't gone idle past the TTL.
       const originalContent = 'This is the full note content the model just wrote';
+      const veryOldRequestAt = Date.now() - 60 * 60_000;
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
         '/create a note',
         '',
-        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${Date.now()}-->`,
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${veryOldRequestAt}-->`,
         '```stw-tool-invocation',
         JSON.stringify([
           {
@@ -429,7 +438,7 @@ describe('ConversationRenderer', () => {
         '',
       ].join('\n');
 
-      const mockPlugin = createMockPlugin(mockContent);
+      const mockPlugin = createMockPlugin(mockContent, { last_request_at: Date.now() - 1_000 });
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const history = await conversationRenderer.extractConversationHistory('test-conversation', {
@@ -446,14 +455,17 @@ describe('ConversationRenderer', () => {
       );
     });
 
-    it('reduces create tool-call content once the message itself has aged past the TTL', async () => {
+    it('reduces content immediately when forceReduceBeforeAdvance is set, even with a warm cache (model switch)', async () => {
+      // Mirrors the "cache still warm" test above but with forceReduceBeforeAdvance: true — this
+      // is what a mid-conversation model switch now sets, since provider caches are per-model and
+      // the new model's cache is cold regardless of the idle-gap TTL.
       const originalContent = 'This is the full note content the model just wrote';
-      const staleRequestAt = Date.now() - 10 * 60_000;
+      const lastRequestAt = Date.now() - 1_000; // 1s ago — well under the TTL
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
         '/create a note',
         '',
-        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${staleRequestAt}-->`,
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${lastRequestAt}-->`,
         '```stw-tool-invocation',
         JSON.stringify([
           {
@@ -468,7 +480,47 @@ describe('ConversationRenderer', () => {
         '',
       ].join('\n');
 
-      const mockPlugin = createMockPlugin(mockContent);
+      const mockPlugin = createMockPlugin(mockContent, { last_request_at: lastRequestAt });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+        forceReduceBeforeAdvance: true,
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
+
+      expect(
+        (toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content
+      ).toContain('content_reading');
+    });
+
+    it('reduces create tool-call content once the conversation goes idle past the TTL, advancing reduce_before', async () => {
+      const originalContent = 'This is the full note content the model just wrote';
+      const lastRequestAt = Date.now() - 10 * 60_000;
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${lastRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_create_1',
+            type: 'tool-result',
+            input: { newFiles: [{ filePath: 'notes/note.md', content: originalContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent, { last_request_at: lastRequestAt });
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const history = await conversationRenderer.extractConversationHistory('test-conversation', {
@@ -485,15 +537,15 @@ describe('ConversationRenderer', () => {
       ).toContain('content_reading');
     });
 
-    it('does not resend full content for an already-stale tool call just because the conversation is active again', async () => {
-      // Regression test: a single conversation-wide "last request" timestamp would flip ALL
-      // tool calls back to full whenever a new request comes in soon after a previous one —
-      // even for messages that were already correctly judged stale long ago. Per-message
-      // requestAt must keep the old message reduced while a genuinely fresh one stays full,
-      // in the very same history build.
+    it('only reduces messages at or before the freshly advanced watermark, keeping later messages full', async () => {
+      // Regression test: the watermark is derived once per history build from the conversation's
+      // `last_request_at`, then applied per message via its own `requestAt`. A message written
+      // before the watermark must be reduced while one written after it (even in the same
+      // idle-triggered build) must stay full.
       const staleContent = 'Old note content written a long time ago';
       const freshContent = 'Brand new note content just written this turn';
-      const staleRequestAt = Date.now() - 10 * 60_000;
+      const lastRequestAt = Date.now() - 10 * 60_000;
+      const staleRequestAt = lastRequestAt - 1_000;
       const freshRequestAt = Date.now();
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
@@ -530,7 +582,7 @@ describe('ConversationRenderer', () => {
         '',
       ].join('\n');
 
-      const mockPlugin = createMockPlugin(mockContent);
+      const mockPlugin = createMockPlugin(mockContent, { last_request_at: lastRequestAt });
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const history = await conversationRenderer.extractConversationHistory('test-conversation', {
@@ -559,14 +611,147 @@ describe('ConversationRenderer', () => {
       );
     });
 
-    it('reduces stale shell tool-result output over 100 lines, leaving the tool-call input intact', async () => {
+    it('never resurrects a message already past a persisted reduce_before, even when the conversation is active again', async () => {
+      // The watermark only ever moves forward (persisted `reduce_before`). Resumed activity
+      // (a recent `last_request_at`, so the idle-gap boundary check does not fire) must not
+      // un-reduce a message that already crossed a previously-persisted watermark.
+      const staleContent = 'Old note content written a long time ago';
+      const priorReduceBefore = Date.now() - 20 * 60_000;
+      const staleRequestAt = priorReduceBefore - 1_000;
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${staleRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_create_1',
+            type: 'tool-result',
+            input: { newFiles: [{ filePath: 'notes/note.md', content: staleContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent, {
+        reduce_before: priorReduceBefore,
+        last_request_at: Date.now() - 30_000, // recent — idle-gap boundary check does not fire
+      });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
+
+      expect(
+        (toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content
+      ).toContain('content_reading');
+    });
+
+    it('a model switch (different TTL) does not resurrect a message already past the persisted watermark', async () => {
+      const staleContent = 'Old note content written a long time ago';
+      const priorReduceBefore = Date.now() - 20 * 60_000;
+      const staleRequestAt = priorReduceBefore - 1_000;
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        `<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation,REQUEST_AT:${staleRequestAt}-->`,
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_create_1',
+            type: 'tool-result',
+            input: { newFiles: [{ filePath: 'notes/note.md', content: staleContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent, {
+        reduce_before: priorReduceBefore,
+        last_request_at: Date.now() - 30_000,
+      });
+      // Switch to a model with a much longer TTL than the default 5-minute mock — the idle-gap
+      // boundary check still must not fire (30s gap), so the persisted watermark is untouched.
+      mockPlugin.llmService.getModelPromptCacheTtlMs = jest.fn().mockReturnValue(100 * 60_000);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'google:gemini-2.0-flash',
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
+
+      expect(
+        (toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content
+      ).toContain('content_reading');
+    });
+
+    it('never reduces a message with no requestAt, regardless of the watermark', async () => {
+      const originalContent = 'Content from a message with no REQUEST_AT metadata';
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:vault_create-->',
+        '/create a note',
+        '',
+        '<!--STW ID:ghi789,ROLE:steward,COMMAND:vault_create,TYPE:tool-invocation-->',
+        '```stw-tool-invocation',
+        JSON.stringify([
+          {
+            toolName: 'create',
+            toolCallId: 'call_create_1',
+            type: 'tool-result',
+            input: { newFiles: [{ filePath: 'notes/note.md', content: originalContent }] },
+            output: { type: 'json', value: { createdPaths: ['notes/note.md'] } },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent, {
+        reduce_before: Date.now(),
+        last_request_at: Date.now() - 10 * 60_000,
+      });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        model: 'anthropic:claude-sonnet-4',
+      });
+
+      const assistantMessage = history.messages.find(m => m.role === 'assistant');
+      const toolCallPart = (
+        assistantMessage?.content as Array<{ type: string; input?: unknown }>
+      )?.find(p => p.type === 'tool-call');
+
+      expect((toolCallPart?.input as { newFiles: { content: string }[] }).newFiles[0].content).toBe(
+        originalContent
+      );
+    });
+
+    it('reduces stale shell tool-result output over 100 lines once the watermark advances past it, leaving the tool-call input intact', async () => {
       const longOutput = Array.from({ length: 150 }, (_, i) => `line ${i}`).join('\n');
-      const staleRequestAt = Date.now() - 10 * 60_000;
+      const lastRequestAt = Date.now() - 10 * 60_000;
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:shell-->',
         '/> ls -la',
         '',
-        `<!--STW ID:shell_msg,ROLE:steward,COMMAND:shell,TYPE:tool-invocation,REQUEST_AT:${staleRequestAt}-->`,
+        `<!--STW ID:shell_msg,ROLE:steward,COMMAND:shell,TYPE:tool-invocation,REQUEST_AT:${lastRequestAt}-->`,
         '```stw-tool-invocation',
         JSON.stringify([
           {
@@ -581,7 +766,7 @@ describe('ConversationRenderer', () => {
         '',
       ].join('\n');
 
-      const mockPlugin = createMockPlugin(mockContent);
+      const mockPlugin = createMockPlugin(mockContent, { last_request_at: lastRequestAt });
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const history = await conversationRenderer.extractConversationHistory('test-conversation', {
@@ -1066,6 +1251,128 @@ describe('ConversationRenderer', () => {
     });
 
     it('should resolve the tool-invocation output as a message reference', async () => {});
+  });
+
+  describe('resolveReduceBeforeWatermark', () => {
+    function getPersistedFrontmatterWrite(mockPlugin: jest.Mocked<StewardPlugin>) {
+      const processFrontMatter = mockPlugin.app.fileManager.processFrontMatter as jest.Mock;
+      expect(processFrontMatter).toHaveBeenCalledTimes(1);
+      const [, callback] = processFrontMatter.mock.calls[0] as [unknown, (fm: object) => void];
+      const fm: Record<string, unknown> = {};
+      callback(fm);
+      return fm;
+    }
+
+    it('does not advance reduce_before when last_request_at is missing (first request ever), but still seeds last_request_at', async () => {
+      const mockPlugin = createMockPlugin('', {});
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4'
+      );
+
+      expect(result).toBe(0);
+      const fm = getPersistedFrontmatterWrite(mockPlugin);
+      expect(typeof fm.last_request_at).toBe('number');
+      expect(fm.reduce_before).toBeUndefined();
+    });
+
+    it('advances and persists reduce_before to last_request_at once the idle gap reaches the TTL', async () => {
+      const lastRequestAt = Date.now() - 10 * 60_000;
+      const mockPlugin = createMockPlugin('', { last_request_at: lastRequestAt });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4'
+      );
+
+      expect(result).toBe(lastRequestAt);
+      const fm = getPersistedFrontmatterWrite(mockPlugin);
+      expect(fm.reduce_before).toBe(lastRequestAt);
+      expect(fm.last_request_at).not.toBe(lastRequestAt);
+    });
+
+    it('does not advance reduce_before when the idle gap has not reached the TTL', async () => {
+      const lastRequestAt = Date.now() - 1_000;
+      const mockPlugin = createMockPlugin('', {
+        last_request_at: lastRequestAt,
+        reduce_before: 42,
+      });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4'
+      );
+
+      expect(result).toBe(42);
+      const fm = getPersistedFrontmatterWrite(mockPlugin);
+      expect(fm.reduce_before).toBeUndefined();
+    });
+
+    it('never retreats: keeps the larger of the persisted reduce_before and the newly-crossed last_request_at', async () => {
+      const lastRequestAt = Date.now() - 10 * 60_000;
+      const priorReduceBefore = Date.now() - 2 * 60_000; // newer than lastRequestAt
+      const mockPlugin = createMockPlugin('', {
+        last_request_at: lastRequestAt,
+        reduce_before: priorReduceBefore,
+      });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4'
+      );
+
+      expect(result).toBe(priorReduceBefore);
+    });
+
+    it('forceAdvance advances reduce_before to last_request_at even when the idle gap has not been reached', async () => {
+      const lastRequestAt = Date.now() - 1_000; // 1s ago — well under the 5-minute TTL
+      const mockPlugin = createMockPlugin('', { last_request_at: lastRequestAt });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4',
+        { forceAdvance: true }
+      );
+
+      expect(result).toBe(lastRequestAt);
+    });
+
+    it('forceAdvance still never retreats below a larger persisted reduce_before', async () => {
+      const lastRequestAt = Date.now() - 1_000;
+      const priorReduceBefore = Date.now() - 500; // newer than lastRequestAt
+      const mockPlugin = createMockPlugin('', {
+        last_request_at: lastRequestAt,
+        reduce_before: priorReduceBefore,
+      });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4',
+        { forceAdvance: true }
+      );
+
+      expect(result).toBe(priorReduceBefore);
+    });
+
+    it('forceAdvance does nothing when last_request_at is missing', async () => {
+      const mockPlugin = createMockPlugin('', {});
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.resolveReduceBeforeWatermark(
+        'test-conversation',
+        'anthropic:claude-sonnet-4',
+        { forceAdvance: true }
+      );
+
+      expect(result).toBe(0);
+    });
   });
 
   describe('extractAllConversationMessages', () => {

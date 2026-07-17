@@ -50,8 +50,9 @@ export interface ConversationMessage {
    */
   step?: number;
   /**
-   * Epoch ms this message's tool invocation was serialized. Used to judge, per message, whether
-   * the provider's prompt cache is likely still warm for it (see ConversationRenderer.isToolCallStale).
+   * Epoch ms this message's tool invocation was serialized. Compared against the conversation's
+   * monotonic `reduce_before` watermark (see ConversationRenderer.resolveReduceBeforeWatermark)
+   * to decide whether this message's tool content should be reduced for the next LLM request.
    */
   requestAt?: number;
 }

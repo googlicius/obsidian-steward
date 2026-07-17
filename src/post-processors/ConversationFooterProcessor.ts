@@ -173,9 +173,8 @@ export function createConversationFooterProcessor(plugin: StewardPlugin): Markdo
   };
 
   const handleUsageChanged = (event: Event) => {
-    const { conversationPath, usageText } = (
-      event as CustomEvent<ConversationUsageChangedPayload>
-    ).detail;
+    const { conversationPath, usageText } = (event as CustomEvent<ConversationUsageChangedPayload>)
+      .detail;
     const normalizedSrc = normalizeConversationSrc(conversationPath, plugin.settings.stewardFolder);
     const selector = buildFooterEmbedSelector(normalizedSrc);
     const embeds = activeDocument.querySelectorAll(selector);
@@ -219,12 +218,10 @@ export function createConversationFooterProcessor(plugin: StewardPlugin): Markdo
       const cache = file ? plugin.app.metadataCache.getFileCache(file) : null;
       const frontmatter = cache?.frontmatter;
       const initialIndicatorText = frontmatter?.indicator_text;
-      const conversationLang =
-        typeof frontmatter?.lang === 'string' ? frontmatter.lang : undefined;
+      const conversationLang = typeof frontmatter?.lang === 'string' ? frontmatter.lang : undefined;
       const usageBlock = frontmatter?.[usageFrontmatterPropertyName(USAGE_AGENT_KEY.super)];
-      const initialUsage = plugin.conversationRenderer.extractLastStepUsageFromFrontmatter(
-        usageBlock
-      );
+      const initialUsage =
+        plugin.conversationRenderer.extractLastStepUsageFromFrontmatter(usageBlock);
       const initialUsageText = initialUsage
         ? plugin.conversationRenderer.formatTokenUsageSummary(initialUsage, conversationLang)
         : undefined;

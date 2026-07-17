@@ -110,7 +110,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         .fn()
         .mockReturnValue('Steward/Memory/Tool instructions.md'),
     },
-    compactionTokenService: {},
+    compactionTokenService: {
+      compactOnModelChangeIfNeeded: jest.fn().mockResolvedValue({ modelChanged: false }),
+    },
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({
         active: {} as Record<string, unknown>,
@@ -380,6 +382,56 @@ describe('StreamTextExecutor', () => {
       expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
         'test-conversation',
         expect.objectContaining({ model: 'mock-model' })
+      );
+    });
+
+    it('forces reduce_before advance in extractConversationHistory when the model just changed', async () => {
+      const historyMessages = [{ role: 'user', content: 'previous query' }];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: false });
+      mockPlugin.compactionTokenService.compactOnModelChangeIfNeeded = jest
+        .fn()
+        .mockResolvedValue({ modelChanged: true });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      await testAgent.executeForTest(params);
+
+      expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
+        'test-conversation',
+        expect.objectContaining({ forceReduceBeforeAdvance: true })
+      );
+    });
+
+    it('does not force reduce_before advance when the model did not change', async () => {
+      const historyMessages = [{ role: 'user', content: 'previous query' }];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: false });
+      mockPlugin.compactionTokenService.compactOnModelChangeIfNeeded = jest
+        .fn()
+        .mockResolvedValue({ modelChanged: false });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      await testAgent.executeForTest(params);
+
+      expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
+        'test-conversation',
+        expect.objectContaining({ forceReduceBeforeAdvance: false })
       );
     });
   });

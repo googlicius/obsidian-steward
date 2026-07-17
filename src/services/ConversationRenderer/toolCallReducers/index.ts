@@ -3,6 +3,7 @@ import type { ToolCallContentReducer } from './types';
 import { CreateContentReducer } from './CreateContentReducer';
 import { ShowWidgetContentReducer } from './ShowWidgetContentReducer';
 import { ShellOutputContentReducer } from './ShellOutputContentReducer';
+import { WidgetQueryResultReducer } from './WidgetQueryResultReducer';
 
 export type { ToolCallContentReducer } from './types';
 
@@ -15,6 +16,7 @@ export class ToolCallReducerRegistry {
       new CreateContentReducer(),
       new ShowWidgetContentReducer(),
       new ShellOutputContentReducer(),
+      new WidgetQueryResultReducer(),
     ]) {
       this.reducers.set(reducer.toolName, reducer);
     }

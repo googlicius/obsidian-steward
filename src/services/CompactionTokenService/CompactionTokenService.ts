@@ -33,6 +33,12 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 const { getTranslation } = getBundledInternal('i18n');
 
 export const COMPACTION_PROMPT_THRESHOLD_PERCENT = 0.8;
+/**
+ * Lower than {@link COMPACTION_PROMPT_THRESHOLD_PERCENT}: proactive on a model switch (provider
+ * caches are per-model, so the new model's cache is cold regardless — there's no warm cache to
+ * protect), but only when history is genuinely large relative to the *new* model's context.
+ */
+export const MODEL_CHANGE_COMPACTION_THRESHOLD_PERCENT = 0.6;
 const SUMMARY_WORD_THRESHOLD = 50;
 const COMPACTABLE_TOOL_NAMES = new Set<string>([
   ToolName.CONTENT_READING,
@@ -46,6 +52,7 @@ const COMPACTABLE_TOOL_NAMES = new Set<string>([
   ToolName.IMAGE,
   ToolName.SPEECH,
   ToolName.SHELL,
+  ToolName.WIDGET_QUERY,
   ToolName.RECALL_COMPACTED_CONTEXT,
 ]);
 
@@ -61,6 +68,8 @@ export class CompactionTokenService {
   private readonly summaryAgent: CompactionSummaryAgent;
   private readonly compactors: Map<string, ToolResultCompactor>;
   private readonly pendingCompactions = new Set<string>();
+  /** Last model seen per conversation, to detect a mid-conversation switch. Fail-safe: lost on reload, so a switch that happened before a reload is simply not detected (no compaction triggered), never incorrectly re-triggered. */
+  private readonly lastModelByTitle = new Map<string, string>();
 
   constructor(private readonly plugin: StewardPlugin) {
     this.summaryAgent = new CompactionSummaryAgent(plugin);
@@ -81,8 +90,8 @@ export class CompactionTokenService {
       this.compactors.set(compactor.toolName, compactor);
     }
 
-    eventEmitter.on(Events.EXECUTED_STREAM_TEXT, (payload: ExecutedStreamTextPayload) => {
-      void this.handleExecutedStreamText(payload);
+    eventEmitter.on(Events.EXECUTED_STREAM_TEXT, payload => {
+      void this.handleExecutedStreamText(payload as ExecutedStreamTextPayload);
     });
   }
 
@@ -116,12 +125,90 @@ export class CompactionTokenService {
       if (!shouldRun) {
         return;
       }
-      await this.compactConversation(payload);
+      await this.runCompaction({
+        conversationTitle: payload.conversationTitle,
+        lang: payload.lang,
+      });
     } catch (error) {
       logger.error('CompactionTokenService: compaction failed', error);
     } finally {
       this.pendingCompactions.delete(key);
     }
+  }
+
+  /**
+   * Proactively compacts a conversation right before the *next* request when the model just
+   * changed (mid-turn `switch_model` or a manual default change between turns). History that sat
+   * comfortably under the old model's 80% threshold can blow past a smaller new model's context,
+   * and since provider caches are keyed per-model, a switch is the "free" moment to compact — the
+   * new model's cache is cold regardless, so there's no warm cache to protect.
+   *
+   * Self-limiting frequency guard: compaction shrinks persisted history, so the next call's
+   * recorded input tokens drop below the threshold — rapid re-switching or switching between
+   * similar-size models won't re-trigger, and switching to a larger-context model won't either.
+   * No timers or extra persisted state beyond the in-memory `lastModelByTitle` (fail-safe; lost on
+   * reload, which only means a switch that happened before a reload goes undetected — never
+   * incorrectly re-triggered).
+   *
+   * Returns `modelChanged` regardless of whether the (threshold-gated) compaction actually ran,
+   * so the caller can also force the lightweight on-the-fly `reduce_before` watermark (see
+   * `ConversationRenderer.resolveReduceBeforeWatermark`) to advance on every switch — same "the
+   * new model's cache is cold anyway" reasoning, just for the cheaper per-turn reducers instead of
+   * full compaction.
+   */
+  public async compactOnModelChangeIfNeeded(params: {
+    conversationTitle: string;
+    model: string;
+    lang?: string | null;
+  }): Promise<{ modelChanged: boolean }> {
+    const { conversationTitle, model, lang } = params;
+    const previousModel = this.lastModelByTitle.get(conversationTitle);
+    this.lastModelByTitle.set(conversationTitle, model);
+
+    const modelChanged = Boolean(previousModel) && previousModel !== model;
+    if (!modelChanged) {
+      return { modelChanged: false };
+    }
+    if (this.pendingCompactions.has(conversationTitle)) {
+      return { modelChanged: true };
+    }
+
+    const promptTokens = await this.plugin.conversationRenderer.getRecordedInputTokensForAgent(
+      conversationTitle,
+      'super'
+    );
+    if (promptTokens === undefined) {
+      return { modelChanged: true };
+    }
+
+    const contextLength = this.plugin.llmService.getModelContextLengthTokens(model);
+    const shouldRun = this.shouldTriggerCompactionByTokens({
+      promptTokens,
+      contextLength,
+      thresholdPercent: MODEL_CHANGE_COMPACTION_THRESHOLD_PERCENT,
+    });
+    if (!shouldRun) {
+      return { modelChanged: true };
+    }
+
+    this.pendingCompactions.add(conversationTitle);
+    try {
+      logger.log('CompactionTokenService: model-change compaction triggered', {
+        conversationTitle,
+        previousModel,
+        model,
+        promptTokens,
+        contextLength,
+        thresholdPercent: MODEL_CHANGE_COMPACTION_THRESHOLD_PERCENT,
+      });
+      await this.runCompaction({ conversationTitle, lang });
+    } catch (error) {
+      logger.error('CompactionTokenService: model-change compaction failed', error);
+    } finally {
+      this.pendingCompactions.delete(conversationTitle);
+    }
+
+    return { modelChanged: true };
   }
 
   private async shouldRunCompaction(payload: ExecutedStreamTextPayload): Promise<boolean> {
@@ -157,9 +244,19 @@ export class CompactionTokenService {
     return shouldRun;
   }
 
-  private async compactConversation(payload: ExecutedStreamTextPayload): Promise<void> {
+  /**
+   * Shared compaction engine: rewrites the note (tool results → metadata, long assistant
+   * messages → AI summary) behind a hidden `COMMAND:compacted` block, recoverable via
+   * `recall_compacted_context`. Called both post-hoc (80% of the *current* model's context, via
+   * `EXECUTED_STREAM_TEXT`) and proactively on a model switch (see
+   * `compactOnModelChangeIfNeeded`).
+   */
+  private async runCompaction(params: {
+    conversationTitle: string;
+    lang?: string | null;
+  }): Promise<void> {
     const messages = await this.plugin.conversationRenderer.getMessagesForCompaction(
-      payload.conversationTitle
+      params.conversationTitle
     );
     if (!messages.length) {
       return;
@@ -234,27 +331,27 @@ export class CompactionTokenService {
       compactedAt: Date.now(),
     };
     await this.applySummaries({
-      conversationTitle: payload.conversationTitle,
-      lang: payload.lang,
+      conversationTitle: params.conversationTitle,
+      lang: params.lang,
       data,
       queue: summarizeQueue,
     });
 
     const compactedCount = await this.plugin.conversationRenderer.countCompactedMessageBlocks(
-      payload.conversationTitle
+      params.conversationTitle
     );
     const compactIndex = compactedCount + 1;
     const compactedText = this.buildCompactedMessage(data, { compactIndex });
     await this.plugin.conversationRenderer.updateConversationNote({
-      path: payload.conversationTitle,
+      path: params.conversationTitle,
       newContent: compactedText,
       includeHistory: true,
       command: 'compacted',
     });
 
-    const t = getTranslation(payload.lang);
+    const t = getTranslation(params.lang);
     await this.plugin.conversationRenderer.updateConversationNote({
-      path: payload.conversationTitle,
+      path: params.conversationTitle,
       newContent: `<small>*${t('common.conversationCompacted', { compactIndex })}*</small>`,
       includeHistory: false,
     });

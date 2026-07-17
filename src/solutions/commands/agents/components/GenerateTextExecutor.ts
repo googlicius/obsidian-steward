@@ -68,7 +68,10 @@ export class GenerateTextExecutor {
     totalUsage: LanguageModelUsage;
   }> {
     const agent = asAgent(this);
-    const historyResult = await agent.renderer.extractConversationHistory(params.title);
+    const modelForGenerate = params.intent.model?.trim() || agent.plugin.settings.llm.chat.model;
+    const historyResult = await agent.renderer.extractConversationHistory(params.title, {
+      model: modelForGenerate,
+    });
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
       overrideModel: params.intent.model,
       generateType: 'text',

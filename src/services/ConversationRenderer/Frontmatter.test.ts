@@ -46,9 +46,9 @@ describe('Frontmatter', () => {
 
       expect(summary).toContain('translated_conversation.tokenUsageInput');
       expect(summary).toContain('translated_conversation.tokenUsageOutput');
-      expect(summary).toContain('translated_conversation.tokenUsageTotal');
       expect(summary).toContain('translated_conversation.tokenUsageCached');
-      expect(summary.split(' · ')).toHaveLength(4);
+      expect(summary).not.toContain('translated_conversation.tokenUsageTotal');
+      expect(summary.split(' · ')).toHaveLength(3);
     });
   });
 });

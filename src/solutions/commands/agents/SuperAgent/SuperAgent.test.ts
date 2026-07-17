@@ -158,7 +158,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         .mockReturnValue('Steward/Memory/Tool instructions.md'),
     },
     artifactManagerV2: mockArtifactManager,
-    compactionTokenService: {},
+    compactionTokenService: {
+      compactOnModelChangeIfNeeded: jest.fn().mockResolvedValue({ modelChanged: false }),
+    },
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({
         active: {} as Record<string, unknown>,

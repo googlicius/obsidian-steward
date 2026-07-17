@@ -472,7 +472,6 @@ const vi = {
       subagentReviewType: 'Sub-agent',
       tokenUsageInput: '{{tokens}} vào',
       tokenUsageOutput: '{{tokens}} ra',
-      tokenUsageTotal: '{{tokens}} tổng',
       tokenUsageCached: '{{tokens}} cache',
     },
     // Model fallback messages
